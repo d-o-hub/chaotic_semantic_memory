@@ -23,7 +23,19 @@ world_state:
   wasm_compiles: true
   binary_built: true
   documentation_complete: true       # 2026-10-20: MCP, versioned exports, OTLP, and same-SHA release docs reconciled; link/changelog/llms gates pass
-  validated: false                  # 2026-10-20: audit follow-ups are implemented; final validate.sh and harness-check all remain
+  validated: true                   # 2026-10-22, measured on the tree this commit lands:
+                               #   `scripts/validate.sh` VALIDATE_RC=0 — fmt, test-attribute gate, script
+                               #   catalog, safety fixtures, crate matrix, hooks, clippy --all-targets
+                               #   --all-features -D warnings, cargo deny --locked, rustdoc, the full suite
+                               #   (1170 passed / 0 failed / 1 ignored over 101 targets), the 500-LOC gate,
+                               #   the wasm32 check, the wasm size gate, wasm-pack, llms sync, ADR registry,
+                               #   the GOAP parser and queue gates, workflow YAML, actionlint and RUSTSEC
+                               #   parity. `scripts/harness-check.sh all` HARNESS_RC=0 on six sensors
+                               #   (fmt, clippy, deny, test, arch fitness, shared conventions). It took
+                               #   three earlier reds to get here — the stale script catalog, an ENOSPC in
+                               #   lint_cache.sh that was never root-caused, and the two real defects this
+                               #   branch fixes: the WASM-only compile error (VALIDATE_RC=101) and main's
+                               #   unparsable release.yml.
   ci_all_checks_passed: true     # 2026-10-03: #817 merged as 1389c9e with CI 37139534832 green on the
                                #   landing head (27 jobs: 25 success, 2 skipped, 0 failure) incl. the
                                #   mutation-test job that had gone red at 25% on its first head c47d676
@@ -42,13 +54,29 @@ world_state:
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
-  product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "4a85fd47"          # 2026-10-21: fetched origin/main before merging this wave; #926
-                               #   landed as 4a85fd47 and #931 as f440cf00 while this branch sat
-                               #   uncommitted, so the wave carries a merge rather than a rebase.
-                               #   Read from `git log --oneline origin/main`, never from the
-                               #   previous entry.
-  tests_count: 1064              # 2026-10-21: 1054 + 10 (#926): index_dir's 5 inline tests became
+  product_version: "0.3.9"       # 2026-10-22: `main` carries 0.3.9 (prepared by #932's version
+                               #   work); crates.io 0.3.6/0.3.7/0.3.8 are published. The wave branch
+                               #   took main's version surfaces (VERSION, root + crate manifests)
+                               #   rather than its own 0.3.8.
+  main_head: "0f77c0d0"          # 2026-10-22: re-created the wave against this head (a fresh branch
+                               #   off `origin/main` + one merge), because #932 rewrote `release.yml`
+                               #   on the same mechanism the wave touched. Read from
+                               #   `git log --oneline origin/main`, never from the previous entry.
+  tests_count: 1152              # 2026-10-22: 1149 + 3 (the import-validation guards the gate could not
+                               #   see — duplicate concept id, duplicate association edge, and the
+                               #   merge-mode live-endpoint allowance — now have lib-target tests, each
+                               #   demonstrated red by disabling its own guard). Fresh inventory:
+                               #   tests/ 554, src/ 259, crates/*/src 319, crates/*/tests 20.
+                               # 2026-10-22 (earlier this session): a fresh inventory, not a delta — the pre-commit /
+                               #   `coverage-report.sh` unique-(file,fn) count is 1149 (tests/ 554,
+                               #   src/ 256, crates/*/src 319, crates/*/tests 20). The same tree's
+                               #   full run reports `1167 passed; 0 failed; 1 ignored` summed over 101
+                               #   test targets; the 18-test difference is the same fn registered in
+                               #   more than one target, which is why the inventory metric, not the
+                               #   run line, is the canonical count here. `docs/architecture/
+                               #   context.yaml` total_tests/tests_passing carry this same number
+                               #   (tests/validate_llm_context.py compares the three).
+                               # 2026-10-21: 1054 + 10 (#926): index_dir's 5 inline tests became
                                #   11 in `index_dir_tests.rs` (extracted, not stripped) plus 4 in
                                #   `index_dir_summary_tests.rs` — 15 registered in the lib-target run,
                                #   all mutation-visible. Delta on the last measured value.
@@ -182,6 +210,18 @@ world_state:
                                #   (RUSTSEC-2025-0141) remains only for legacy readers and internal ANN
                                #   storage. The writer streams through a size-limited writer, so the
                                #   100 MiB import limit is enforced during serialization.
+  import_apply_path_shared_across_targets: true   # 2026-10-22: the wave rewrote `WasmFramework::import_from_bytes`
+                               #   to call `apply_import_payload`, which then lived in `#[cfg(not(target_arch = "wasm32"))]
+                               #   mod framework_ops_import` — so the WASM lib did not compile and only
+                               #   `cargo check --target wasm32-unknown-unknown -p csm-wasm` (validate's last stage)
+                               #   could see it: VALIDATE_RC=101 after clippy, deny, doc, the whole suite and the LOC
+                               #   gate had all passed. Fixed by extracting the filesystem-free transactional core to
+                               #   `src/framework_import_apply.rs` (ungated, 163 LOC; `framework_ops_import.rs` keeps
+                               #   the file/backup ops at 205 LOC) so native, byte-API and WASM imports share one
+                               #   validate-then-install path instead of a weaker per-target copy. Same build also
+                               #   exposed a dead `#[cfg(target_arch = "wasm32")] use js_sys::Date;` in the wave's new
+                               #   `framework_sequence.rs`. Rule: `AGENTS.md` Key Invariants (Cross-Target
+                               #   Compilation) + `agents-docs/coding-standards.md` §5.
   mcp_transport_is_current_protocol: true         # 2026-10-20 (ADR-0101): `Transport::Sse` -> `Transport::StreamableHttp`
                                #   (breaking, no alias), rmcp's current stateless Streamable HTTP path with
                                #   the session manager kept only for negotiated legacy versions. Non-loopback
@@ -245,13 +285,32 @@ world_state:
                                #   results at all.
   link_validators_single_and_wired: true  # 2026-10-10 (#840 -> PR #869, 1fd790e8): one link checker (check-docs-links.sh) wired into validate.sh + the lint job with a 9-case fixture; validate-links.sh deleted.
   skill_catalog_generated_and_gated: true  # 2026-10-12 (#828 -> PRs #847/#880): CATALOG.md is generated from the tree and drift-gated (#847); docs/architecture/context.yaml counters are compared against live sources by tests/validate_llm_context.py (skills/ADRs/active_wave/tests/LOC coverage, module and key-file existence), wired into validate.sh with a 12-case fixture (#880, d951067a); gen-agents-context.sh retired.
-  release_wait_event_driven: true                 # 2026-10-20: `release.yml` subscribes to successful
-                               #   Pre-Release Gate completion on `main`, checks out and tags its exact
-                               #   `workflow_run.head_sha`, and manual dispatch verifies completed-success
-                               #   CI + gate runs for the same SHA. `dist.yml` owns only tag-triggered CLI
-                               #   binaries; a main push with no PR diff is explicitly “mutation not run,”
-                               #   not a passing score. Decision in ADR-0042; operator contract in
-                               #   `.agents/skills/release-management/SKILL.md`.
+  release_wait_event_driven: true                 # 2026-10-22, re-measured against `0f77c0d0` (#932):
+                               #   `release.yml` is triggered by successful **CI** completion on `main`,
+                               #   resolves that run's `head_sha` as its target commit, and refuses to tag
+                               #   or publish until the CI run *and* the `pre-release-gate.yml` run for
+                               #   that exact SHA are completed/success; a manual dispatch — including
+                               #   `recover` with a `recovery_tag` — runs the same verification. The wave's
+                               #   own design (subscribe to the gate rather than to CI) was superseded by
+                               #   #932's verify-inside-the-job shape, and the difference is priced here:
+                               #   because the gate starts only after CI, a gate still in flight when CI
+                               #   finished makes the release **refuse**, not wait, so the operator
+                               #   re-dispatches. `dist.yml` is dispatch-only (its `disabled-notice` job
+                               #   stands in for a tag trigger that cannot fire for a tag created under
+                               #   `GITHUB_TOKEN`). A main push with no PR diff is explicitly “mutation
+                               #   not run,” not a passing score. Decision in ADR-0042; operator contract
+                               #   in `.agents/skills/release-management/SKILL.md`.
+                               #   2026-10-22 AMENDED — and this is the publication blocker: the file as
+                               #   landed in `0f77c0d0` (#932) could not be parsed at all. `if:> -` compared
+                               #   against double-quoted `”workflow_dispatch”` / `”push”` / `”success”`
+                               #   (GitHub expressions accept only single-quoted string literals) and a step
+                               #   compared `matrix.target == aarch64-unknown-linux-gnu` unquoted. Every run
+                               #   since has produced **zero jobs**: 39670046551, 39678113001, 39683503746 and
+                               #   39734351757 (on `0f77c0d0` itself) are all `conclusion: failure` with an
+                               #   empty job list, i.e. rejected at workflow parse, not a failed step. The
+                               #   last successful release run is 39648046550 on `4a85fd47`, before #932.
+                               #   Main's own gate did not notice because the actionlint stage that caught it
+                               #   is this wave's (c85984de); this branch quotes all four literals.
   crates_publish_precheck_ownership_aware: true   # 2026-09-30: owners API (free or d-o-hub passes; other owners fail; unknown HTTP fails closed) replaces the published-version comparison; verified live incl. negative control
   csm_duckdb_in_release_publish_order: true       # 2026-09-30: dedicated step after the root publish waits for the root version in the index; companion loop exposes failures instead of swallowing them
   ttl_cleanup_has_bounded_shutdown: true          # 2026-10-01: ADR-0099 — shared CleanupTask, cooperative watch cancel (no abort), bounded await in shutdown(); loop also stops on last-handle drop. 20 TTL + 2 unit tests; mutation-test green. 2026-10-03 (#813, f999998): `shutdown()` now actually runs on the `csm watch` SIGINT path and after the `mcp::serve` transport ends; that call-site wiring rests on review + a manual SIGINT smoke — the `run_watch -> Ok(())` entry-point mutant is excluded in `scripts/mutation_test.sh`. 2026-10-03 (#817): both paths can now actually hold a reaper — see `servers_reap_expired_concepts`
@@ -329,8 +388,15 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_the_merged_tree_and_land_the_wave  # 2026-10-22 — `origin/main` merged
+  action_last_completed: repair_the_merged_tree  # 2026-10-22 — `origin/main` merged
                                #   into the audit-follow-up wave produces a tree neither parent tested.
+                               #   The name drops `and_land_the_wave`: the wave is committed locally on
+                               #   a branch re-created off `0f77c0d0`, and no push, PR or merge has
+                               #   happened (operator scope for this session is validate + commit only),
+                               #   so landing is an unfinished action, not a completed one. The gate then
+                               #   caught an eighth cause the native suite cannot see: the WASM import
+                               #   binding called into a `not(wasm32)` module — see
+                               #   `import_apply_path_shared_across_targets`.
                                #   The full suite (not `--lib`) is the only honest check of a merged
                                #   head; it reported eight failures in seven targets, each root-caused
                                #   before being fixed: the consolidated text probe had dropped main's

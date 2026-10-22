@@ -13,7 +13,7 @@
 > entries to this file.
 >
 > Last completed (verified 2026-10-22):
-> `repair_the_merged_tree_and_land_the_wave` — the `origin/main` merge into the audit-follow-up wave
+> `repair_the_merged_tree` — the `origin/main` merge into the audit-follow-up wave
 > produced a tree neither parent had tested, and the only honest sensor was
 > `cargo test --all-targets --all-features --no-fail-fast`: **1159 passed / 8 failed / 1 ignored** on the
 > merged head. `validate.sh:102` runs the same command *without* `--no-fail-fast`, so one failing target
@@ -33,9 +33,12 @@
 > `getrandom` version-reference flips left by the merge; re-resolving from `main`'s lock reproduces them,
 > so the lock is spliced to 35 insertions / 0 deletions and `cargo metadata --offline` + `cargo deny
 > --locked` prove the resolver does not want the churn).
-> Remote state at push time: `origin/main` still `4a85fd47` (this branch already contains it), the branch
-> had no upstream, open issues `0` so the queue stays at 0, and the only open PR is **#933**
-> (`perf/hyperdim_binary-defer-zero-init-permute-…`, not this wave's work and not triaged here).
+> Remote state at the end of this action (re-measured 2026-10-22): nothing was pushed — the session's scope is
+> validate + commit only. `origin/main` had moved to `0f77c0d0` (#932 rewrote `release.yml`, the same mechanism the
+> wave touched), so the wave was re-created as a fresh branch off that head per `AGENTS.md` Rule 10 rather than
+> ground through the collision; `4a85fd47` is now an ancestor of it. Open issues `0`, so the queue stays at 0, and
+> the only open PR is **#933** (`perf/hyperdim_binary-defer-zero-init-permute-…`, not this wave's work and not
+> triaged here).
 
 > Last completed (verified 2026-10-20):
 > `implement_audit_followups_2026_10_20` — the follow-up set recorded in

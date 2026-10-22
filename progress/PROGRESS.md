@@ -1687,3 +1687,59 @@ GOAP / mutation / catalog safety fixture chain, and changed-script ShellCheck ha
 no hosted CI run or PR exists for this branch yet. `gh auth status` succeeded, open issues were
 empty, and the only open PRs were unrelated dependabot updates #920 (conflicting) and #921 (one
 failing check); neither duplicates this change set.
+
+## 2026-10-22: re-created the wave off current main, and the gates found two things main is carrying
+
+Scope set by the operator: **validate + commit only** — no push, no PR, no merge without a separate go-ahead.
+
+**Re-created rather than ground through (`AGENTS.md` Rule 10).** `#932` rewrote `release.yml` on exactly the
+mechanism the wave touched, so the wave became a fresh branch off `origin/main` at `0f77c0d0` (`feat/audit-
+-followups-wave-2026-10-22`, 32 commits, 0 behind). Main's landed work was proven, not assumed: per-path
+`git diff origin/main HEAD -- <path>` is empty for both workflow files, and the lockfile is spliced (+35 / −0)
+instead of re-resolved.
+
+**Two gates died and were fixed before anything was claimed.** Run 3 failed with `VALIDATE_RC=101` at
+validate's **last** stage — `cargo check --target wasm32-unknown-unknown -p csm-wasm`: the wave had rewritten
+`WasmFramework::import_from_bytes` to call `apply_import_payload`, which lives in a
+`#[cfg(not(target_arch = "wasm32"))]` module, so the WASM build of the lib had not compiled since. Every native
+sensor (clippy, `cargo doc`, the 101-target suite, the LOC gate) had already passed. Fixed by extracting the
+filesystem-free transactional core into `src/framework_import_apply.rs` (byte-identical move, 149 lines verified
+with `diff` against `HEAD`) so the native, byte and WASM entry points share **one** validate-then-install path,
+plus removing a dead `#[cfg(target_arch = "wasm32")] use js_sys::Date;` the same build flagged. Run 5 then failed
+at `actionlint` — see below.
+
+**Three branches the repository had never asserted on.** `apply_import_payload` rejects duplicate concept ids and
+duplicate association edges, and in merge mode lets an endpoint resolve against the live namespace — the two
+rejections had **no test anywhere**, and none of the three had a lib-target test, which is the only scope
+`scripts/mutation_test.sh` scores. Three tests added to `src/framework_ops_import_tests.rs`, each proven by
+neutering its own guard: concept-id neuter → 3 reds, edge neuter → exactly the edge test, merge-allowance neuter
+→ exactly the merge test; the source file was restored to its pre-experiment checksum. Inventory 1149 → **1152**
+(`src/` 256 → 259), `context.yaml` synced, and the LOC counter moved to **114/114** because the new module added
+a file — the drift gate caught that before I committed it.
+
+**`main`'s release automation has been dead since `#932`, and it is not a CI flake.** The actionlint stage this
+wave added (`c85984de`) scans all ten workflows and rejected two expressions in `release.yml` as landed:
+`if: >- github.event_name == "workflow_dispatch"` (plus `"push"`, `"success"`) and
+`if: matrix.target == aarch64-unknown-linux-gnu`. GitHub expressions accept single-quoted string literals only.
+The consequence was measurable remotely — 39670046551, 39678113001, 39683503746 and 39734351757 (the last on
+`0f77c0d0` itself) are all `conclusion: failure` with **`jobs: []`**: rejected at workflow parse, before any job
+existed, so there is no step log and nothing published and no tag was created. The last release run that executed
+anything is 39648046550 on `4a85fd47`, immediately before `#932`. This branch quotes all four literals;
+`scripts/check-actionlint.sh` and `validate-workflows.sh --check` are now rc=0 (0 unvalidated files). Recorded in
+ADR-0042's blocker chain and as hard rule 4 of the `release-management` skill. Note the asymmetry worth keeping:
+main does not run this gate yet, so the wave's own gate is currently the only thing standing between an
+unparsable `release.yml` and a silent non-release.
+
+**Worktree hygiene, the reason run 2 died.** Sixteen stale `.qoder/worktrees/*` copies survived their dispatches,
+one holding a 13G `target/`; removing them freed 12G (151G → 163G available) and left `.qoder` at 12K. Encoded as
+`AGENTS.md` Rule 12 and Agent Trust Boundary item 6 (`patch → remove --force → prune → verify`, keep the local
+branches — a squash-merged branch's pre-squash commits exist nowhere else). Honest caveat retained in the
+learning: the `lint_cache.sh:205` ENOSPC itself was never root-caused (≈150G was free on the single `/` ext4 and
+no quota is configured), so the cleanup is sold as hygiene, not as a proven fix.
+
+**Measured on the tree being committed:** `VALIDATE_RC=0` and `HARNESS_RC=0` (six sensors: fmt, clippy, deny,
+test, arch fitness, shared conventions). Suite **1170 passed / 0 failed / 1 ignored** over 101 targets; the
+wasm32 check, size gate and `wasm-pack build` pass; ADR parity, GOAP queue (0 actions / 0 issues),
+test-attribute scan, script catalog, LLM-context drift, workflow semantic validation, actionlint and RUSTSEC
+parity all rc=0. `origin/main` is still `0f77c0d0`; nothing has been pushed. Open issues 0; the only open PR
+is #933 (not this wave's work).
