@@ -143,6 +143,13 @@ instinct to rebase it onto a moved `main` is the wrong one. Protocol used for th
    `total_tests`/`tests_passing` and `plans/GOAP_STATE.md` `tests_count` must agree with each other and
    `modules_under_loc_limit` must equal the live `src/**/*.rs` count
    (`tests/validate_llm_context.py:263`); a merge that adds test files moves all of them.
+5. **Prove the merged tree, do not assert it.** A stage that aborts early (`SCRIPT_CATALOG` drift stops
+   `validate.sh` *before* clippy and the suite) leaves a "both sides' tests pass" claim resting on a
+   partial run. Run the whole suite on the merged head and read `N passed; M failed` from the harness
+   output of *that* run. Expect the merge to surface failures neither parent had: this one lost a
+   `persist`/`clear` side effect that lived inside the two function bodies a branch refactor had deleted,
+   so equivalence must be checked by diffing the **deleted bodies** against the new owner, not by
+   re-reading the call sites.
 
 ## Merging Multiple PRs (Sequential Merge Protocol)
 

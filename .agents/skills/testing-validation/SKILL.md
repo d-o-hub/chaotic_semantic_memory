@@ -26,6 +26,26 @@ For a nontrivial feature or bug fix, exercise the changed path with a focused
 smoke scenario in addition to tests. A passing compile or test suite alone does
 not prove the user-visible behavior; report only observed results.
 
+## Proving a merged tree
+
+`scripts/validate.sh` runs `cargo test --all-targets --all-features` **without**
+`--no-fail-fast`: the first failing target suppresses every target after it *and*
+every text gate that follows the suite. A `--lib` probe is blind the other way —
+it never compiles `tests/**`, and the mutation gate scores only the lib target.
+So neither "validate.sh is green" nor "--lib is green" certifies a
+merge. Measure the whole tree explicitly:
+
+```bash
+cargo test --all-targets --all-features --no-fail-fast
+grep '^test result:' <the log> | sort | uniq -c
+```
+
+When a change replaces a public contract, the lib assertions moving is only half
+the job: grep `tests/**` for the old behaviour's *name shape* (`*_skips_*`,
+`*_is_ok`, `*_without_*_returns_empty`) and rewrite those in the same commit,
+asserting the reported entity/field/value so a later relaxation fails on the
+reason rather than on a bare error match.
+
 ## Benchmark Validation
 
 ```bash
