@@ -79,7 +79,14 @@ async fn wire_handshake_lists_every_tool_and_resource() {
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "server/discover",
-                "params": {},
+                // SEP-2567: discovery has no session yet, so rmcp requires the
+                // lifecycle inline in `_meta`.
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                        "io.modelcontextprotocol/clientCapabilities": {}
+                    }
+                },
             }),
         )
         .await;
@@ -104,7 +111,16 @@ async fn wire_handshake_lists_every_tool_and_resource() {
             "the handshake must report the crate identity: {initialize}"
         );
         assert_eq!(server_info["version"], env!("CARGO_PKG_VERSION"));
-        assert_eq!(initialize["result"]["protocolVersion"], "2026-07-28");
+        // A client may ask for 2026-07-28 over `initialize`, but that revision
+        // has no initialize lifecycle: SEP-2567 moved it into per-request
+        // `_meta`, so the server answers the legacy handshake with the newest
+        // version that still negotiates this way. The stateless 2026-07-28 path
+        // is exercised by the streamable-HTTP integration suite, and the
+        // advertisement of both revisions is asserted below.
+        assert_eq!(
+            initialize["result"]["protocolVersion"], "2025-11-25",
+            "a request for a revision without an initialize lifecycle must negotiate down: {initialize}"
+        );
         assert_eq!(
             initialize["result"]["capabilities"]["tools"]["listChanged"], true,
             "tools must be advertised as a list-changing capability: {initialize}"

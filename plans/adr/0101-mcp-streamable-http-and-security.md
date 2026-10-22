@@ -40,6 +40,12 @@ For Streamable HTTP, an empty bearer token is rejected; a non-loopback bind requ
 ### Negative Consequences
 
 - Renaming `Transport::Sse` to `Transport::StreamableHttp` is a breaking Rust API change.
+- Adopting the `2026-07-28` revision inherits SEP-2243 header enforcement: from that version rmcp requires
+  `Mcp-Method` on every HTTP request (plus `Mcp-Name` for `tools/call`) and must see the body method echoed
+  there, answering a missing or mismatched value with JSON-RPC `-32020` over HTTP 400
+  (`rmcp::transport::common::mcp_headers::validate_request_headers`). Clients that predate SEP-2243 can only
+  reach this server through the negotiated legacy session path, and one test file therefore holds both
+  behaviours — the `2024-11-05` session test sends no such header and must not.
 - Legacy protocol behavior remains in rmcp and must not be confused with the current stateless path.
 - Operators exposing non-loopback HTTP must provision and rotate bearer tokens.
 

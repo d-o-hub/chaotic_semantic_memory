@@ -182,10 +182,14 @@ async fn current_streamable_http_is_stateless_and_enforces_access_policy() {
             }
         }
     });
+    // SEP-2243 makes `Mcp-Method` mandatory from protocol version 2026-07-28 and
+    // requires it to equal the body method; rmcp answers a missing or mismatched
+    // value with JSON-RPC -32020 over HTTP 400.
     let unauthenticated = client
         .post(&base_url)
         .header("Accept", "application/json, text/event-stream")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "server/discover")
         .json(&discover)
         .send()
         .await
@@ -202,6 +206,7 @@ async fn current_streamable_http_is_stateless_and_enforces_access_policy() {
         .header("Host", "attacker.invalid")
         .header("Accept", "application/json, text/event-stream")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "server/discover")
         .json(&discover)
         .send()
         .await
@@ -214,6 +219,7 @@ async fn current_streamable_http_is_stateless_and_enforces_access_policy() {
         .header("Origin", "https://attacker.invalid")
         .header("Accept", "application/json, text/event-stream")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "server/discover")
         .json(&discover)
         .send()
         .await
@@ -225,6 +231,7 @@ async fn current_streamable_http_is_stateless_and_enforces_access_policy() {
         .header("Authorization", "Bearer wire-test-secret")
         .header("Accept", "application/json, text/event-stream")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "server/discover")
         .header(
             "traceparent",
             "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
@@ -233,9 +240,16 @@ async fn current_streamable_http_is_stateless_and_enforces_access_policy() {
         .send()
         .await
         .unwrap();
-    assert_eq!(discovered.status(), reqwest::StatusCode::OK);
-    assert!(discovered.headers().get("mcp-session-id").is_none());
-    let discovery: serde_json::Value = discovered.json().await.unwrap();
+    let discovery_status = discovered.status();
+    let sessionless = discovered.headers().get("mcp-session-id").is_none();
+    let discovery_body = discovered.text().await.unwrap();
+    assert_eq!(
+        discovery_status,
+        reqwest::StatusCode::OK,
+        "discovery must succeed, body: {discovery_body}"
+    );
+    assert!(sessionless, "stateless discovery must not open a session");
+    let discovery: serde_json::Value = serde_json::from_str(&discovery_body).unwrap();
     assert!(
         discovery["result"]["supportedVersions"]
             .as_array()
@@ -260,18 +274,30 @@ async fn current_streamable_http_is_stateless_and_enforces_access_policy() {
         .header("Authorization", "Bearer wire-test-secret")
         .header("Accept", "application/json, text/event-stream")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/list")
         .json(&list_tools)
         .send()
         .await
         .unwrap();
-    assert_eq!(list.status(), reqwest::StatusCode::OK);
-    assert!(list.headers().get("mcp-session-id").is_none());
-    let list_json: serde_json::Value = list.json().await.unwrap();
+    let list_status = list.status();
+    let list_sessionless = list.headers().get("mcp-session-id").is_none();
+    let list_body = list.text().await.unwrap();
+    assert_eq!(
+        list_status,
+        reqwest::StatusCode::OK,
+        "stateless tools/list must succeed, body: {list_body}"
+    );
+    assert!(
+        list_sessionless,
+        "stateless tools/list must not open a session"
+    );
+    let list_json: serde_json::Value = serde_json::from_str(&list_body).unwrap();
     let repeated = client
         .post(&base_url)
         .header("Authorization", "Bearer wire-test-secret")
         .header("Accept", "application/json, text/event-stream")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/list")
         .json(&json!({
             "jsonrpc": "2.0",
             "id": 3,
@@ -286,7 +312,14 @@ async fn current_streamable_http_is_stateless_and_enforces_access_policy() {
         .send()
         .await
         .unwrap();
-    let repeated_json: serde_json::Value = repeated.json().await.unwrap();
+    let repeated_status = repeated.status();
+    let repeated_body = repeated.text().await.unwrap();
+    assert_eq!(
+        repeated_status,
+        reqwest::StatusCode::OK,
+        "the repeated tools/list must succeed, body: {repeated_body}"
+    );
+    let repeated_json: serde_json::Value = serde_json::from_str(&repeated_body).unwrap();
     assert_eq!(
         list_json["result"]["tools"], repeated_json["result"]["tools"],
         "tool ordering must be deterministic"
