@@ -12,6 +12,30 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-22):
+> `repair_the_merged_tree_and_land_the_wave` — the `origin/main` merge into the audit-follow-up wave
+> produced a tree neither parent had tested, and the only honest sensor was
+> `cargo test --all-targets --all-features --no-fail-fast`: **1159 passed / 8 failed / 1 ignored** on the
+> merged head. `validate.sh:102` runs the same command *without* `--no-fail-fast`, so one failing target
+> hid every target after it and every text gate after the suite; a `--lib` probe never compiles `tests/**`
+> at all. Each failure was root-caused before being touched — see `plans/PR_ROAST_2026_10_21.md`:
+> `fix(retrieval)` (the consolidated text probe had dropped main's absence persist/clear, and restoring it
+> exposed a scope key that named namespace/provider/dimension/threshold plus a false `filter=none` but not
+> the probe family), `fix(observability)` (`shutdown_timeout` unbounded), `test(mcp)` x2 (an impossible
+> `initialize` echo of `2026-07-28`; and the stateless Streamable HTTP requests without the SEP-2243
+> `Mcp-Method` header that revision makes mandatory — `-32020` → HTTP 400, while the same file's
+> `2024-11-05` session test correctly sends none), `test(framework)` x2 + `test(persistence)` +
+> `fix(workspace)` (eight scratch paths that assumed `/tmp` is writable, or that `TMPDIR` is `/tmp` where
+> `framework_validation` accepts only CWD-or-`/tmp`), `test(cli)` (`csm query --format json`, a flag that
+> never existed; the global is `--output-format`), `test(framework)` (three of main's tests still pinned the
+> lenient import/backup contracts this wave replaces on purpose — the lib target already pinned the new
+> ones, which is why a `--lib` view looked clean) and `fix(deps)` (21 unrelated `windows-sys`/`socket2`/
+> `getrandom` version-reference flips left by the merge; re-resolving from `main`'s lock reproduces them,
+> so the lock is spliced to 35 insertions / 0 deletions and `cargo metadata --offline` + `cargo deny
+> --locked` prove the resolver does not want the churn).
+> Remote state at push time: `origin/main` still `4a85fd47` (this branch already contains it), the branch
+> had no upstream, open issues `0` so the queue stays at 0, and the only open PR is **#933**
+> (`perf/hyperdim_binary-defer-zero-init-permute-…`, not this wave's work and not triaged here).
 
 > Last completed (verified 2026-10-20):
 > `implement_audit_followups_2026_10_20` — the follow-up set recorded in

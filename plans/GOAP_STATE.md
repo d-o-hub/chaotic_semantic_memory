@@ -329,16 +329,22 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: implement_audit_followups_2026_10_20  # 2026-10-20 — the follow-up set from
-                               # RECOMMENDATIONS_2026_10_19.md is implemented on this branch: durable-or-unchanged
-                               #   mutations, transactional replacement import, one TTL/namespace policy
-                               #   (durable purge, namespace loading, cold export with edges), a versioned
-                               #   Postcard export envelope (ADR-0100), the current MCP Streamable HTTP
-                               #   transport with host/origin/token policy (ADR-0101), a bounded OTLP export
-                               #   lifecycle (ADR-0102), the shared BM25 ownership + long-document indexing
-                               #   path, GraphRAG ownership consolidation, the gate-graph/script-catalog
-                               #   work, and measured behavioral skill evals (20/20, evidence in
-                               #   plans/evidence/skill_eval_2026_10_20.md). Three ADRs added
-                               #   (registry 98 / disk 97). `gh auth status` succeeded and the open
-                               #   issue list is empty, so the queue stays at 0. Open dependency PRs
-                               #   #920 (conflicting) and #921 (one failing check) are unrelated.
+  action_last_completed: repair_the_merged_tree_and_land_the_wave  # 2026-10-22 — `origin/main` merged
+                               #   into the audit-follow-up wave produces a tree neither parent tested.
+                               #   The full suite (not `--lib`) is the only honest check of a merged
+                               #   head; it reported eight failures in seven targets, each root-caused
+                               #   before being fixed: the consolidated text probe had dropped main's
+                               #   absence persist/clear and its record key was not mode-qualified
+                               #   (`fix(retrieval)`), `OtlpBatchConfig::validate()` left
+                               #   `shutdown_timeout` unbounded, the MCP wire handshake asserted an
+                               #   impossible protocol echo and the stateless Streamable HTTP requests
+                               #   omitted the SEP-2243 `Mcp-Method` header the `2026-07-28` revision
+                               #   makes mandatory (`-32020` → 400), eight tests wrote scratch to a
+                               #   quota-capped `/tmp` or to a `TMPDIR` the path guard rejects, one CLI
+                               #   test invoked a `--format` flag `query` never had, and three of main's
+                               #   tests pinned import/backup contracts this wave replaces on purpose —
+                               #   the lib target already pinned the new ones, which is why a `--lib`
+                               #   view looked clean. `Cargo.lock` is spliced from `main`'s lock plus the
+                               #   four stanzas the manifests newly require (re-resolving reproduces the
+                               #   21 unrelated version-reference flips), leaving 35 insertions and 0
+                               #   deletions. Previous action: `implement_audit_followups_2026_10_20`.
