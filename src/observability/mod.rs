@@ -84,6 +84,7 @@ impl OtlpBatchConfig {
             || self.max_export_batch_size > self.max_queue_size
             || self.scheduled_delay.is_zero()
             || self.max_export_timeout.is_zero()
+            || self.shutdown_timeout.is_zero()
         {
             return Err(MemoryError::Observability(
                 "OTLP batch sizes and timeouts must be positive, and batch size must not exceed queue size"
