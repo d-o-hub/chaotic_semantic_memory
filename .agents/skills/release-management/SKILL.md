@@ -11,17 +11,18 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `Pre-Release Gate` on `main`; that gate itself starts only after successful CI and evaluates the same `head_sha`. The workflow checks out and tags that exact SHA. A manual dispatch must find completed-success CI and Pre-Release Gate runs for the same `github.sha`; absent, running, failed, or mismatched evidence is a hard stop.
+3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: because `pre-release-gate.yml` itself starts only after CI, a gate run still in flight when CI finished is a hard stop rather than a wait — re-dispatch once it lands. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
 ## Protected release flow
 
 ```
 feature branch → PR → CI green → merge to main
-        → CI completes for main SHA → Pre-Release Gate checks that SHA
-        → release.yml checks out that SHA → create tag v* → publish
+        → CI completes for the main SHA → release.yml starts
+        → release.yml verifies CI + Pre-Release Gate for that exact SHA
+        → checks out that SHA → create tag v* → publish
 ```
-`release.yml` owns the version tag and library/package publication. `dist.yml` reacts to the resulting tag and builds platform-specific CLI binaries for the GitHub Release; it is not a second tag or crate/npm publisher.
+`release.yml` owns the version tag and library/package publication. `dist.yml` has a single `workflow_dispatch` trigger and opens with a `disabled-notice` job: a tag created inside `release.yml` carries `GITHUB_TOKEN`, and Actions does not fire a tag-push trigger for a workflow from the same token, so platform CLI binaries are built by a manual `gh workflow run dist.yml` when a release needs them. `dist.yml` never creates a second tag or publishes crates/npm.
 
 ### Operator steps
 
