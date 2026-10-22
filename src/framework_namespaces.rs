@@ -351,8 +351,13 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn test_export_namespace_file() {
-        // Use /tmp since validate_path requires it or current dir
-        let export_path = std::path::PathBuf::from("/tmp/export_ns_test.json");
+        // validate_path accepts /tmp or the current directory only; the build
+        // directory is CWD-legal, gitignored, and immune to a host whose /tmp is
+        // a size-capped tmpfs.
+        let export_path = std::env::current_dir()
+            .expect("the test must run inside the crate")
+            .join("target")
+            .join("export_ns_test.json");
         if export_path.exists() {
             let _ = std::fs::remove_file(&export_path);
         }
