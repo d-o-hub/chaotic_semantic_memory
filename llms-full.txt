@@ -398,6 +398,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_import_apply.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_metrics.rs
 
 - pub struct FrameworkMetrics
@@ -2916,6 +2920,15 @@ impl MemoryEvent {
 impl ChaoticSemanticFramework {
     pub fn probe_with_graph(&self, query: HVec10240, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
     pub fn probe_text_with_graph(&self, text: &str, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
+}
+```
+
+## src/framework_import_apply.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
 }
 ```
 

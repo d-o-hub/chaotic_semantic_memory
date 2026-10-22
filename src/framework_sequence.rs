@@ -8,9 +8,6 @@ use csm_core_lib::reservoir_chaotic::ChaoticReservoir;
 use std::sync::Arc;
 use tracing::instrument;
 
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
-
 impl ChaoticSemanticFramework {
     /// Process temporal sequence through reservoir.
     // Reservoir lock needed for sequence processing.

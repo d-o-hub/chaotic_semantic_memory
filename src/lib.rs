@@ -41,6 +41,7 @@ mod framework_cleanup;
 mod framework_events;
 pub mod framework_events_ce;
 mod framework_graph_rag;
+mod framework_import_apply;
 mod framework_metrics;
 mod framework_namespaces;
 #[cfg(not(target_arch = "wasm32"))]
