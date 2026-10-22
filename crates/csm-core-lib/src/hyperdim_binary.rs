@@ -372,17 +372,22 @@ impl BHVec10240 {
     /// Cyclic permutation (shift)
     ///
     /// Optimized implementation that eliminates modulo operations and branches
-    /// from the hot loop by splitting the rotation into three contiguous segments.
+    /// from the hot loop by splitting the rotation into three contiguous segments,
+    /// deferring array zero-initialization until after zero-shift checking.
     pub fn permute(&self, shift: usize) -> Self {
-        let mut result = [0u64; 160];
         let bit_shift = shift % 64;
         let word_shift = (shift / 64) % 160;
 
+        // Early return for zero rotation or 10240-bit multiple shift.
+        // Defers array allocation/zero-initialization and avoids slice rotation copies.
+        if bit_shift == 0 && word_shift == 0 {
+            return *self;
+        }
+
+        let mut result = [0u64; 160];
+
         // Optimized path for word-aligned rotations
         if bit_shift == 0 {
-            if word_shift == 0 {
-                return *self;
-            }
             let (left, right) = self.bits.split_at(160 - word_shift);
             result[..word_shift].copy_from_slice(right);
             result[word_shift..].copy_from_slice(left);
