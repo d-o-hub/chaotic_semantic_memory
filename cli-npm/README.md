@@ -76,7 +76,7 @@ csm completions bash > ~/.local/share/bash-completion/completions/csm
 | `--database <path>` | Path to libSQL database file |
 | `--git-local` | Use git-local storage (.git/memory-index/csm.db) |
 | `--index-path <path>` | Custom path for git-local index |
-| `--output-format <format>` | Output format: table, json, compact |
+| `--output-format <format>` | Output format: table, json, quiet |
 | `--verbose` | Increase logging verbosity |
 | `--help` | Show help for command |
 

@@ -478,7 +478,10 @@ impl MemoryAdapter {
     }
 
     pub async fn storage_bytes(&self) -> Result<u64> {
-        let tmp = NamedTempFile::new()?;
+        // The scratch file must sit in the working directory: `export_binary`
+        // validates absolute paths against CWD-or-/tmp, so a relocated TMPDIR
+        // would reject `NamedTempFile::new()`'s location.
+        let tmp = NamedTempFile::new_in(".")?;
         let tmp_path = tmp.path().to_path_buf();
         let path_str = tmp_path.to_string_lossy().to_string();
 

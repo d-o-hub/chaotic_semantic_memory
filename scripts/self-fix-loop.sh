@@ -4,18 +4,15 @@
 # =============================================================================
 # Usage: scripts/self-fix-loop.sh [--dry-run] [--max-iterations N] [--timeout SECS]
 #
-# Automates the CI fix loop:
-#   1. Commit current changes
-#   2. Push to remote
-#   3. Monitor CI workflow
-#   4. If failure, classify and suggest fix
-#   5. Retry until success or max iterations
+# Commits only explicitly staged changes. Refuses main, detached HEAD, staged/
+# unstaged mixtures, and untracked work. Every push requires an exact-target
+# confirmation; non-interactive use requires SELF_FIX_LOOP_CONFIRM_PUSH=origin/BRANCH@SHA.
 #
 # Flags:
 #   --dry-run              Show actions without executing
 #   --max-iterations N     Max retry attempts (default: 5)
 #   --timeout SECS         Max wait per CI run (default: 600)
-#   --branch BRANCH        Target branch (default: current)
+#   --branch BRANCH        Must match the current branch
 #   --help                 Show this help message
 #
 # Exit codes:
@@ -26,7 +23,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -42,27 +38,30 @@ BRANCH=""
 # Help
 # =============================================================================
 show_help() {
-  cat << EOF
+  cat <<'EOF'
 Usage: scripts/self-fix-loop.sh [flags]
 
-Automated CI fix loop: commit → push → monitor → fix → retry.
+Automated CI fix loop for one existing feature branch.
 
 Flags:
   --dry-run              Show actions without executing
   --max-iterations N     Max retry attempts (default: 5)
   --timeout SECS         Max wait per CI run (default: 600)
-  --branch BRANCH        Target branch (default: current)
+  --branch BRANCH        Must match the current branch
   --help                 Show this help message
+
+Before running, stage only the intended changes and keep the worktree clean.
+Pushes require typing `origin/BRANCH@SHA` at the prompt. Non-interactive runs
+must set `SELF_FIX_LOOP_CONFIRM_PUSH` to that exact value after committing.
 
 Exit codes:
   0 - CI passed
   1 - Max iterations reached
-  2 - Unrecoverable error
+  2 - Unrecoverable error or safety refusal
 
 Examples:
-  scripts/self-fix-loop.sh                           # Run with defaults
-  scripts/self-fix-loop.sh --max-iterations 3        # Limit to 3 attempts
-  scripts/self-fix-loop.sh --dry-run                 # Preview actions
+  scripts/self-fix-loop.sh --dry-run
+  scripts/self-fix-loop.sh --max-iterations 3
 EOF
   exit 0
 }
@@ -80,22 +79,67 @@ while [[ $# -gt 0 ]]; do
     *)                    echo "Unknown flag: $1"; exit 1 ;;
   esac
 done
-
-# Validate dependencies
-if ! command -v gh &> /dev/null; then
-  echo -e "${RED}Error: GitHub CLI (gh) required. Install: https://cli.github.com/${NC}"
+CURRENT_BRANCH="$(git branch --show-current)"
+if [[ -z "$CURRENT_BRANCH" ]]; then
+  echo -e "${RED}Error: detached HEAD is not allowed${NC}" >&2
+  exit 2
+fi
+if [[ "$CURRENT_BRANCH" == "main" ]]; then
+  echo -e "${RED}Error: refusing to mutate or push main${NC}" >&2
+  exit 2
+fi
+if [[ -n "$BRANCH" && "$BRANCH" != "$CURRENT_BRANCH" ]]; then
+  echo -e "${RED}Error: --branch must match checked-out branch $CURRENT_BRANCH${NC}" >&2
+  exit 2
+fi
+BRANCH="$CURRENT_BRANCH"
+if ! git diff --quiet; then
+  echo -e "${RED}Error: unstaged changes present; stage only intended files${NC}" >&2
+  exit 2
+fi
+if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  echo -e "${RED}Error: untracked files present; commit/preserve them separately${NC}" >&2
+  exit 2
+fi
+if ! git remote get-url origin >/dev/null 2>&1; then
+  echo -e "${RED}Error: origin remote is required${NC}" >&2
   exit 2
 fi
 
-if ! gh auth status &> /dev/null 2>&1; then
-  echo -e "${RED}Error: Not authenticated with GitHub. Run: gh auth login${NC}"
+if ! command -v gh >/dev/null 2>&1; then
+  echo -e "${RED}Error: GitHub CLI (gh) required${NC}" >&2
+  exit 2
+fi
+if ! gh auth status >/dev/null 2>&1; then
+  echo -e "${RED}Error: not authenticated with GitHub; run gh auth login${NC}" >&2
   exit 2
 fi
 
-# Get current branch
-if [[ -z "$BRANCH" ]]; then
-  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-fi
+confirm_remote_push() {
+  local target="origin/${BRANCH}@${PUSHED_SHA}"
+  if [[ "${SELF_FIX_LOOP_CONFIRM_PUSH:-}" == "$target" ]]; then
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    echo -e "${RED}Error: non-interactive push requires SELF_FIX_LOOP_CONFIRM_PUSH=$target${NC}" >&2
+    return 1
+  fi
+  local confirmation=""
+  read -r -p "Type ${target} to confirm this push: " confirmation
+  [[ "$confirmation" == "$target" ]]
+}
+
+stage_automatic_fixes() {
+  if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+    echo -e "${RED}Error: auto-fix created untracked files; inspect and stage explicitly${NC}" >&2
+    return 1
+  fi
+  local -a changed_files=()
+  mapfile -d '' -t changed_files < <(git diff --name-only -z)
+  if [[ ${#changed_files[@]} -gt 0 ]]; then
+    git add -- "${changed_files[@]}"
+  fi
+}
 
 echo -e "${CYAN}╔══════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║        Self-Fix Loop (CI Monitor)            ║${NC}"
@@ -158,48 +202,33 @@ while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
 
   echo -e "\n${CYAN}━━━ Iteration $ITERATION/$MAX_ITERATIONS ━━━${NC}"
 
-  # Step 1: Check for changes to commit
-  echo -e "${BLUE}Step 1: Checking for changes...${NC}"
+  # Step 1: Commit only changes the operator explicitly staged.
+  echo -e "${BLUE}Step 1: Checking staged changes...${NC}"
 
-  if git diff --quiet && git diff --staged --quiet; then
-    echo -e "  ${GREEN}No local changes to commit${NC}"
+  if git diff --staged --quiet; then
+    echo -e "  ${GREEN}No staged changes to commit${NC}"
+  elif $DRY_RUN; then
+    echo -e "  ${YELLOW}[dry-run]${NC} Would commit staged changes"
   else
-    if $DRY_RUN; then
-      echo -e "  ${YELLOW}[dry-run]${NC} Would commit staged changes"
-    else
-      # Commit with default message or use ai-commit.sh if available
-      if [[ -f "$SCRIPT_DIR/ai-commit.sh" ]]; then
-        echo -e "  Using ai-commit.sh for commit message..."
-        bash "$SCRIPT_DIR/ai-commit.sh" --auto || git commit -m "fix: CI auto-fix iteration $ITERATION"
-      else
-        git add -A
-        git commit -m "fix: CI auto-fix iteration $ITERATION"
-      fi
-      echo -e "  ${GREEN}Changes committed${NC}"
-    fi
+    git commit -m "fix: CI auto-fix iteration $ITERATION"
+    echo -e "  ${GREEN}Staged changes committed${NC}"
   fi
 
-  # Step 2: Push changes (capture SHA before push for CI monitoring)
+  # Step 2: Push changes only after exact-target operator confirmation.
   echo -e "${BLUE}Step 2: Pushing to $BRANCH...${NC}"
-
-  # Capture the commit SHA we're about to push
   PUSHED_SHA="$(git rev-parse HEAD)"
 
   if $DRY_RUN; then
     echo -e "  ${YELLOW}[dry-run]${NC} Would push to origin/$BRANCH (SHA: $PUSHED_SHA)"
   else
-    git push origin "$BRANCH" 2>&1 || {
-      echo -e "  ${RED}Push failed${NC}"
-      # Check for upstream changes
-      git fetch origin
-      if git diff --quiet "HEAD..origin/$BRANCH"; then
-        echo -e "  ${YELLOW}Remote has new commits - rebasing...${NC}"
-        git pull --rebase origin "$BRANCH"
-        # Update SHA after rebase
-        PUSHED_SHA="$(git rev-parse HEAD)"
-        git push origin "$BRANCH"
-      fi
-    }
+    if ! confirm_remote_push; then
+      echo -e "${RED}Push not confirmed; no remote mutation performed${NC}" >&2
+      exit 2
+    fi
+    if ! git push origin "$BRANCH"; then
+      echo -e "${RED}Push failed; no automatic fetch or rebase was attempted${NC}" >&2
+      exit 2
+    fi
     echo -e "  ${GREEN}Pushed to origin/$BRANCH (SHA: $PUSHED_SHA)${NC}"
   fi
 
@@ -301,16 +330,16 @@ while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
         cargo fmt
         ;;
       clippy)
-        cargo clippy --fix --allow-dirty --allow-staged 2>&1 || true
+        cargo clippy --fix --allow-dirty --allow-staged
         ;;
       loc)
         echo -e "  ${YELLOW}LOC gate requires manual file splitting${NC}"
         ;;
       changelog)
-        bash "$SCRIPT_DIR/validate-changelog.sh" 2>&1 || true
+        bash "$SCRIPT_DIR/validate-changelog.sh"
         ;;
       docs-sync)
-        bash "$SCRIPT_DIR/sync-docs.sh" 2>&1 || true
+        bash "$SCRIPT_DIR/sync-docs.sh"
         ;;
       *)
         echo -e "  ${YELLOW}No auto-fix available for: $FAILURE_TYPE${NC}"
@@ -318,6 +347,13 @@ while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
     esac
 
     echo -e "  Auto-fix applied. Will retry..."
+    if ! stage_automatic_fixes; then
+      exit 2
+    fi
+    if git diff --staged --quiet; then
+      echo -e "${YELLOW}No automatic fix produced a staged change; stopping for manual action${NC}"
+      exit 1
+    fi
   fi
 done
 

@@ -1,4 +1,6 @@
-use crate::export_payload::{BinaryExportPayload, ExportPayload, concept_to_export, unix_now_secs};
+use crate::export_payload::{
+    BinaryExportPayload, ExportPayload, concept_to_export, encode_binary_export, unix_now_secs,
+};
 use crate::framework::ChaoticSemanticFramework;
 use csm_core_lib::error::Result;
 #[cfg(not(target_arch = "wasm32"))]
@@ -11,6 +13,8 @@ impl ChaoticSemanticFramework {
     pub async fn set_namespace(&self, ns: impl Into<String>) -> Result<()> {
         let ns = ns.into();
         Self::validate_namespace(&ns)?;
+        self.ensure_namespace_loaded(&ns).await?;
+        let _mutation = self.mutation_coordinator.lock().await;
         *self.namespace.write().await = ns;
         Ok(())
     }
@@ -23,12 +27,12 @@ impl ChaoticSemanticFramework {
         };
 
         // Query persistence for namespaces not yet loaded in memory
-        if let Some(ref persistence) = self.persistence {
-            if let Ok(persisted) = persistence.list_namespaces().await {
-                for ns in persisted {
-                    if !namespaces.contains(&ns) {
-                        namespaces.push(ns);
-                    }
+        if let Some(ref persistence) = self.persistence
+            && let Ok(persisted) = persistence.list_namespaces().await
+        {
+            for ns in persisted {
+                if !namespaces.contains(&ns) {
+                    namespaces.push(ns);
                 }
             }
         }
@@ -36,28 +40,20 @@ impl ChaoticSemanticFramework {
         Ok(namespaces)
     }
 
-    /// Delete a namespace: remove from memory first, then persist.
-    ///
-    /// Memory-first order is intentional: if the persistence deletion fails,
-    /// the data still exists in the database and will be reloaded on the next
-    /// framework access (no data loss). The reverse order (persist-then-memory)
-    /// could leave data in memory that no longer has a persistence backing,
-    /// causing inconsistency on process restart.
+    /// Delete a namespace from durable storage before removing its memory state.
     pub async fn delete_namespace(&self, ns: &str) -> Result<usize> {
         Self::validate_namespace(ns)?;
+        let _mutation = self.mutation_coordinator.lock().await;
         let count = {
-            let mut sing = self.singularity.write().await;
-            let count = sing.len(ns);
-            sing.namespaces.remove(ns);
-            count
+            let sing = self.singularity.read().await;
+            sing.len(ns)
         };
 
-        // Persist after memory removal; if DB fails, data still exists in DB
-        // and will be reloaded on next access (no data loss).
-        if let Some(ref persistence) = self.persistence {
+        if let Some(persistence) = &self.persistence {
             persistence.clear_namespace(ns).await?;
         }
-
+        self.singularity.write().await.namespaces.remove(ns);
+        self.invalidate_text_index(ns).await;
         Ok(count)
     }
 
@@ -86,7 +82,7 @@ impl ChaoticSemanticFramework {
     /// Export a namespace to bytes (in-memory, WASM-compatible).
     ///
     /// Loads the namespace data from persistence if not currently in memory,
-    /// then serializes to a binary payload using bincode.
+    /// then serializes to the bounded, versioned Postcard binary envelope.
     pub async fn export_namespace_to_bytes(&self, ns: &str) -> Result<Vec<u8>> {
         Self::validate_namespace(ns)?;
         // Ensure the namespace is loaded from persistence if available and not in memory
@@ -108,20 +104,16 @@ impl ChaoticSemanticFramework {
         };
 
         let binary_payload = BinaryExportPayload::from(payload);
-        let data = bincode::serialize(&binary_payload).map_err(|e| {
-            csm_core_lib::error::MemoryError::Persistence(format!("Serialization error: {e}"))
-        })?;
+        let data = encode_binary_export(&binary_payload)?;
         Ok(data)
     }
 
     /// Load namespace data into memory from persistence if not already loaded.
     ///
-    /// Uses an atomic check-and-load pattern to avoid a TOCTOU race where two
-    /// concurrent calls both see the namespace as absent and attempt to load it.
-    /// The re-check under the write lock ensures only one caller performs the
-    /// injection. Persistence errors are propagated so callers do not silently
-    /// receive empty/incomplete exports.
-    async fn ensure_namespace_loaded(&self, ns: &str) -> Result<()> {
+    /// The mutation coordinator serializes the read/apply sequence without
+    /// holding state locks across persistence I/O.
+    pub(crate) async fn ensure_namespace_loaded(&self, ns: &str) -> Result<()> {
+        let _mutation = self.mutation_coordinator.lock().await;
         {
             let sing = self.singularity.read().await;
             if sing.namespaces.contains_key(ns) {
@@ -129,16 +121,34 @@ impl ChaoticSemanticFramework {
             }
         }
 
-        if let Some(ref persistence) = self.persistence {
+        if let Some(persistence) = &self.persistence {
             let concepts = persistence.load_all_concepts(ns).await?;
+            let associations = persistence.load_all_associations(ns).await?;
 
             let mut sing = self.singularity.write().await;
-            // Re-check under write lock (TOCTOU guard)
             if !sing.namespaces.contains_key(ns) {
                 for concept in concepts {
-                    sing.inject(ns, concept)?;
+                    if let Err(error) = sing.inject(ns, concept) {
+                        sing.clear(ns);
+                        return Err(error);
+                    }
+                }
+                for (from, to, strength, created_at) in associations {
+                    let state = match sing.ensure_namespace(ns) {
+                        Ok(state) => state,
+                        Err(error) => {
+                            sing.clear(ns);
+                            return Err(error);
+                        }
+                    };
+                    state
+                        .associations
+                        .entry(from)
+                        .or_default()
+                        .insert(to, (strength, created_at));
                 }
             }
+            drop(sing);
         }
 
         Ok(())
@@ -147,6 +157,8 @@ impl ChaoticSemanticFramework {
     fn clone_with_namespace(&self, ns: &str) -> Self {
         Self {
             singularity: self.singularity.clone(),
+            mutation_coordinator: self.mutation_coordinator.clone(),
+            text_index_cache: self.text_index_cache.clone(),
             persistence: self.persistence.clone(),
             reservoir: self.reservoir.clone(),
             config: self.config.clone(),
@@ -166,7 +178,6 @@ impl ChaoticSemanticFramework {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
-    use crate::export_payload::BinaryExportPayload;
     use csm_core_lib::hyperdim::HVec10240;
     async fn empty_framework() -> ChaoticSemanticFramework {
         ChaoticSemanticFramework::builder()
@@ -201,8 +212,9 @@ mod tests {
         let bytes = fw.export_namespace_to_bytes("test-ns").await.unwrap();
         assert!(!bytes.is_empty(), "export bytes should not be empty");
 
-        let bin_payload: BinaryExportPayload =
-            bincode::deserialize(&bytes).expect("should deserialize bincode payload");
+        let bin_payload = crate::export_payload::decode_binary_export(&bytes)
+            .expect("should decode versioned binary export");
+        assert_eq!(&bytes[..8], b"CSMBIN01");
         assert_eq!(bin_payload.concepts.len(), 2, "should have 2 concepts");
         assert_eq!(
             bin_payload.associations.len(),
@@ -232,8 +244,8 @@ mod tests {
         let fw = empty_framework().await;
 
         let bytes = fw.export_namespace_to_bytes("empty-ns").await.unwrap();
-        let bin_payload: BinaryExportPayload =
-            bincode::deserialize(&bytes).expect("should deserialize bincode payload");
+        let bin_payload = crate::export_payload::decode_binary_export(&bytes)
+            .expect("should decode versioned binary export");
         assert!(
             bin_payload.concepts.is_empty(),
             "empty namespace should have no concepts"
@@ -249,8 +261,8 @@ mod tests {
         let fw = empty_framework().await;
 
         let bytes = fw.export_namespace_to_bytes("nonexistent").await.unwrap();
-        let bin_payload: BinaryExportPayload =
-            bincode::deserialize(&bytes).expect("should deserialize bincode payload");
+        let bin_payload = crate::export_payload::decode_binary_export(&bytes)
+            .expect("should decode versioned binary export");
         assert!(bin_payload.concepts.is_empty());
     }
 
@@ -310,8 +322,8 @@ mod tests {
         fw.inject_concept("b1", vector_b).await.unwrap();
 
         let bytes = fw.export_namespace_to_bytes("ns-a").await.unwrap();
-        let bin_payload: BinaryExportPayload =
-            bincode::deserialize(&bytes).expect("should deserialize");
+        let bin_payload = crate::export_payload::decode_binary_export(&bytes)
+            .expect("should decode versioned binary export");
         assert_eq!(bin_payload.concepts.len(), 1, "ns-a should have 1 concept");
         assert_eq!(
             bin_payload.concepts[0].id, "a1",
@@ -339,8 +351,13 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn test_export_namespace_file() {
-        // Use /tmp since validate_path requires it or current dir
-        let export_path = std::path::PathBuf::from("/tmp/export_ns_test.json");
+        // validate_path accepts /tmp or the current directory only; the build
+        // directory is CWD-legal, gitignored, and immune to a host whose /tmp is
+        // a size-capped tmpfs.
+        let export_path = std::env::current_dir()
+            .expect("the test must run inside the crate")
+            .join("target")
+            .join("export_ns_test.json");
         if export_path.exists() {
             let _ = std::fs::remove_file(&export_path);
         }

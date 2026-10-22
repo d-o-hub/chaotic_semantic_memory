@@ -104,6 +104,9 @@ fn mcp_config_with_database() {
         transport: Transport::Stdio,
         bind: None,
         database: Some(PathBuf::from("test.db")),
+        auth_token: None,
+        allowed_hosts: None,
+        allowed_origins: Vec::new(),
         ttl_cleanup_interval: 0,
     };
     assert_eq!(

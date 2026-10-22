@@ -193,20 +193,24 @@ mod native {
                     use chaotic_semantic_memory::mcp::{Transport, TransportType};
                     let transport = match args.transport {
                         TransportType::Stdio => Transport::Stdio,
-                        TransportType::Sse => {
+                        TransportType::StreamableHttp => {
                             let bind_str = args.bind.as_deref().unwrap_or("127.0.0.1:8080");
                             let bind = bind_str.parse::<std::net::SocketAddr>().map_err(|e| {
                                 chaotic_semantic_memory::cli::CliError::Config(format!(
                                     "Invalid bind address: {e}"
                                 ))
                             })?;
-                            Transport::Sse { bind }
+                            Transport::StreamableHttp { bind }
                         }
                     };
                     let config = chaotic_semantic_memory::mcp::McpConfig {
                         transport,
                         bind: args.bind.clone(),
                         database: db_path,
+                        auth_token: std::env::var("CSM_MCP_BEARER_TOKEN").ok(),
+                        allowed_hosts: (!args.allowed_hosts.is_empty())
+                            .then(|| args.allowed_hosts.clone()),
+                        allowed_origins: args.allowed_origins.clone(),
                         ttl_cleanup_interval: args.ttl_cleanup.ttl_cleanup_interval,
                     };
                     chaotic_semantic_memory::mcp::serve(config)

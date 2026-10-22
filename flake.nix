@@ -80,6 +80,7 @@
 
               # Quality and documentation
               shellcheck       # shell script hygiene
+              actionlint       # GitHub Actions workflow semantics
               mdbook           # documentation (book/)
             ];
 

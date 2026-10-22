@@ -92,6 +92,23 @@ reading their reports; every catch came from re-deriving state. Rules:
 3. Rebase remaining PRs after each merge
 4. Foundation PRs (config, lints) before dependent PRs
 
+### Current-state parsing and offline behavior
+
+`plans/GOAP_STATE.md` and the active action blocks in `plans/ACTIONS.md` are the
+source of truth. Use `./scripts/goap-orchestrator.sh status` for counts; do not
+count `status:` strings in historical prose or parse values with a greedy
+`sed` expression that can consume inline comments. The status command is
+read-only and must remain useful when `gh` is absent: local state is still
+reported, while PR/CI sections say they are unavailable rather than implying a
+remote pass.
+
+Do not add issue-less actions to `ACTIONS.md`. Once tracker access is restored,
+create the GitHub issue first, add its `github_issue:` key, then queue the
+dependency-ordered action. When an action completes, remove its active block,
+update the single trailing `action_last_completed` key, and record evidence in
+`plans/RECOMMENDATIONS_YYYY_MM_DD.md` or `progress/` rather than appending a
+second historical ledger to the active queue.
+
 ## State Management
 
 | File | Purpose |
@@ -104,7 +121,7 @@ reading their reports; every catch came from re-deriving state. Rules:
 
 After each action completes:
 1. Mark action `status: complete` in `ACTIONS.md`
-2. Update `action_last_completed` in `GOAP_STATE.md` (exactly once)
+2. Update `action_last_completed` in `GOAP_STATE.md` (exactly once, as the last key)
 3. Add learnings to `progress/LEARNINGS.md` if new patterns discovered
 
 ## PR Triage

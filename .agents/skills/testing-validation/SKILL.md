@@ -5,23 +5,46 @@ description: "Validate the chaotic_semantic_memory crate: compile, test, lint, L
 
 # Testing Validation
 
-## Quick Validation
+## Required Validation
 
-Run `scripts/validate.sh` for the full gate sequence.
-
-## Gate Sequence (manual)
+Run both repository gates after implementation:
 
 ```bash
-# Minimal output mode (2026 best practice)
-export CARGO_TERM_PROGRESS_WHEN=never
-
-cargo check --message-format=short
-cargo test --all-features --quiet  # or: cargo nextest run --all-features
-cargo fmt --check
-cargo clippy -- -D warnings
+scripts/validate.sh
+scripts/harness-check.sh all
 ```
 
-Then check LOC limits with `scripts/loc-check.sh`.
+On a fresh checkout, run `scripts/install-hooks.sh` first. Strict validation
+must not silently install hooks.
+
+If the full Cargo test/link step exceeds local memory, use
+`scripts/validate-low-memory.sh` for the bounded-memory Rust subset. It does not
+replace either required gate or their non-Cargo checks; a failed compiler or
+linker remains a failure.
+
+For a nontrivial feature or bug fix, exercise the changed path with a focused
+smoke scenario in addition to tests. A passing compile or test suite alone does
+not prove the user-visible behavior; report only observed results.
+
+## Proving a merged tree
+
+`scripts/validate.sh` runs `cargo test --all-targets --all-features` **without**
+`--no-fail-fast`: the first failing target suppresses every target after it *and*
+every text gate that follows the suite. A `--lib` probe is blind the other way —
+it never compiles `tests/**`, and the mutation gate scores only the lib target.
+So neither "validate.sh is green" nor "--lib is green" certifies a
+merge. Measure the whole tree explicitly:
+
+```bash
+cargo test --all-targets --all-features --no-fail-fast
+grep '^test result:' <the log> | sort | uniq -c
+```
+
+When a change replaces a public contract, the lib assertions moving is only half
+the job: grep `tests/**` for the old behaviour's *name shape* (`*_skips_*`,
+`*_is_ok`, `*_without_*_returns_empty`) and rewrite those in the same commit,
+asserting the reported entity/field/value so a later relaxation fails on the
+reason rather than on a bare error match.
 
 ## Benchmark Validation
 
@@ -39,7 +62,7 @@ cargo bench --bench benchmark -- --baseline main
 
 | Layer | Location | What to test |
 |---|---|---|
-| Unit | `src/*.rs` `#[cfg(test)]` | Core logic, edge cases, error paths |
+| Unit | `src/**/*.rs`, `crates/*/src/**/*.rs` | Mutation-visible logic, boundaries, errors, and state transitions |
 | Integration | `tests/*.rs` | Public API behavior, persistence roundtrips |
 | Benchmarks | `benches/benchmark.rs` | Performance targets (reservoir_step < 100μs @ 50k) |
 
@@ -60,7 +83,7 @@ Use separate test files in `tests/` for:
 
 ## LOC Enforcement
 
-Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
+Every Rust file under `src/` and `crates/` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 
 ## Documentation Link & Command Validation
 

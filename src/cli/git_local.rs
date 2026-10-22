@@ -159,10 +159,10 @@ pub fn resolve_git_local_path() -> Option<PathBuf> {
 ///
 /// Returns an error if the directory cannot be created.
 pub fn ensure_git_local_dir(path: &Path) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            std::fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = path.parent()
+        && !parent.exists()
+    {
+        std::fs::create_dir_all(parent)?;
     }
     Ok(())
 }

@@ -19,22 +19,35 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 See `references/commit-types.md` for full type/scope guide and examples.
 
-## Validation Gates (Pre-Commit)
+## Branch and Validation Gates
 
-Run before every commit:
+- Never commit or push directly on `main`; create or use a task branch first.
+- Stage only the intended paths. Never use `git add -A` in a dirty worktree.
+- On a fresh checkout, run `scripts/install-hooks.sh` before validation.
+- Before every commit, run both required repository gates:
 
 ```bash
-export CARGO_TERM_PROGRESS_WHEN=never
-cargo check --message-format=short
-cargo test --all-features --quiet
-cargo fmt --check
-cargo clippy -- -D warnings
+scripts/validate.sh
+scripts/harness-check.sh all
 ```
 
-Or use: `scripts/validate.sh`
+- If `Cargo.toml` or `Cargo.lock` changes, also run `cargo deny --locked check`.
+- Validate the full commit range with
+  `npx commitlint --from origin/main --to HEAD --verbose`.
+- `commitlint` applies to the entire branch range on every change; include it in the pre-commit checklist even when cargo tests and repository gates pass.
 
 ## Review Rule
+
 - Block commits that introduce hardcoded runtime settings or unexplained numeric literals in tunable paths.
+
+## Pull Request Handoff
+
+- Roast the proposed PR diff using `skill://pr-roast-triage` before creating or
+  merging a PR; record the verdict in `plans/PR_ROAST_<date>.md`.
+- Confirm remote CI checks belong to the exact PR head SHA; a green badge or
+  stale-head run is not evidence.
+- Creating a PR does not authorize merging it. Merge only when directly asked,
+  after a current-head CI pass and a recorded roast verdict.
 
 ## Performance Gate
 
@@ -102,6 +115,41 @@ gh pr list --state open --json number,reviewDecision \
   commits (`test(<scope>): …`, `docs(<scope>): …`), the `## Performance Evidence` body section set
   *before* the push that starts the run, then merge from the verified head. Never retitle
   `perf(` → `refactor(` to make the gate skip — that is gate-gaming, not evidence.
+
+## Landing a Wide Uncommitted Working Set
+
+A 100+-path **staged index** with no commits (a carried-over working set) is not a branch yet, and the
+instinct to rebase it onto a moved `main` is the wrong one. Protocol used for the 157-path audit wave:
+
+1. **Split the index into scoped commits with `git commit --only -- <paths>`.** `--only` builds the
+   commit from worktree content for *just* those paths and leaves the rest of the index staged, so one
+   `git status` read of the whole set stays intact while each commitlint scope gets its own commit.
+   Verify each group with `npx commitlint --from origin/main --to HEAD --verbose` at the end.
+   (Never `git add -A`; the point is that the operator's index is consumed deliberately.)
+2. **Merge `main` in once, do not rebase.** 11 commits had landed meanwhile
+   (`git rev-list --count "$(git merge-base HEAD origin/main)..origin/main"`). A rebase replays every
+   commit through the *generated* files (`llms.txt`, `llms-full.txt`, `Cargo.lock`, script/skill
+   catalogs) and re-resolves each conflict it creates; one
+   `git commit --only`-finished branch + a single `git merge --no-commit --no-ff origin/main` resolves
+   them once. Regenerate generated files (`scripts/gen-llms-txt.sh`, `gen_script_catalog.py`) instead of
+   hand-picking their hunks.
+3. **Resolve per-hunk, never per-file, where both sides fixed the same region.** Both sides of this
+   merge contained *landed* work: taking ours re-introduced the unchecked HNSW
+   `unsafe { Self::as_hvec10240(..) }` cast `main` had removed; taking theirs dropped the wave's
+   `searchable_text` metadata insert. The right answer was `main`'s structure with the branch's insert
+   re-applied inside it. For every conflicted file ask: does either side contain something the other
+   does not know about, and which side is `main`?
+4. **Re-measure the counters after the merge, not before.** `docs/architecture/context.yaml`
+   `total_tests`/`tests_passing` and `plans/GOAP_STATE.md` `tests_count` must agree with each other and
+   `modules_under_loc_limit` must equal the live `src/**/*.rs` count
+   (`tests/validate_llm_context.py:263`); a merge that adds test files moves all of them.
+5. **Prove the merged tree, do not assert it.** A stage that aborts early (`SCRIPT_CATALOG` drift stops
+   `validate.sh` *before* clippy and the suite) leaves a "both sides' tests pass" claim resting on a
+   partial run. Run the whole suite on the merged head and read `N passed; M failed` from the harness
+   output of *that* run. Expect the merge to surface failures neither parent had: this one lost a
+   `persist`/`clear` side effect that lived inside the two function bodies a branch refactor had deleted,
+   so equivalence must be checked by diffing the **deleted bodies** against the new owner, not by
+   re-reading the call sites.
 
 ## Merging Multiple PRs (Sequential Merge Protocol)
 

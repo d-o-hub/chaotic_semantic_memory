@@ -47,6 +47,39 @@ impl Persistence {
     pub async fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
+    pub async fn replace_namespace_transactional<H: csm_core_lib::hyperdim::Hypervector>(
+        &self,
+        _ns: &str,
+        _concepts: &[Concept<H>],
+        _associations: &[(String, String, f32)],
+    ) -> Result<u64> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn merge_namespace_transactional<H: csm_core_lib::hyperdim::Hypervector>(
+        &self,
+        _ns: &str,
+        _concepts: &[Concept<H>],
+        _associations: &[(String, String, f32)],
+    ) -> Result<u64> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn delete_concepts(&self, _ns: &str, _ids: &[String]) -> Result<usize> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn delete_associations(
+        &self,
+        _ns: &str,
+        _edges: &[(String, String)],
+    ) -> Result<usize> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn reinforce_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
 
     pub async fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>> {
         Err(wasm_persistence_unavailable())

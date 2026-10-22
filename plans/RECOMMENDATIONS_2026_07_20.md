@@ -254,14 +254,14 @@ Core workflow, swarm, TRIZ, release, verification, orchestration — generally h
 
 ---
 
-## 11. Acceptance checklist for “recommendations applied”
+## 11. Acceptance checklist for “recommendations applied” — verified 2026-10-20
 
-- [ ] All §1.2 queued actions have owners / PRs or explicit deferrals  
-- [ ] No production `TODO` in retrieval hot path  
-- [ ] README version + ANN sections match code  
-- [ ] AGENTS skill count = disk inventory  
-- [ ] `plans/README.md` is the only plans entrypoint agents need  
-- [ ] Archive manifest remains accurate  
+- [x] All §1.2 queued actions have owners / PRs or explicit deferrals
+- [x] No production `TODO` in retrieval hot path
+- [x] README version + ANN sections match code
+- [x] AGENTS skill count = disk inventory
+- [x] `plans/README.md` is the only plans entrypoint agents need
+- [x] Archive manifest remains accurate
 
 ---
 

@@ -103,6 +103,10 @@ impl ChaoticSemanticFramework {
             let envelope = match persistence.load_index_envelope(&ns, "main").await {
                 Ok(env) => env,
                 Err(e) => {
+                    #[cfg(feature = "prometheus")]
+                    crate::observability::prom::record_stale_snapshot_rebuild(
+                        "unreadable_envelope",
+                    );
                     warn!(
                         error = %e,
                         "ANN envelope unreadable; rebuilding index from concept rows"
@@ -137,16 +141,28 @@ impl ChaoticSemanticFramework {
                     if let Some(env) = envelope {
                         let ns_state = sing.ensure_namespace(&ns)?;
                         if let Err(e) = ns_state.index.deserialize(&env.index_data) {
+                            #[cfg(feature = "prometheus")]
+                            crate::observability::prom::record_stale_snapshot_rebuild(
+                                "deserialize_error",
+                            );
                             warn!(error = %e, "ANN snapshot deserialize failed; rebuilding");
                             let concepts_map = ns_state.concepts.clone();
                             ns_state.index.rebuild(&concepts_map)?;
                         }
                     }
                 } else {
-                    if envelope.is_some() {
+                    if let Some(env) = envelope.as_ref() {
+                        let reason = if env.namespace_revision != revision {
+                            "revision_mismatch"
+                        } else {
+                            "backend_mismatch"
+                        };
+                        #[cfg(feature = "prometheus")]
+                        crate::observability::prom::record_stale_snapshot_rebuild(reason);
                         warn!(
                             revision,
                             expected = %expected_fingerprint,
+                            reason,
                             "rejecting stale or incompatible ANN snapshot; rebuilding from rows"
                         );
                     }
@@ -155,6 +171,7 @@ impl ChaoticSemanticFramework {
                     ns_state.index.rebuild(&concepts_map)?;
                 }
             }
+            self.invalidate_text_index(&ns).await;
 
             #[cfg(not(target_arch = "wasm32"))]
             {
@@ -205,6 +222,7 @@ impl ChaoticSemanticFramework {
                 let concepts_map = ns_state.concepts.clone();
                 ns_state.index.rebuild(&concepts_map)?;
             }
+            self.invalidate_text_index(&ns).await;
         }
         Ok(())
     }
@@ -215,8 +233,9 @@ impl ChaoticSemanticFramework {
         if concepts.is_empty() {
             return Ok(());
         }
+        let _mutation = self.mutation_coordinator.lock().await;
+        let ns = self.namespace().await;
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace().await;
             persistence.save_concepts(&ns, concepts).await?;
             let mut sing = self.singularity.write().await;
             for concept in concepts {
@@ -226,17 +245,23 @@ impl ChaoticSemanticFramework {
                         error = %e,
                         "post-commit batch inject failed; reloading namespace"
                     );
-                    self.reload_namespace_from_rows(&ns).await?;
-                    return Ok(());
+                    if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                        return Err(MemoryError::database(format!(
+                            "post-commit batch inject failed ({e}); namespace reconciliation failed ({reload})"
+                        )));
+                    }
+                    return Err(MemoryError::database(format!(
+                        "post-commit batch inject failed ({e}); namespace was reloaded from durable rows"
+                    )));
                 }
             }
         } else {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             for concept in concepts {
                 sing.inject(&ns, concept.clone())?;
             }
         }
+        self.invalidate_text_index(&ns).await;
         Ok(())
     }
 
@@ -245,8 +270,9 @@ impl ChaoticSemanticFramework {
     /// Persistence failures leave in-memory state unchanged. A rare post-commit
     /// memory apply failure reloads the namespace from authoritative rows.
     pub(crate) async fn durable_inject_concept(&self, concept: Concept) -> Result<()> {
+        let _mutation = self.mutation_coordinator.lock().await;
+        let ns = self.namespace().await;
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace().await;
             persistence.save_concept(&ns, &concept).await?;
             let mut sing = self.singularity.write().await;
             if let Err(e) = sing.inject(&ns, concept.clone()) {
@@ -256,22 +282,30 @@ impl ChaoticSemanticFramework {
                     concept_id = %concept.id,
                     "post-commit memory inject failed; reloading namespace from durable rows"
                 );
-                // Durable commit succeeded; reconcile memory and return Ok so
-                // callers do not treat a successful write as failure.
-                self.reload_namespace_from_rows(&ns).await?;
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit inject failed for concept {} ({e}); namespace reconciliation failed ({reload})",
+                        concept.id
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit inject failed for concept {} ({e}); namespace was reloaded from durable rows",
+                    concept.id
+                )));
             }
         } else {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             sing.inject(&ns, concept)?;
         }
+        self.invalidate_text_index(&ns).await;
         Ok(())
     }
 
     /// Durable delete: commit row removal first, then memory (ADR-0093).
     pub(crate) async fn durable_delete_concept(&self, id: &str) -> Result<()> {
+        let _mutation = self.mutation_coordinator.lock().await;
+        let ns = self.namespace().await;
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace().await;
             persistence.delete_concept(&ns, id).await?;
             let mut sing = self.singularity.write().await;
             if let Err(e) = sing.delete(&ns, id) {
@@ -288,9 +322,9 @@ impl ChaoticSemanticFramework {
             }
         } else {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             sing.delete(&ns, id)?;
         }
+        self.invalidate_text_index(&ns).await;
         Ok(())
     }
 
@@ -300,6 +334,8 @@ impl ChaoticSemanticFramework {
         let Some(ref persistence) = self.persistence else {
             return Ok(());
         };
+        #[cfg(feature = "prometheus")]
+        crate::observability::prom::record_persistence_reconciliation();
         let concepts = persistence.load_all_concepts(ns).await?;
         let associations = persistence.load_all_associations(ns).await?;
         let mut sing = self.singularity.write().await;
@@ -315,6 +351,8 @@ impl ChaoticSemanticFramework {
         let ns_state = sing.ensure_namespace(ns)?;
         let concepts_map = ns_state.concepts.clone();
         ns_state.index.rebuild(&concepts_map)?;
+        drop(sing);
+        self.invalidate_text_index(ns).await;
         Ok(())
     }
 

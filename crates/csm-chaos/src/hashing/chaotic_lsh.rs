@@ -59,10 +59,10 @@ impl ChaoticLsh {
                 let mut dot2 = 0.0f32;
                 let mut dot3 = 0.0f32;
 
-                let mut in_chunks = input.chunks_exact(4);
-                let mut row_chunks = row.chunks_exact(4);
+                let (in_chunks, in_remainder) = input.as_chunks::<4>();
+                let (row_chunks, row_remainder) = row.as_chunks::<4>();
 
-                for (in_c, row_c) in in_chunks.by_ref().zip(row_chunks.by_ref()) {
+                for (in_c, row_c) in in_chunks.iter().zip(row_chunks.iter()) {
                     dot0 += in_c[0] * row_c[0];
                     dot1 += in_c[1] * row_c[1];
                     dot2 += in_c[2] * row_c[2];
@@ -70,7 +70,7 @@ impl ChaoticLsh {
                 }
 
                 let mut dot = (dot0 + dot1) + (dot2 + dot3);
-                for (&val, &p_val) in in_chunks.remainder().iter().zip(row_chunks.remainder()) {
+                for (&val, &p_val) in in_remainder.iter().zip(row_remainder) {
                     dot += val * p_val;
                 }
 
@@ -433,5 +433,17 @@ mod tests {
         let scalar = lsh.project_scalar(&input);
         let result = lsh.project(&input);
         assert_eq!(scalar, result);
+    }
+
+    #[test]
+    fn test_scalar_projection_includes_input_remainder() {
+        let mut lsh = ChaoticLsh::new(0.5, 0.7, 0.95, 5);
+        for row in lsh.projection_matrix.as_chunks_mut::<5>().0 {
+            row.fill(0.0);
+            row[4] = 1.0;
+        }
+
+        let input = [0.0, 0.0, 0.0, 0.0, 1.0];
+        assert_eq!(lsh.project_scalar(&input), [u64::MAX; 160]);
     }
 }

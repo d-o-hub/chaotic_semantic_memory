@@ -15,6 +15,7 @@
 
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use csm_core_lib::error::{MemoryError, Result};
 
@@ -42,6 +43,58 @@ pub enum LogFormat {
     Ndjson,
 }
 
+/// Bounded batch-export and shutdown settings for OTLP gRPC.
+///
+/// Defaults use the OpenTelemetry queue, batch, and schedule values with
+/// explicit five-second export and shutdown bounds.
+#[derive(Debug, Clone)]
+pub struct OtlpBatchConfig {
+    /// Maximum queued spans; a full queue drops newly ended spans.
+    pub max_queue_size: usize,
+    /// Maximum spans in one export batch; must not exceed `max_queue_size`.
+    pub max_export_batch_size: usize,
+    /// Maximum delay before a partial batch is exported.
+    pub scheduled_delay: Duration,
+    /// Maximum duration of one remote export request.
+    ///
+    /// The bound is applied to the exporter's gRPC channel, so each request
+    /// fails on its own deadline; a force flush that drains several batches
+    /// can still take longer than this value in total.
+    pub max_export_timeout: Duration,
+    /// Maximum time spent shutting down the provider.
+    pub shutdown_timeout: Duration,
+}
+
+impl Default for OtlpBatchConfig {
+    fn default() -> Self {
+        Self {
+            max_queue_size: 2048,
+            max_export_batch_size: 512,
+            scheduled_delay: Duration::from_secs(5),
+            max_export_timeout: Duration::from_secs(5),
+            shutdown_timeout: Duration::from_secs(5),
+        }
+    }
+}
+
+impl OtlpBatchConfig {
+    pub(crate) fn validate(&self) -> Result<()> {
+        if self.max_queue_size == 0
+            || self.max_export_batch_size == 0
+            || self.max_export_batch_size > self.max_queue_size
+            || self.scheduled_delay.is_zero()
+            || self.max_export_timeout.is_zero()
+            || self.shutdown_timeout.is_zero()
+        {
+            return Err(MemoryError::Observability(
+                "OTLP batch sizes and timeouts must be positive, and batch size must not exceed queue size"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Observability configuration.
 ///
 /// All fields are optional. `init` returns `Ok(None)` when nothing was
@@ -55,6 +108,8 @@ pub struct ObservabilityConfig {
     /// Requires the `otlp` feature. When set, trace spans are exported
     /// to this endpoint via the OpenTelemetry protocol.
     pub otlp_endpoint: Option<String>,
+    /// OTLP batch queue, batch size, schedule, and bounded shutdown settings.
+    pub otlp_batch: OtlpBatchConfig,
     /// Bind address for the Prometheus `/metrics` HTTP server.
     /// Requires the `prometheus` feature.
     pub prometheus_bind: Option<SocketAddr>,
@@ -78,15 +133,42 @@ pub struct Guard {
     _priv: (),
 }
 
-impl Drop for Guard {
-    fn drop(&mut self) {
+impl Guard {
+    /// Flush queued OTLP spans without shutting down the provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an OTLP exporter error or timeout.
+    pub fn force_flush(&self) -> Result<()> {
+        #[cfg(all(feature = "otlp", not(target_arch = "wasm32")))]
+        if let Some(guard) = &self.otel_guard {
+            guard.force_flush()?;
+        }
+        Ok(())
+    }
+
+    /// Stop the scrape server and shut down OTLP once.
+    ///
+    /// # Errors
+    ///
+    /// Returns OTLP shutdown failures.
+    pub fn shutdown(&mut self) -> Result<()> {
         #[cfg(feature = "prometheus")]
         if let Some(handle) = self.prom_handle.take() {
             handle.shutdown();
         }
         #[cfg(all(feature = "otlp", not(target_arch = "wasm32")))]
         if let Some(mut guard) = self.otel_guard.take() {
-            guard.shutdown();
+            guard.shutdown()?;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for Guard {
+    fn drop(&mut self) {
+        if let Err(error) = self.shutdown() {
+            tracing::warn!(%error, "observability shutdown failed");
         }
     }
 }
@@ -100,6 +182,10 @@ impl Drop for Guard {
 /// Returns `Ok(None)` when nothing was actually enabled — useful for tests
 /// that want to call this unconditionally.
 pub fn init(config: ObservabilityConfig) -> Result<Option<Guard>> {
+    #[cfg(all(feature = "otlp", not(target_arch = "wasm32")))]
+    if config.otlp_endpoint.is_some() {
+        config.otlp_batch.validate()?;
+    }
     if INITIALISED.swap(true, Ordering::SeqCst) {
         return Err(MemoryError::ObservabilityAlreadyInitialised);
     }
@@ -134,11 +220,14 @@ pub fn init(config: ObservabilityConfig) -> Result<Option<Guard>> {
     // `tracing` subscriber. This must happen before the JSON formatter
     // so that span data is exported to both gRPC and the log output.
     #[cfg(all(feature = "otlp", not(target_arch = "wasm32")))]
-    let otel_guard = if let Some(ref endpoint) = config.otlp_endpoint {
-        Some(otlp_grpc::install_grpc_tracer(
-            endpoint,
-            &config.service_name,
-        )?)
+    let otel_guard = if let Some(endpoint) = &config.otlp_endpoint {
+        match otlp_grpc::install_grpc_tracer(endpoint, &config.service_name, &config.otlp_batch) {
+            Ok(guard) => Some(guard),
+            Err(error) => {
+                INITIALISED.store(false, Ordering::SeqCst);
+                return Err(error);
+            }
+        }
     } else {
         None
     };
@@ -168,7 +257,13 @@ pub fn init(config: ObservabilityConfig) -> Result<Option<Guard>> {
 
     #[cfg(feature = "prometheus")]
     let prom_handle = if let Some(bind) = config.prometheus_bind {
-        Some(prom::start_server(bind)?)
+        match prom::start_server(bind) {
+            Ok(handle) => Some(handle),
+            Err(error) => {
+                INITIALISED.store(false, Ordering::SeqCst);
+                return Err(error);
+            }
+        }
     } else {
         None
     };

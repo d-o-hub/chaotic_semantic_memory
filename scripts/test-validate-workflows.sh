@@ -88,9 +88,11 @@ GATE_OUTPUT=""
 # non-zero subject exit is the data being asserted on.
 run_gate() {
     local run_path="${1:-${PATH}}"
+    local required="${2:-false}"
     GATE_STATUS=0
     GATE_OUTPUT="$(
-        PATH="${run_path}" bash "${TEST_DIR}/scripts/validate-workflows.sh" --check 2>&1
+        CSM_VALIDATION_REQUIRED="${required}" PATH="${run_path}" \
+            bash "${TEST_DIR}/scripts/validate-workflows.sh" --check 2>&1
     )" || GATE_STATUS=$?
     GATE_OUTPUT="$(printf '%s\n' "${GATE_OUTPUT}" | sed -e "s/${ESC}\[[0-9;]*m//g")"
 }
@@ -378,6 +380,18 @@ if [[ "${GATE_STATUS}" -eq 0 ]] \
     ok "no-parser case skipped loudly, exited 0, and invented no syntax error"
 else
     ko "no-parser case wrong (status=${GATE_STATUS}); output was:"
+    printf '%s\n' "${GATE_OUTPUT}"
+fi
+
+# ---------------------------------------------------------------------------
+echo "Test 8b: a required YAML gate fails when no parser is available"
+baseline
+run_gate "${MIN_BIN_NOYAML}" true
+if [[ "${GATE_STATUS}" -ne 0 ]] \
+    && [[ "${GATE_OUTPUT}" == *"ERROR: required YAML validation had no parser verdict"* ]]; then
+    ok "required YAML parser absence fails closed"
+else
+    ko "required no-parser case did not fail closed (status=${GATE_STATUS}); output was:"
     printf '%s\n' "${GATE_OUTPUT}"
 fi
 

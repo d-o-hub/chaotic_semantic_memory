@@ -1,5 +1,46 @@
 # PROGRESS
 
+## 2026-10-19: a reorder claim that no benchmark in the repo could see
+
+Six open PRs, empty GOAP queue, 0 issues, `main` at `0ab86f4d`. The round's work was the mandatory
+pre-merge roast (`AGENTS.md` Phase 1 step 5), recorded in `plans/PR_ROAST_2026_10_19.md`.
+
+**#917** (draft Jules `perf(retrieval)`, +6/-0 in `crates/csm-retrieval/src/bm25.rs`) was **closed as
+no demonstrated impact** — the seventh member of the #737/#739/#740/#754/#783/#800/#915 class, with
+`commitlint` red on `scripts/check-perf-pr-evidence.py` and a body that offered a cache-locality
+story instead of numbers. What made this one different from a shape-check is that the claim was
+*testable*, and testing it refuted it twice over:
+
+1. **Every bm25 corpus in the repository has uniform posting lengths**, so sorting by
+   `entries.len()` swaps nothing. `benches/benchmark.rs:711-719` indexes all four tokens into every
+   document; `benches/bm25_benchmark.rs:19-29` gives doc `i` token `j` iff `(i + j) % 2 == 0`, so
+   each of the ten tokens lands in exactly 500 documents; the `selective_100000` corpus
+   `(7i + 13j) mod 1000` gives exactly 2 000 postings per term. The branch executes on all of them
+   and is a semantic no-op on all of them — a third blindness cause alongside wrong arguments
+   (#800) and the callee's fast path (#909/#891), and only discoverable by reading the corpus
+   generator rather than the call site.
+2. **In the one corpus where it does reorder — 20 000 docs, postings 20 000 / 2 000 / 200, query
+   supplied descending — it is ~8 % slower.** Median 168.3 → 180.0 µs across four time-interleaved
+   pairs (+5.1 / +9.0 / +10.1 / +7.2 %, consistent sign).
+
+The first measurement pair was *wrong in the flattering direction*: 190 µs with the sort against
+255 µs without, a fake 25 % win, because the legs straddled a rebuild while desktop load fell. Absolute
+times on `csm-ref-01` drifted ~50 % across the session and the canonical `search_1000_docs`
+A/B/A/B sign-flipped (11.59 / 10.87 / 11.81 / 14.82 µs). The fix that worked: compile each arm,
+copy the two `target/release/deps/bm25_benchmark-*` binaries apart, then run `A B A B` with no
+rebuild between, printing loadavg per leg. That method, the flat-corpus check and the honest
+withdrawal of my own tie-break objection (bit-identical `to_bits()`, same top-5 ids on a corpus
+built to expose it) are distilled into `skill://pr-roast-triage` and
+`progress/LEARNINGS.md`; the stale `BM25 search 10k ~406 µs` baseline was re-measured at 113–116 µs.
+
+The five dependabot PRs (#918 `taiki-e/install-action` 2.87.27 → 2.87.29; #919 root `serde_json`
+1.0.151 → 1.0.154 + `tokio` 1.53.2 → 1.53.3; #920 root `proptest` 1.11.0 → 1.12.0; #921/#922 the
+same two in `fuzz/Cargo.lock`) are keepers: all `MERGEABLE`, each head contains `origin/main`, each
+diff minimal, and root vs `fuzz/` lockfiles are different workspaces so they are not duplicates of
+each other. They were pending on `lint`/`test`/`mutation-test`/`Build CLI (linux-x64)` at triage, so
+they land one at a time — rebase, CI on the new head, re-check `mergeStateStatus`, squash-merge —
+per Phase 5 step 18.
+
 ## 2026-10-05 (round 8): the queue drifted again behind its own fix, and I read a pipe's exit code as the script's
 
 ### Three merges, one at a time, each re-based onto the moving `main`
@@ -1561,3 +1602,88 @@ available direct proof for that branch.
 Unrelated draft PR #915 (`perf(core): fast-path 0-shift in HVec10240::permute`) was reviewed,
 roasted, and closed as a no-impact duplicate of #800, #814, and #819 (commitlint perf gate failed,
 by-value copy refuted, no new benchmark evidence), clearing the PR-drain gate condition for PR #916.
+
+## 2026-10-20: the 2026-10-19 audit follow-up set, implemented on one branch
+
+`plans/RECOMMENDATIONS_2026_10_19.md` recorded a P0–P2 backlog. This round implements it.
+
+**Durable-or-unchanged mutations.** Every public mutation now commits to the durable rows before
+it touches memory, and a persistence failure leaves both the live framework and a fresh reload at
+the pre-mutation state. The failure matrix is a real matrix, not one case per method: inject,
+delete, batch inject, metadata update, association, association batch, reinforcement, and pruning
+each have a simulated-failure test that asserts the *reload* equals the pre-state, not just the
+in-memory count. A failed `associate_many` applies no prefix of its batch. A namespace revision
+advances exactly once per durable graph mutation.
+
+**Transactional replacement import.** The old path cleared the namespace and then validated, so a
+malformed payload left memory emptied and durable rows half-written. The new path stages and
+validates the whole payload — concepts *and* association endpoints — before any state changes, and
+an association naming a missing concept rejects the entire replacement instead of being skipped.
+
+**One TTL and namespace policy.** A persistent purge removes expired concepts, their associations,
+and their durable rows, so a reload cannot resurrect them. A namespace switch loads the target
+namespace's associations, not only its concepts. A cold namespace export includes the graph edges.
+
+**Versioned, bounded binary export (ADR-0100).** New public snapshots are written with Postcard
+behind the `CSMBIN01` envelope (format version 1, codec id 2) instead of bincode 1.x
+(RUSTSEC-2025-0141). The writer streams through a size-limited `Write` implementation, so a
+snapshot can never exceed the 100 MiB import limit before the check — the old path allocated the
+whole buffer first. The reader still accepts the historical version-1 fixed-int bincode envelope
+and both un-enveloped legacy payloads, so existing exports keep loading. The native file API, the
+namespace byte API and the WASM `exportToBytes` binding share one encoder and one decoder.
+
+**MCP transport and security (ADR-0101).** `Transport::Sse` is renamed to
+`Transport::StreamableHttp` — a breaking change with no alias, because the deprecated HTTP+SSE
+label was the public name of a server that speaks Streamable HTTP. rmcp's current stateless path
+handles current clients; the local session manager stays for negotiated legacy versions only. A
+non-loopback bind now *requires* a bearer token, the default Host allow-list is loopback-only,
+Origin validation is enforced, and the token is compared in constant time. Stdio is unchanged.
+
+**Bounded OTLP lifecycle (ADR-0102).** The gRPC exporter uses a bounded batch span processor
+instead of the synchronous simple processor, so a slow collector no longer adds its latency to
+request handling. `OtlpBatchConfig` makes the queue size, batch size, scheduled delay, per-request
+export timeout and shutdown timeout explicit; `force_flush` and `shutdown` report their failures
+instead of discarding them.
+
+**Retrieval consistency.** BM25 has one owner (`csm-retrieval`); the CLI no longer rebuilds an
+index per query and no longer truncates documents at 200 characters; the CLI's JSON result carries
+the stable concept id. GraphRAG has one implementation owner with the root module reduced to a
+re-export, and its public config rejects NaN, infinity and out-of-range weights with
+`InvalidInput`.
+
+**Gate graph and tooling.** The required-vs-CI-only gate set is explicit; a missing required
+dependency fails closed and a deliberate skip is outside the required set. `scripts/SCRIPT_CATALOG.md`
+is generated and drift-gated, with a fixture that classifies owner, purpose, file mutation, remote
+mutation, caller and fixture per script. `actionlint` is gated fail-closed; ShellCheck is opt-in
+and says so. `scripts/validate-low-memory.sh` is a bounded Cargo-only development path that is
+explicitly *not* a substitute for the two required gates.
+The pre-release gate is a publication blocker: `release.yml` waits for its successful result on
+the same `head_sha`, and manual dispatch verifies both CI and the gate for the same SHA.
+`dist.yml` builds platform CLI binaries only; a main push with no bounded PR diff reports
+mutation evidence as “not run,” not a passing score. The decision is recorded in ADR-0042 and
+the `release-management` skill.
+
+**Measured behavioral skill evals.** Five critical skills x 4 deterministic cases = 20 cases, each
+response judged against every case assertion. The first measured run scored 18/20 and exposed two
+rubric gaps the skills did not state (a performance verdict that omitted the retitle rule; a
+push-confirmation refusal that omitted the hooks/CI rule) and one fragile case (a gate list that
+omitted the full-range commitlint check). The skills and their cases were tightened and the suite
+rerun: **20/20, mean probability 0.871**, no judge failures. Evidence:
+`plans/evidence/skill_eval_2026_10_20.md`.
+
+**One blind spot found while doing it.** The ADR-parity gate matched only `00[0-9]{2}`, so every ADR
+id from 0100 upward was invisible to it: a registry row pointing at a missing ADR-0100 file would
+have passed. The pattern now matches the full four-digit space (`[0-9]{4}`), with missing/present
+fixtures at the first post-0099 id (0100) and the unpadded boundary (1000). The same class of check
+— a gate whose pattern is narrower than the data it guards — is worth re-auditing elsewhere.
+
+**Verification status at this update.** The first `scripts/validate.sh` run reached Clippy and
+failed on a lossy `u32`→`f32` Hamming-distance cast; the checked `u16` conversion now preserves
+the HVec10240 distance domain without a precision-loss lint. Clippy then exposed the newer
+`chunks_exact_to_as_chunks` lint in the scalar LSH path; the two fixed-size slices now use
+`as_chunks::<4>()` with the same remainder loop. ADR parity and its six fixtures, the workflow /
+GOAP / mutation / catalog safety fixture chain, and changed-script ShellCheck have passed. Full
+`scripts/validate.sh` and `scripts/harness-check.sh all` still need a green run after these fixes;
+no hosted CI run or PR exists for this branch yet. `gh auth status` succeeded, open issues were
+empty, and the only open PRs were unrelated dependabot updates #920 (conflicting) and #921 (one
+failing check); neither duplicates this change set.

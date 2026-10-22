@@ -71,10 +71,10 @@ Close the losers with reason `superseded by #<keeper>`.
 
 **A live duplicate can hold coverage the keeper lacks — fold, then dominate.** Diff the
 rival's *test* files, not just its source: #834 proved the SIGTERM path on
-`csm mcp serve --transport sse` while the keeper #836 covered only `watch`. Take that one
-dimension into the keeper's own harness and say in the roast that the competitor supplied
-it. Two agents reaching the same design independently is also the cheapest confirmation
-the design is the obvious one.
+`csm mcp serve --transport streamable-http` while the keeper #836 covered only
+`watch`. Take that one dimension into the keeper's own harness and say in the
+roast that the competitor supplied it. Two agents reaching the same design
+independently is also the cheapest confirmation the design is the obvious one.
 
 **Closed predecessors are duplicates too — and `gh pr list` cannot see them.**
 A bot re-files the same finding under a new task id, so grep the roast records
@@ -137,30 +137,26 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
     called — the "after" number was slower (92.5 → 93.3 µs) because it timed
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
-  - **A bench can be blind two ways (PR #800, 2026-10-01; #909/#891, 2026-10-17).**
-    By its *arguments*: `binary_benchmark.rs` benches `permute(321)` and `321 % 128 = 65`,
-    so the word-aligned path never runs — use shift `0`/`10240` or `Encoder::encode`.
-    And by the *callee's fast path*: `make_candidates` prefills `score = 1.0`, so
-    `rerank`'s `score >= 0.99` early return made every `mmr_rerank/*` id time the fast
-    path, not the loop. Prove reach with an env-gated `Once` marker and size it with a
-    `top_k = 1` variant — details in the `bench-blindness` reference.
-  - **Separate zero-fill elimination from scheduling effects (PR #783,
-    2026-09-28).** In the inspected x86_64/rustc 1.98.1 builds, LLVM already
-    removed the overwritten zero-init: the old-only body was a bare `memcpy`,
-    and old/new `from_hvec`/`from_bytes` folded to the *same address*.
-    `to_bytes` changed instruction scheduling over the same alloc+memcpy:
-    no demonstrated zero-fill-elimination benefit does not mean zero codegen
-    delta or prove all timings are noise. Require reproducible affected-path
-    benchmarks for a scheduling-speedup claim. Compile variants
-    `#[no_mangle] #[inline(never)]` into a linked binary and disassemble
-    (raw `--emit obj/asm` drops unreferenced `pub fn`s on rustc 1.98.1).
-    Initializer *position* is not the fix either: `memset` survives `word_shift != 0` (#893) — `references/codegen-and-measured-claims.md`.
-  - **Evidence belongs in the PR body.** A `## Performance Evidence` section in
-    a commit message does not satisfy the gate and does not reach a reviewer
-    reading the PR. Check the body, not the commits.
-  - A passing gate prints what it accepted (`shape OK — benchmark ids: …;
-    artifact: …`) plus a one-line scope warning; read that line in the CI log to
-    see the claim without opening the body.
+  - State all three in the verdict: the benchmark reaches changed code, its input distribution exercises the affected case, and the measured direction/sign supports the claim. A `perf` → `refactor` title change never bypasses this evidence bar.
+  - **A bench can be blind three ways (#800; #909/#891; #917).** By its *arguments*
+    (`permute(321)` never reaches the word-aligned path); by the *callee's fast path*
+    (`make_candidates` prefills `score = 1.0`, so `rerank`'s `>= 0.99` return starved every
+    `mmr_rerank/*` id); and by a *flat corpus* — #917's `sort_unstable_by_key(entries.len())`
+    ran on every bm25 bench and reordered nothing, because each feeds equal-length posting
+    lists. Reachability shows at the call site; **blindness lives in the data**, so for an
+    ordering or selection claim read the corpus generator's key distribution. Proof recipe:
+    the `bench-blindness` reference.
+  - **Separate zero-fill elimination from scheduling effects (PR #783, 2026-09-28).** LLVM
+    already removes the overwritten zero-init — an old-only body disassembles to a bare
+    `memcpy`, old/new `from_hvec`/`from_bytes` folding to the *same address* — so "no
+    demonstrated zero-fill benefit" is not "zero codegen delta": a scheduling claim needs
+    reproducible affected-path benchmarks. Disassembly recipe (`#[no_mangle]
+    #[inline(never)]` in a linked binary — raw `--emit obj/asm` drops unreferenced `pub fn`s)
+    and #893's initializer-*position* caveat: `references/codegen-and-measured-claims.md`.
+  - **Evidence belongs in the PR body.** A `## Performance Evidence` section in a commit
+    message satisfies neither the gate nor a reviewer. A passing gate prints what it accepted
+    (`shape OK — benchmark ids: …; artifact: …`) plus a one-line scope warning; read that CI
+    log line to see the claim without opening the body.
 - **Correctness and impact are separate verdicts** (PR #763, 2026-09-24). Never
   let a correct diff pass on a bad claim, nor a good claim excuse a wrong one.
   Adjudicate each independently:
@@ -180,14 +176,19 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
     sign-flip at ±25 % (same class as "Benchmark under load"). Measure the
     PR's own base in a worktree: a claimed "after" can be slower than the head
     measures (#889) — `references/codegen-and-measured-claims.md`.
+    **Toggling the source is not an interleave** (#917): legs straddling a rebuild read as
+    a 25 % *win* for a change that is 8 % slower, because absolute times on this host drift
+    ~50 % with desktop load. Build both arms, `cp` the two
+    `target/release/deps/<bench>-<hash>` binaries apart (cargo reuses the hashed name per
+    variant), run `A B A B` from `/tmp` with no rebuild between, print `/proc/loadavg` per
+    leg, and pass `--bench` — without it criterion runs test mode and prints no timings.
   - A **correct-but-unmeasured** PR is not a no-op: request the evidence
-    (`## Performance Evidence`, enforced by `scripts/check-perf-pr-evidence.py`)
-    and the regression test that locks the new correctness property, and keep
-    the PR open. Reserve *close as no-op* for zero-delta or wrong diffs.
-  - Demand the parity test whenever the diff's justification is a correctness
-    argument — that test is worth more than the benchmark.
-  - Look for the degenerate case: when `k == N` the partition is skipped, so
-    deferring per-element work is a pure regression. Guard it.
+    (`## Performance Evidence`, enforced by `scripts/check-perf-pr-evidence.py`) and the test
+    locking the new correctness property, and keep the PR open. Reserve *close as no-op* for
+    zero-delta or wrong diffs.
+  - Demand the parity test whenever the justification is a correctness argument — it is worth
+    more than the benchmark. And look for the degenerate case: at `k == N` the partition is
+    skipped, so deferring per-element work is a pure regression. Guard it.
 - **Five things a green CI cannot tell you about a test diff** (2026-10-05, #834):
   a subprocess test needs a deadline on every `child.wait()`, readiness synchronised on
   the child's own output rather than `sleep(200ms)`, and an explicit `--database` (with
@@ -211,9 +212,8 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
 - **GitHub CLI GraphQL deprecation**: `gh pr edit` and `gh issue view` fail if querying
   deprecated `projectCards`. Query specific `--json` fields for reads, or use
   `gh api -X PATCH repos/<owner>/<repo>/pulls/<id> -f title="..."` for editing PR titles.
-- **Multi-issue parent linkage**: When a parent PR implements multiple child issues,
-  ensure all child issues (`Fixes #A`, `Fixes #B`) are declared in the PR body so all
-  issues close cleanly upon merge.
+- **Multi-issue parent linkage**: a parent PR implementing several child issues declares each
+  (`Fixes #A`, `Fixes #B`) in the body, so all issues close cleanly on merge.
 
 ## Step 5 — Manual merge order (emit, do not execute unless instructed)
 
@@ -238,9 +238,8 @@ git diff --stat origin/main...<branch> # no surprise reverts?
 gh pr merge <n> --squash --delete-branch
 ```
 
-Verified-safe shortcut: `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/update-branch`
-then wait for CI; confirm a CI run exists for the *post-rebase* SHA before
-trusting a green tick.
+Verified-safe shortcut: `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/update-branch` then wait
+for CI; confirm a run exists for the *post-rebase* SHA before trusting a green tick.
 
 ## Step 6 — Record in codebase
 

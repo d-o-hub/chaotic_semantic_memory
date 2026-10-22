@@ -191,11 +191,12 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use csm_memory::index_envelope::IndexSnapshotEnvelope;
+    use tempfile::NamedTempFile;
 
     #[tokio::test]
     async fn test_save_and_load_index_roundtrip() {
-        let path = "/tmp/test_index_persist_rt.db";
-        let _ = std::fs::remove_file(path);
+        let temp = NamedTempFile::new().expect("temp db file");
+        let path = temp.path().to_str().expect("temp db path");
         let persistence = Persistence::new_local(path).await.unwrap();
 
         let test_data = vec![1u8, 2, 3, 4, 5, 42, 99];
@@ -212,26 +213,23 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(missing, None);
-
-        std::fs::remove_file(path).ok();
     }
 
     #[tokio::test]
     async fn namespace_revision_bumps() {
-        let path = "/tmp/test_ns_revision.db";
-        let _ = std::fs::remove_file(path);
+        let temp = NamedTempFile::new().expect("temp db file");
+        let path = temp.path().to_str().expect("temp db path");
         let persistence = Persistence::new_local(path).await.unwrap();
         assert_eq!(persistence.get_namespace_revision("ns").await.unwrap(), 0);
         assert_eq!(persistence.bump_namespace_revision("ns").await.unwrap(), 1);
         assert_eq!(persistence.bump_namespace_revision("ns").await.unwrap(), 2);
         assert_eq!(persistence.get_namespace_revision("ns").await.unwrap(), 2);
-        std::fs::remove_file(path).ok();
     }
 
     #[tokio::test]
     async fn envelope_save_load() {
-        let path = "/tmp/test_env_index.db";
-        let _ = std::fs::remove_file(path);
+        let temp = NamedTempFile::new().expect("temp db file");
+        let path = temp.path().to_str().expect("temp db path");
         let persistence = Persistence::new_local(path).await.unwrap();
         let env = IndexSnapshotEnvelope::new(3, "bruteforce", vec![7, 8, 9]);
         persistence
@@ -245,13 +243,12 @@ mod tests {
             .unwrap();
         assert_eq!(loaded.namespace_revision, 3);
         assert_eq!(loaded.index_data, vec![7, 8, 9]);
-        std::fs::remove_file(path).ok();
     }
 
     #[tokio::test]
     async fn bulk_associations_load() {
-        let path = "/tmp/test_bulk_assoc.db";
-        let _ = std::fs::remove_file(path);
+        let temp = NamedTempFile::new().expect("temp db file");
+        let path = temp.path().to_str().expect("temp db path");
         let persistence = Persistence::new_local(path).await.unwrap();
         let c1 = csm_memory::ConceptBuilder::new("a")
             .with_vector(csm_core_lib::hyperdim::HVec10240::zero())
@@ -271,13 +268,12 @@ mod tests {
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].0, "a");
         assert_eq!(all[0].1, "b");
-        std::fs::remove_file(path).ok();
     }
 
     #[tokio::test]
     async fn bulk_associations_load_query_count() {
-        let path = "/tmp/test_bulk_assoc_query_count.db";
-        let _ = std::fs::remove_file(path);
+        let temp = NamedTempFile::new().expect("temp db file");
+        let path = temp.path().to_str().expect("temp db path");
         let persistence = Persistence::new_local(path).await.unwrap();
 
         for i in 0..=50 {
@@ -306,7 +302,5 @@ mod tests {
             1,
             "load_all_associations must issue exactly 1 database query regardless of association count"
         );
-
-        std::fs::remove_file(path).ok();
     }
 }

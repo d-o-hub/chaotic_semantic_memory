@@ -124,9 +124,14 @@ pub async fn run_index_jsonl(
             "line".to_string(),
             serde_json::Value::Number((line_num + 1).into()),
         );
+        let preview = truncate_preview(&text, 200);
+        metadata.insert(
+            "searchable_text".to_string(),
+            serde_json::Value::String(text),
+        );
         metadata.insert(
             "text_preview".to_string(),
-            serde_json::Value::String(truncate_preview(&text, 200)),
+            serde_json::Value::String(preview),
         );
         metadata.insert(
             "tags".to_string(),

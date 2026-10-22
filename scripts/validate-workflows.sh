@@ -401,15 +401,26 @@ validate_all_workflows() {
     else
       return 1
     fi
-  elif [[ $total_skipped -gt 0 ]]; then
-    # A skip never fails the gate and never passes it either: it says plainly
-    # that the YAML of these files was not checked at all.
+  fi
+
+  if [[ $total_skipped -gt 0 ]]; then
+    if [[ "${CSM_VALIDATION_REQUIRED:-false}" == "true" ]]; then
+      echo -e "\n${RED}ERROR: required YAML validation had no parser verdict; install yamllint or python3+PyYAML.${NC}"
+      if $CHECK_MODE; then
+        exit 1
+      else
+        return 1
+      fi
+    fi
     echo -e "\n${YELLOW}NOT VALIDATED: $total_skipped file(s) had no YAML parser" \
       "(yamllint or python3+PyYAML) — install one to actually check them.${NC}"
-  elif [[ $total_warnings -gt 0 || $total_advisories -gt 0 ]]; then
-    echo -e "\n${YELLOW}Validation passed with $total_warnings warnings" \
-      "and $total_advisories advisories${NC}"
-    echo "Review advisories and consider fixes for security best practices"
+  fi
+
+  if [[ $total_warnings -gt 0 || $total_advisories -gt 0 || $total_skipped -gt 0 ]]; then
+    echo -e "\n${YELLOW}Validation completed with $total_warnings warnings, $total_advisories advisories, and $total_skipped unvalidated file(s)${NC}"
+    if [[ $total_warnings -gt 0 || $total_advisories -gt 0 ]]; then
+      echo "Review advisories and consider fixes for security best practices"
+    fi
   else
     echo -e "\n${GREEN}All workflows validated successfully!${NC}"
   fi

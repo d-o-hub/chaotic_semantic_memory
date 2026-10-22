@@ -40,7 +40,7 @@ const EXIT_DEADLINE: Duration = Duration::from_secs(15);
 /// its signal handlers.
 const WATCH_READY: &str = "Press Ctrl+C to stop.";
 #[cfg(feature = "mcp")]
-const SERVE_READY: &str = "MCP SSE server listening on";
+const SERVE_READY: &str = "MCP Streamable HTTP server listening on";
 
 /// `--database` is mandatory for every command here: with none given, `csm` falls
 /// back to git-local storage and a test would write into the real repository.
@@ -62,13 +62,13 @@ fn spawn_watch(db: &Path) -> Child {
     csm(db, &["watch"])
 }
 
-/// `csm mcp serve --transport sse` — the ADR-0099 hop this issue was filed about.
+/// `csm mcp serve --transport streamable-http` — the ADR-0099 hop this issue was filed about.
 #[cfg(feature = "mcp")]
 fn spawn_serve(db: &Path) -> Child {
     Command::new(env!("CARGO_BIN_EXE_csm"))
         // tracing sits at ERROR by default; two `-v` raise it to INFO so the
         // readiness line below is emitted at all.
-        .args(["-vv", "mcp", "serve", "--transport", "sse"])
+        .args(["-vv", "mcp", "serve", "--transport", "streamable-http"])
         // Port 0 lets the kernel choose, and the server logs the address it really
         // bound, so there is no port to reserve and no reservation to collide with.
         .args(["--bind", "127.0.0.1:0"])
@@ -231,14 +231,24 @@ fn watch_stops_cooperatively_on_sigint() {
 /// the shutdown hop itself.
 #[cfg(feature = "mcp")]
 #[test]
-fn serve_sse_stops_cooperatively_on_sigterm() {
+fn serve_streamable_http_stops_cooperatively_on_sigterm() {
     let (status, stderr) = stop_with(spawn_serve, SERVE_READY, "TERM");
-    assert_cooperative("csm mcp serve --transport sse", "TERM", status, &stderr);
+    assert_cooperative(
+        "csm mcp serve --transport streamable-http",
+        "TERM",
+        status,
+        &stderr,
+    );
 }
 
 #[cfg(feature = "mcp")]
 #[test]
-fn serve_sse_stops_cooperatively_on_sigint() {
+fn serve_streamable_http_stops_cooperatively_on_sigint() {
     let (status, stderr) = stop_with(spawn_serve, SERVE_READY, "INT");
-    assert_cooperative("csm mcp serve --transport sse", "INT", status, &stderr);
+    assert_cooperative(
+        "csm mcp serve --transport streamable-http",
+        "INT",
+        status,
+        &stderr,
+    );
 }

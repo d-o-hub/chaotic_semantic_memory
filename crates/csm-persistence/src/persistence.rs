@@ -213,16 +213,33 @@ impl Persistence {
     ) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
+        conn.execute("BEGIN IMMEDIATE", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to begin association save: {e}")))?;
         let now = csm_memory::unix_now_secs();
 
-        conn.execute(
-            "INSERT INTO csm_associations (namespace, from_id, to_id, strength, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET strength = excluded.strength",
-            params![ns, from, to, strength, now as i64],
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to save association: {e}")))?;
+        if let Err(error) = conn
+            .execute(
+                "INSERT INTO csm_associations (namespace, from_id, to_id, strength, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET
+                    strength = excluded.strength, created_at = excluded.created_at",
+                params![ns, from, to, strength, now as i64],
+            )
+            .await
+        {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(MemoryError::database(format!(
+                "Failed to save association: {error}"
+            )));
+        }
+        if let Err(error) = self.bump_namespace_revision_with_conn(&conn, ns).await {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(error);
+        }
+        conn.execute("COMMIT", ()).await.map_err(|e| {
+            MemoryError::database(format!("Failed to commit association save: {e}"))
+        })?;
 
         Ok(())
     }
@@ -342,71 +359,6 @@ impl Persistence {
     }
 }
 
-#[cfg(test)]
-#[cfg(feature = "persistence")]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    use super::*;
-    use chrono::Utc;
-    use csm_traits::{AbsenceEntry, AbsenceStore};
-    use tempfile::NamedTempFile;
-
-    #[tokio::test]
-    async fn absence_store_crud_and_list() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
-
-        let ts = Utc::now();
-        let entry = AbsenceEntry {
-            id: AbsenceEntry::id_for("missing query"),
-            query: "missing query".to_string(),
-            normalized_query: AbsenceEntry::normalize("missing query"),
-            attempt_count: 1,
-            last_threshold: 0.5,
-            best_score_ever: None,
-            first_seen: ts,
-            last_seen: ts,
-            namespace: "_default".to_string(),
-            namespace_revision: 1,
-        };
-
-        // Unknown id returns None before any upsert.
-        assert!(
-            persistence
-                .get_absence(&entry.id)
-                .await
-                .expect("get_absence failed")
-                .is_none()
-        );
-
-        persistence
-            .upsert_absence(&entry)
-            .await
-            .expect("upsert_absence failed");
-
-        let loaded = persistence
-            .get_absence(&entry.id)
-            .await
-            .expect("get_absence failed")
-            .expect("absence should exist after upsert");
-        assert_eq!(loaded.id, entry.id);
-        assert_eq!(loaded.attempt_count, 1);
-
-        // list_absences returns entries at or above the attempt floor.
-        let listed = persistence
-            .list_absences(1)
-            .await
-            .expect("list_absences failed");
-        assert_eq!(listed.len(), 1);
-        assert!(
-            persistence
-                .list_absences(2)
-                .await
-                .expect("list_absences failed")
-                .is_empty()
-        );
-    }
-}
+#[cfg(all(test, feature = "persistence"))]
+#[path = "persistence_tests.rs"]
+mod tests;

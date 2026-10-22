@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Generate a static owner/purpose/mutation inventory for repository scripts."""
+
+from __future__ import annotations
+
+import argparse
+import pathlib
+import re
+import tempfile
+
+FILE_MUTATION = re.compile(
+    r"(?:\b(?:rm|mv|cp|mkdir|touch|install|truncate)\b|"
+    r"\b(?:write_text|write_bytes|unlink|rmtree|replace)\s*\(|"
+    r"\bsed\s+-i\b|\bcargo\s+(?:fmt|fix)\b|(?:>>?|\|\s*tee\b))"
+)
+LOCAL_GIT = re.compile(
+    r"\bgit\s+(?:add|commit|checkout|switch|branch|reset|restore|clean|"
+    r"stash|merge|rebase|tag)\b"
+)
+REMOTE_MUTATION = re.compile(
+    r"\bgit\s+(?:push|pull)\b|\bgh\s+(?:pr|issue)\s+"
+    r"(?:create|close|merge|comment|edit)\b|\bgh\s+api\b.*(?:-X|--method)\s+"
+    r"(?:POST|PATCH|DELETE)|\bnpm\s+publish\b|\bcargo\s+publish\b"
+)
+SCRIPT_SUFFIXES = {".py", ".sh"}
+
+
+def purpose(path: pathlib.Path) -> str:
+    """Return the first non-generic description from the script header."""
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[:24]
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#!"):
+            continue
+        if stripped.startswith("#"):
+            description = stripped.lstrip("# ").strip()
+            if description and not description.lower().startswith(("usage:", "why:", "what:")):
+                return description
+            continue
+        if stripped.startswith(('"""', "'''")):
+            description = stripped[3:].strip().strip('"\'')
+            if description:
+                return description
+        break
+    return "No purpose header"
+
+
+def owner(path: pathlib.Path) -> str:
+    parts = path.parts
+    if len(parts) > 1 and parts[0] == "scripts" and parts[1] == "lib":
+        return "shared script library"
+    if len(parts) > 2 and parts[0] == "scripts":
+        return f"{parts[1]} maintainers"
+    return "repository automation"
+
+
+def callers(root: pathlib.Path, script: pathlib.Path) -> list[str]:
+    rel = script.relative_to(root).as_posix()
+    sources = [root / ".github" / "workflows", root / ".githooks", root / "scripts"]
+    found: set[str] = set()
+    for directory in sources:
+        if not directory.exists():
+            continue
+        for candidate in directory.rglob("*"):
+            if not candidate.is_file() or candidate == script or candidate.suffix not in SCRIPT_SUFFIXES | {".yml", ".yaml"}:
+                continue
+            if candidate.name.startswith("test-"):
+                continue
+            text = candidate.read_text(encoding="utf-8", errors="replace")
+            if rel in text or script.name in text:
+                found.add(candidate.relative_to(root).as_posix())
+    return sorted(found)
+
+
+def fixture_for(root: pathlib.Path, script: pathlib.Path) -> str:
+    if script.name.startswith("test-"):
+        return "self (test script)"
+    stem = script.stem
+    candidates = [
+        root / "scripts" / f"test-{stem}.sh",
+        root / "scripts" / f"test-{stem}.py",
+        script.with_name(f"test-{stem}{script.suffix}"),
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.relative_to(root).as_posix()
+    return "none found"
+
+
+def mutation_labels(text: str) -> tuple[str, str]:
+    files = "detected" if FILE_MUTATION.search(text) else "none detected"
+    local = bool(LOCAL_GIT.search(text))
+    remote = bool(REMOTE_MUTATION.search(text))
+    git = "local + remote" if local and remote else "remote" if remote else "local" if local else "none detected"
+    return files, git
+
+
+def render(root: pathlib.Path) -> str:
+    scripts = sorted(
+        path
+        for path in (root / "scripts").rglob("*")
+        if path.is_file() and path.suffix in SCRIPT_SUFFIXES
+    )
+    rows: list[str] = []
+    for script in scripts:
+        text = script.read_text(encoding="utf-8", errors="replace")
+        script_callers = callers(root, script)
+        fixture = fixture_for(root, script)
+        is_test = script.name.startswith("test-")
+        if is_test:
+            status = "test fixture"
+        elif script_callers and fixture != "none found":
+            status = "called + fixture"
+        elif script_callers:
+            status = "called; no fixture"
+        elif fixture != "none found":
+            status = "operator; fixture present"
+        else:
+            status = "operator-only (no caller/fixture detected)"
+        file_mutation, git_mutation = mutation_labels(text)
+        caller_text = ", ".join(f"`{item}`" for item in script_callers) or "none detected"
+        rows.append(
+            f"| `{script.relative_to(root).as_posix()}` | {owner(script.relative_to(root))} | "
+            f"{purpose(script)} | {file_mutation} | {git_mutation} | {caller_text} | "
+            f"{fixture} | {status} |"
+        )
+    return "\n".join(
+        [
+            "# Script catalog",
+            "",
+            "Generated by `scripts/gen_script_catalog.py`; run `scripts/check-script-catalog.sh` to check drift.",
+            "Mutation and caller columns are static indicators, not proof of runtime behavior; review the script before execution.",
+            "`operator-only` means no caller or paired fixture was detected, not that the script is safe or obsolete.",
+            "",
+            "| Script | Owner | Purpose header | File mutation | Git/remote mutation | Live caller detected | Fixture | Status |",
+            "|---|---|---|---|---|---|---|---|",
+            *rows,
+            "",
+        ]
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parent.parent)
+    parser.add_argument("--out", type=pathlib.Path)
+    args = parser.parse_args()
+    root = args.root.resolve()
+    output = args.out or root / "scripts" / "SCRIPT_CATALOG.md"
+    content = render(root)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as stream:
+        stream.write(content)
+        temp_path = pathlib.Path(stream.name)
+    temp_path.replace(output)
+    print(f"wrote {output.relative_to(root) if output.is_relative_to(root) else output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
