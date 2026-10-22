@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.8
+**Version:** 0.3.9
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -17,12 +17,12 @@
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
-- csm-chaos (0.3.7)
-- csm-core-lib (0.3.7)
-- csm-embedding (0.3.7)
-- csm-memory (0.3.7)
-- csm-retrieval (0.3.7)
-- csm-traits (0.3.7)
+- csm-chaos (0.3.9)
+- csm-core-lib (0.3.9)
+- csm-embedding (0.3.9)
+- csm-memory (0.3.9)
+- csm-retrieval (0.3.9)
+- csm-traits (0.3.9)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)

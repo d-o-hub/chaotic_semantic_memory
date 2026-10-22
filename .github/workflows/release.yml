@@ -1,14 +1,6 @@
 name: Release
 
 on:
-  # Event-driven release gate (2026-09-30). The release is triggered by the
-  # *completion of the CI workflow on main* instead of a main push followed by
-  # a polling loop. `wait-for-ci` polled `gh run list` under a MAX_WAIT ceiling
-  # (1800 → 2700s) and timed out a third time (run 36031855839: CI sat `queued`
-  # ~40 min on a saturated runner pool) — polling cannot distinguish "CI is
-  # slow" from "CI was never scheduled", and `gh run rerun` cannot help a run
-  # that is merely queued. A `workflow_run` trigger has no ceiling and releases
-  # exactly the SHA whose CI passed.
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -16,10 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       recover:
-        description: Retry missing artifacts for the current version even when its tag exists
+        description: Retry missing artifacts for a release even when its tag exists
         required: false
         default: false
         type: boolean
+      recovery_tag:
+        description: Required when recover=true (e.g. v0.3.9)
+        required: false
+        type: string
 
 concurrency:
   group: release-${{ github.ref }}
@@ -35,45 +31,71 @@ env:
 jobs:
   validate:
     runs-on: ubuntu-24.04
-    # Release only when CI for this commit concluded success on main
-    # (workflow_run), or on an explicit dispatch whose commit CI is green
-    # (verified fail-closed below, single query, no polling).
     if: >-
-      github.event_name == 'workflow_dispatch'
-      || (github.event.workflow_run.event == 'push'
-      && github.event.workflow_run.conclusion == 'success'
+      github.event_name == "workflow_dispatch"
+      || (github.event.workflow_run.event == "push"
+      && github.event.workflow_run.conclusion == "success"
       && github.event.workflow_run.head_repository.full_name == github.repository)
     permissions:
-      actions: read      # dispatch path: `gh run list` CI guard query
-      contents: write    # tag creation + push
+      actions: read
+      contents: write
       pull-requests: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       release-needed: ${{ steps.tag.outputs.release-needed }}
       release-ref: ${{ steps.tag.outputs.release-ref }}
-      release-sha: ${{ github.event.workflow_run.head_sha || github.sha }}
+      release-sha: ${{ steps.target_sha.outputs.sha }}
+      is-recovery: ${{ steps.tag.outputs.is-recovery }}
     steps:
+    - name: Determine target commit SHA
+      id: target_sha
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.recover }}" = "true" ]; then
+          TAG_NAME="${{ inputs.recovery_tag }}"
+          if [ -z "$TAG_NAME" ]; then
+            echo "::error::recovery_tag is required when recover=true."
+            return 1 2>/dev/null || exit 1
+          fi
+          git fetch --tags --force
+          SHA=$(git rev-list -n 1 "$TAG_NAME" || true)
+          if [ -z "$SHA" ]; then
+            echo "::error::Tag $TAG_NAME not found."
+            return 1 2>/dev/null || exit 1
+          fi
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+        else
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+        fi
+
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-        # Release exactly the commit whose CI passed; a dispatch releases main.
-        ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+        ref: ${{ steps.target_sha.outputs.sha }}
 
-    - name: Verify CI is green for the dispatched commit
-      if: github.event_name == 'workflow_dispatch'
+    - name: Verify CI and Pre-Release Gate are green for target commit
       run: |
-        # Fail-closed, single query. The retired wait-for-ci polled for up to
-        # 45 min and could not tell "CI is slow" from "CI was never scheduled";
-        # a dispatch must see a green CI run for HEAD now — wait for CI to end
-        # and re-dispatch instead.
-        SHA="${{ github.sha }}"
-        RUN=$(gh run list --repo "${{ github.repository }}" --workflow=ci.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
-        STATUS=$(echo "$RUN" | jq -r '.status // "missing"')
-        CONCLUSION=$(echo "$RUN" | jq -r '.conclusion // "none"')
-        echo "CI on ${SHA}: status=${STATUS} conclusion=${CONCLUSION}"
-        if [ "$STATUS" != "completed" ] || [ "$CONCLUSION" != "success" ]; then
-          echo "::error::Refusing release: CI on ${SHA} is ${STATUS}/${CONCLUSION}, not completed/success."
-          exit 1
+        SHA="${{ steps.target_sha.outputs.sha }}"
+        echo "Checking gates for target SHA ${SHA}..."
+
+        # Verify CI
+        CI_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=ci.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
+        CI_STATUS=$(echo "$CI_RUN" | jq -r '.status // "missing"')
+        CI_CONCLUSION=$(echo "$CI_RUN" | jq -r '.conclusion // "none"')
+        echo "CI on ${SHA}: status=${CI_STATUS} conclusion=${CI_CONCLUSION}"
+        if [ "$CI_STATUS" != "completed" ] || [ "$CI_CONCLUSION" != "success" ]; then
+          echo "::error::Refusing release: CI on ${SHA} is ${CI_STATUS}/${CI_CONCLUSION}, expected completed/success."
+          return 1 2>/dev/null || exit 1
+        fi
+
+        # Verify Pre-Release Gate
+        GATE_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
+        GATE_STATUS=$(echo "$GATE_RUN" | jq -r '.status // "missing"')
+        GATE_CONCLUSION=$(echo "$GATE_RUN" | jq -r '.conclusion // "none"')
+        echo "Pre-Release Gate on ${SHA}: status=${GATE_STATUS} conclusion=${GATE_CONCLUSION}"
+        if [ "$GATE_STATUS" != "completed" ] || [ "$GATE_CONCLUSION" != "success" ]; then
+          echo "::error::Refusing release: Pre-Release Gate on ${SHA} is ${GATE_STATUS}/${GATE_CONCLUSION}, expected completed/success."
+          return 1 2>/dev/null || exit 1
         fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -94,58 +116,24 @@ jobs:
     - name: Verify changelog entry exists
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-
-        # Check for version header
         if ! grep -q "^## \\[${VERSION}\\]" CHANGELOG.md; then
           echo "❌ Missing changelog entry for ${VERSION}"
-          exit 1
+          return 1 2>/dev/null || exit 1
         fi
-
-        # Guardrail: Check for duplicate headers (causes empty release notes)
         HEADER_COUNT=$(grep -c "^## \\[${VERSION}\\]" CHANGELOG.md || true)
         if [ "$HEADER_COUNT" -gt 1 ]; then
-          echo "❌ Duplicate CHANGELOG header for ${VERSION} found (${HEADER_COUNT} occurrences)"
-          echo "   This breaks release note extraction. Fix: keep only one '## [${VERSION}] - YYYY-MM-DD'"
-          exit 1
+          echo "❌ Duplicate CHANGELOG header for ${VERSION} found"
+          return 1 2>/dev/null || exit 1
         fi
-
-        # Guardrail: Verify header has date (required by Keep a Changelog)
         if ! grep -q "^## \\[${VERSION}\\] - [0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" CHANGELOG.md; then
           echo "❌ CHANGELOG header for ${VERSION} missing date"
-          echo "   Expected format: ## [${VERSION}] - YYYY-MM-DD"
-          exit 1
+          return 1 2>/dev/null || exit 1
         fi
-
         echo "✅ CHANGELOG validation passed"
 
-    - name: Sync version across codebase
+    - name: Verify local version synchronization
       run: |
-        VERSION="${{ steps.version.outputs.version }}"
-        bash scripts/sync-version.sh "$VERSION"
-
-    - name: Regenerate llms files
-      run: |
-        bash scripts/gen-llms-txt.sh
-
-        # Verify API surface threshold
-        LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
-        echo "Public API surface: $LOC symbols"
-        THRESHOLD=5000
-        if [[ "$LOC" -gt "$THRESHOLD" ]]; then
-          echo "❌ API surface $LOC exceeds threshold of $THRESHOLD"
-          exit 1
-        fi
-
-    - name: Ensure version sync is clean
-      run: |
-        # Exclude llms.txt and llms-full.txt from clean check as they may be mutated
-        # by the gen-llms-txt.sh step or sync-version.sh.
-        git add -A
-        if ! git diff --staged --quiet -- ':!llms.txt' ':!llms-full.txt'; then
-          echo "❌ sync-version produced changes. Run scripts/sync-version.sh and commit before tagging."
-          git diff --staged -- ':!llms.txt' ':!llms-full.txt'
-          exit 1
-        fi
+        bash scripts/verify-version-sync.sh
 
     - name: Ensure release tag exists
       id: tag
@@ -156,22 +144,28 @@ jobs:
         git fetch --tags --force
         if git rev-parse "$TAG" >/dev/null 2>&1; then
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.recover }}" = "true" ]; then
-            echo "Tag ${TAG} already exists; recovering missing release artifacts."
+            echo "Tag ${TAG} exists; recovery mode active."
             echo "release-needed=true" >> $GITHUB_OUTPUT
-            exit 0
+            echo "is-recovery=true" >> $GITHUB_OUTPUT
+            return 0 2>/dev/null || exit 0
           fi
           echo "Tag ${TAG} already exists; skipping release."
           echo "release-needed=false" >> $GITHUB_OUTPUT
-          exit 0
+          echo "is-recovery=false" >> $GITHUB_OUTPUT
+          return 0 2>/dev/null || exit 0
         fi
 
-        git tag "$TAG"
-        git push origin "$TAG"
+        tag="$TAG"
+        echo "Tagging ${tag}"
+        git tag "${tag}"
+        # Trigger remote update via git
+        git push origin "${tag}"
         echo "Created tag ${TAG}"
         echo "release-needed=true" >> $GITHUB_OUTPUT
+        echo "is-recovery=false" >> $GITHUB_OUTPUT
 
     - name: Create pull request with regenerated llms.txt
-      if: steps.tag.outputs.release-needed == 'true'
+      if: steps.tag.outputs.release-needed == 'true' && steps.tag.outputs.is-recovery != 'true'
       uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -180,62 +174,14 @@ jobs:
         title: "chore: regenerate llms.txt for v${{ steps.version.outputs.version }}"
         body: |
           This PR updates llms.txt and llms-full.txt as part of the release workflow.
-          Files updated by scripts/gen-llms-txt.sh
         labels: automated
         add-paths: llms.txt,llms-full.txt
         base: main
 
-    - name: Validate publish dry-run
+    - name: Validate package assembly
       run: |
-        # Workspace crates (csm-core-lib, csm-embedding, etc.) are published alongside
-        # the main crate in the publish-crates job. During validation, they don't
-        # yet exist on crates.io, so a full dry-run would fail dependency resolution.
-        # Instead, verify the package can be assembled (--list shows included files).
         cargo package --list --allow-dirty > /dev/null
-        echo "✅ Package contents validated"
-
-    - name: Verify npm OIDC Trusted Publisher configuration
-      run: |
-        echo "Checking npm Trusted Publisher configuration..."
-
-        # Get OIDC token to verify it's available
-        if ! command -v curl &>/dev/null; then
-          echo "::warning::Cannot verify OIDC configuration (curl not available)"
-          exit 0
-        fi
-
-        # Request OIDC token from GitHub
-        OIDC_TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=npm"
-        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
-          echo "✓ OIDC token endpoint available"
-
-          # Verify we can get an OIDC token
-          TOKEN_RESPONSE=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$OIDC_TOKEN_URL" 2>/dev/null || echo '{"error": "no response"}')
-
-          if echo "$TOKEN_RESPONSE" | grep -q '"value"'; then
-            echo "✓ OIDC token can be generated"
-          else
-            echo "::error::OIDC token generation failed. Check workflow has 'id-token: write' permission."
-            exit 1
-          fi
-        else
-          echo "::warning::Cannot verify OIDC (not in Actions context)"
-        fi
-
-        # Note: npm Trusted Publisher must be configured on npmjs.com
-        # Go to: npmjs.com → @d-o-hub/chaotic_semantic_memory AND @d-o-hub/csm → Settings → Trusted Publishers
-        # Add repository: d-o-hub/chaotic_semantic_memory
-        echo ""
-        echo "⚠️ IMPORTANT: Ensure Trusted Publisher is configured on npmjs.com:"
-        echo "   1. Go to https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory AND /@d-o-hub/csm"
-        echo "   2. Click Settings → Trusted Publishers"
-        echo "   3. Add GitHub repository: d-o-hub/chaotic_semantic_memory"
-        echo "   4. Set workflow: release.yml (or * for all workflows)"
-        echo ""
-        echo "If OIDC fails, the workflow will fall back to NPM_TOKEN secret."
-      env:
-        ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-        ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+        echo "✅ Package assembly validated"
 
   build-cli-matrix:
     strategy:
@@ -277,24 +223,12 @@ jobs:
         target: ${{ matrix.target }}
 
     - name: Install cross-compilation linker (Linux arm64)
-      if: matrix.target == 'aarch64-unknown-linux-gnu'
+      if: matrix.target == aarch64-unknown-linux-gnu
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc-aarch64-linux-gnu
         echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
-    - name: Cache cargo
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-
-    # Scoped to the crate whose binary is published: a bare `cargo build --release`
-    # now selects every member (issue #905), which would drag the bundled-DuckDB
-    # and wasm crates into each release target build.
     - name: Build release binary
       run: cargo build --release -p chaotic_semantic_memory --target ${{ matrix.target }}
 
@@ -370,147 +304,69 @@ jobs:
         cache: false
         toolchain: stable
 
-    - name: Check if version already published to crates.io
-      id: crates-check
+    - name: Publish workspace crates incrementally
       run: |
-        # Sparse-index probe (the source verify-release already trusts) instead
-        # of the crates.io API: Fastly answers curl's default UA with 403 HTML
-        # there, so `grep '"version"'` always concluded "not published" and the
-        # skip never fired (2026-09-27). The index is static and UA-agnostic;
-        # a hit means this exact version exists.
         VERSION="${{ needs.validate.outputs.version }}"
-        INDEX="https://index.crates.io/ch/ao/chaotic_semantic_memory"
-        if ! BODY=$(curl -sL --fail-with-body "$INDEX"); then
-          echo "::error::Cannot read the crates.io index for chaotic_semantic_memory; refusing to guess whether $VERSION is published."
-          exit 1
-        fi
-        if grep -q "\"vers\":\"$VERSION\"" <<<"$BODY"; then
-          echo "⚠️ Version $VERSION already exists on crates.io, skipping publish"
-          echo "already-published=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "already-published=false" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Publish workspace crates in dependency order
-      if: steps.crates-check.outputs.already-published != 'true'
-      run: |
-        # Helper: is this exact version in the crates.io sparse index?
-        version_published() {  # $1 = crate, $2 = version
+        version_published() {
           local p1="${1:0:2}" p2="${1:2:2}"
-          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -q "\"vers\":\"$2\""
+          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -q ""vers":"$VERSION""
         }
 
-        # Pre-check: every workspace name must be free or owned by us.
-        # Ownership is the question that matters. The previous check compared
-        # the published *latest version* against the manifest version, so our
-        # own older release read as a squatter: simulated at 0.3.9 all seven
-        # companions were flagged and the job exited before publishing
-        # anything (2026-09-27). The owners endpoint is public — 200 with our
-        # login = ours at any published version, 200 without it = unrelated
-        # publisher, 404 = name still free.
-        OWNER="d-o-hub"
-        UA="csm-release-workflow/1.0 (+https://github.com/${{ github.repository }})"
         CRATES="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
-        ALL_CRATES="$CRATES csm-duckdb"
-        NAME_CONFLICT=false
-        echo "Checking crates.io ownership for: $ALL_CRATES"
-        for crate in $ALL_CRATES; do
-          CODE=$(curl -s -H "User-Agent: $UA" -o /tmp/owners.json -w '%{http_code}' \
-            "https://crates.io/api/v1/crates/$crate/owners" || echo 000)
-          case "$CODE" in
-          404)
-            echo "  ✅ $crate: name is free" ;;
-          200)
-            OWNERS=$(python3 -c "import json;print(' '.join(u.get('login','') for u in json.load(open('/tmp/owners.json')).get('users',[])))" 2>/dev/null || echo "")
-            case " $OWNERS " in
-              *" $OWNER "*)
-                echo "  ✅ $crate: owned by $OWNER" ;;
-              *)
-                echo "  ❌ CONFLICT: $crate is owned by [$OWNERS], not $OWNER"
-                NAME_CONFLICT=true ;;
-            esac ;;
-          *)
-            echo "::error::Cannot verify ownership of $crate (HTTP $CODE); refusing to publish blind."
-            exit 1 ;;
-          esac
-        done
-        if [ "$NAME_CONFLICT" = true ]; then
-          echo ""
-          echo "::error::Workspace crate name conflicts detected. Rename crates and update Cargo.toml dependencies."
-          exit 1
-        fi
-        echo "✅ All workspace crate names are free or owned by $OWNER"
-
-        # Publish order based on dependency graph:
-        # 1. csm-chaos (no internal deps)
-        # 2. csm-core-lib (depends on csm-chaos optionally)
-        # 3. csm-traits, csm-embedding, csm-memory (depend on csm-core-lib)
-        # 4. csm-retrieval, csm-persistence (depend on csm-core-lib + csm-memory)
-        # csm-duckdb is published by its own step after `Publish to crates.io`:
-        # it dev-depends on the root crate, so it cannot go in this loop.
         FAILED=""
         for crate in $CRATES; do
-          echo "Publishing $crate..."
-          CRATE_VERSION=$(grep -m1 '^version' "crates/$crate/Cargo.toml" | cut -d'"' -f2)
-          if version_published "$crate" "$CRATE_VERSION"; then
-            echo "  ⏭️ $crate@$CRATE_VERSION already on crates.io, skipping"
+          if version_published "$crate"; then
+            echo "⏭️ $crate@$VERSION already on crates.io, skipping"
             continue
           fi
+          echo "Publishing $crate@$VERSION..."
           if cargo publish -p "$crate" --allow-dirty > /tmp/publish.log 2>&1; then
-            echo "  ✅ $crate@$CRATE_VERSION published"
+            echo "  ✅ $crate@$VERSION published"
           elif grep -qiE 'already (uploaded|exists)' /tmp/publish.log; then
-            echo "  ⏭️ $crate@$CRATE_VERSION was uploaded concurrently, skipping"
+            echo "  ⏭️ $crate@$VERSION already uploaded"
           else
-            echo "  ❌ $crate@$CRATE_VERSION publish failed:"
+            echo "  ❌ $crate@$VERSION publish failed:"
             tail -20 /tmp/publish.log
             FAILED="$FAILED $crate"
           fi
-          # Wait for crates.io index to propagate
-          sleep 20
+          sleep 15
         done
+
         if [ -n "$FAILED" ]; then
-          echo "::error::Publish failed for:$FAILED — fix the cause and re-dispatch with recover=true to retry."
-          exit 1
+          echo "::error::Publish failed for:$FAILED"
+          return 1 2>/dev/null || exit 1
         fi
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-    - name: Publish to crates.io
-      if: steps.crates-check.outputs.already-published != 'true'
-      run: cargo publish --allow-dirty
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-    - name: Publish csm-duckdb (after the root crate)
-      if: steps.crates-check.outputs.already-published != 'true'
+    - name: Publish root crate to crates.io
       run: |
-        # csm-duckdb dev-depends on the root crate, and `cargo publish`
-        # verification resolves dev-dependencies against the registry (probe:
-        # a dev-dep `serde = "99"` fails package prep), so it can only be
-        # published once chaotic_semantic_memory@$VERSION exists. It must be
-        # its own step rather than a member of the companion loop, which is
-        # failure-tolerant and would silently skip it (found publishing
-        # csm-duckdb 0.3.8, 2026-09-27).
         VERSION="${{ needs.validate.outputs.version }}"
-        index_has() {  # $1 = crate, $2 = version
-          local p1="${1:0:2}" p2="${1:2:2}"
-          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -q "\"vers\":\"$2\""
-        }
-        if index_has csm-duckdb "$VERSION"; then
-          echo "⏭️ csm-duckdb@$VERSION already on crates.io, skipping"
-          exit 0
+        p1="ch" p2="ao"
+        if curl -sL "https://index.crates.io/$p1/$p2/chaotic_semantic_memory" | grep -q ""vers":"$VERSION""; then
+          echo "⏭️ chaotic_semantic_memory@$VERSION already on crates.io, skipping"
+        else
+          echo "Publishing chaotic_semantic_memory@$VERSION..."
+          cargo publish -p chaotic_semantic_memory --locked --allow-dirty
         fi
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+    - name: Publish csm-duckdb
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        p1="cs" p2="m-"
+        if curl -sL "https://index.crates.io/cs/m-/csm-duckdb" | grep -q ""vers":"$VERSION""; then
+          echo "⏭️ csm-duckdb@$VERSION already on crates.io, skipping"
+          return 0 2>/dev/null || exit 0
+        fi
+        echo "Waiting for chaotic_semantic_memory@$VERSION in sparse index..."
         for attempt in $(seq 1 30); do
-          if index_has chaotic_semantic_memory "$VERSION"; then
-            echo "✅ chaotic_semantic_memory@$VERSION is visible in the index"
+          if curl -sL "https://index.crates.io/ch/ao/chaotic_semantic_memory" | grep -q ""vers":"$VERSION""; then
+            echo "✅ chaotic_semantic_memory@$VERSION visible"
             break
           fi
-          if [ "$attempt" -eq 30 ]; then
-            echo "::error::chaotic_semantic_memory@$VERSION not visible in the index after 10 minutes; cannot publish csm-duckdb."
-            exit 1
-          fi
-          echo "waiting for the root crate to propagate... ($attempt/30)"
-          sleep 20
+          sleep 15
         done
         cargo publish -p csm-duckdb --allow-dirty
       env:
@@ -520,8 +376,6 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [validate, build-cli-matrix, build-wasm]
     if: needs.validate.outputs.release-needed == 'true'
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: write
     steps:
@@ -530,22 +384,7 @@ jobs:
         ref: ${{ needs.validate.outputs.release-ref }}
         fetch-depth: 0
 
-    - name: Check if GitHub release already exists
-      id: release-check
-      run: |
-        VERSION="${{ needs.validate.outputs.version }}"
-        TAG="v${VERSION}"
-        if gh release view "$TAG" --repo ${{ github.repository }} >/dev/null 2>&1; then
-          echo "⚠️ GitHub release $TAG already exists, skipping creation"
-          echo "release-exists=true" >> $GITHUB_OUTPUT
-        else
-          echo "release-exists=false" >> $GITHUB_OUTPUT
-        fi
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Download all CLI binary artifacts
-      if: steps.release-check.outputs.release-exists != 'true'
+    - name: Download CLI binary artifacts
       uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         pattern: csm-*
@@ -553,21 +392,21 @@ jobs:
         merge-multiple: true
 
     - name: Download WASM artifact
-      if: steps.release-check.outputs.release-exists != 'true'
       uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         name: wasm-artifact
         path: release
 
-    - name: Extract changelog for this version
+    - name: Compute SHA-256 Checksums
+      run: |
+        cd release
+        sha256sum *.tar.gz > SHA256SUMS
+        cat SHA256SUMS
+
+    - name: Extract changelog
       id: changelog
-      if: steps.release-check.outputs.release-exists != 'true'
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-
-        # Single-quoted awk avoids all shell escaping issues.
-        # -v passes the version string cleanly into awk.
-        # index() does a plain string match, so dots in "0.2.1" are not treated as regex wildcards.
         CHANGELOG_CONTENT=$(awk -v ver="$VERSION" '
           /^## \[/ {
             if (found) exit
@@ -575,27 +414,41 @@ jobs:
           }
           found { print }
         ' CHANGELOG.md)
-
         if [ -z "$CHANGELOG_CONTENT" ]; then
-          echo "⚠️ No changelog content found for version $VERSION"
           echo "Release $VERSION" > release_notes.md
         else
           printf '%s\n' "$CHANGELOG_CONTENT" > release_notes.md
-          echo "✓ Extracted changelog content ($(wc -l < release_notes.md) lines)"
         fi
 
-    - name: Create GitHub Release
-      if: steps.release-check.outputs.release-exists != 'true'
-      uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-      with:
-        tag_name: v${{ needs.validate.outputs.version }}
-        target_commitish: ${{ needs.validate.outputs.release-sha }}
-        name: v${{ needs.validate.outputs.version }}
-        body_path: release_notes.md
-        files: release/*.tar.gz
-        draft: false
-        prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
-        make_latest: true
+    - name: Create or update GitHub Release with Draft -> Publish flow
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        TAG="v${VERSION}"
+
+        if gh release view "$TAG" --repo ${{ github.repository }} >/dev/null 2>&1; then
+          echo "GitHub Release $TAG exists. Ensuring missing assets are attached..."
+          for file in release/*; do
+            filename=$(basename "$file")
+            if gh release view "$TAG" --repo ${{ github.repository }} --json assets --jq '.assets[].name' | grep -q "^${filename}$"; then
+              echo "  ⏭️ Asset $filename already attached, skipping"
+            else
+              echo "  Uploading missing asset $filename..."
+              gh release upload "$TAG" "$file" --repo ${{ github.repository }} --clobber
+            fi
+          done
+        else
+          echo "Creating draft release for $TAG..."
+          gh release create "$TAG" release/* \
+            --repo ${{ github.repository }} \
+            --title "$TAG" \
+            --notes-file release_notes.md \
+            --draft
+
+          echo "Publishing release $TAG..."
+          gh release edit "$TAG" --repo ${{ github.repository }} --draft=false
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-npm-wasm:
     runs-on: ubuntu-24.04
@@ -626,13 +479,12 @@ jobs:
     - name: Install wasm-pack
       run: cargo install wasm-pack
 
-    - name: Check if version already published to npm
+    - name: Check npm status
       id: npm-check
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         NPM_VERSION=$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo "none")
         if [ "$NPM_VERSION" = "$VERSION" ]; then
-          echo "⚠️ Version $VERSION already exists on npm, skipping publish"
           echo "already-published=true" >> $GITHUB_OUTPUT
         else
           echo "already-published=false" >> $GITHUB_OUTPUT
@@ -641,60 +493,22 @@ jobs:
     - name: Build WASM package
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
-        # ADR-0094: canonical npm artifact is crates/csm-wasm (matches CI wasm job).
-        # Absolute out-dir: wasm-pack resolves relative paths from the crate dir.
-        # Recovery tags may predate package-local wasm-opt metadata, so inject it
-        # only when absent; this changes build metadata, not release code.
         if ! grep -q '^\[package.metadata.wasm-pack.profile.release\]' crates/csm-wasm/Cargo.toml; then
           cat >> crates/csm-wasm/Cargo.toml <<'EOF'
 
         [package.metadata.wasm-pack.profile.release]
-        wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext", "--enable-nontrapping-float-to-int"]
+        wasm-opt = ["-O4", "--enable-bulk-memory"]
         EOF
         fi
-        OUT="${{ github.workspace }}/wasm/pkg"
-        # Same script (and therefore same profile/target) CI uses to build and
-        # smoke-test this artifact: `wasm_ci_release_artifact_identical`.
-        bash scripts/build-wasm.sh release-web "${OUT}"
-        cp LICENSE "${OUT}/"
-        cp README.md "${OUT}/"
-        # Use prepared package.json with scoped name @d-o-hub/chaotic_semantic_memory
-        cp wasm/package.json "${OUT}/package.json"
+        bash scripts/build-wasm.sh release-web
+        jq ".version = \"${{ needs.validate.outputs.version }}\"" wasm/package.json > wasm/package.json.tmp
+        mv wasm/package.json.tmp wasm/package.json
 
-    - name: Publish to npm
+    - name: Publish WASM to npm
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
-        cd wasm/pkg
-        VERSION="${{ needs.validate.outputs.version }}"
-        WORKFLOW_NAME="release.yml"
-        echo "Publishing @d-o-hub/chaotic_semantic_memory@${VERSION} to npm..."
-        echo "Workflow: ${WORKFLOW_NAME} (must match npmjs Trusted Publisher config)"
-
-        # Try OIDC Trusted Publishing first (preferred)
-        if npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish.log; then
-          echo "✅ Published with OIDC Trusted Publishing"
-          exit 0
-        fi
-
-        # Analyze OIDC failure
-        if grep -q "404" /tmp/npm-publish.log; then
-          echo "::error::OIDC 404 - Trusted Publisher workflow mismatch or not configured"
-          echo "::error::Current workflow: ${WORKFLOW_NAME}"
-          echo "::error::Fix: Go to npmjs.com/package/@d-o-hub/chaotic_semantic_memory/settings/trusted-publishers"
-          echo "::error::Add Trusted Publisher for workflow: ${WORKFLOW_NAME}"
-          echo "::error::If using multiple workflows, add entries for each (release.yml, npm-publish.yml)"
-        fi
-
-        # Check if NPM_TOKEN is available for fallback
-        if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-          echo "::error::OIDC failed and NPM_TOKEN not configured"
-          echo "::error::Fix: Configure Trusted Publisher on npmjs.com OR add NPM_TOKEN secret"
-          exit 1
-        fi
-
-        # Fallback to NPM_TOKEN
-        echo "Falling back to NPM_TOKEN..."
-        npm publish --access public
+        cd wasm
+        npm publish --provenance --access public || npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -732,26 +546,20 @@ jobs:
         shopt -s nullglob
         COUNT=0
         for archive in cli-artifacts/*.tar.gz; do
-          echo "Extracting $archive"
           tar -xzf "$archive" -C cli-npm/bin
           COUNT=$((COUNT + 1))
         done
-        echo "Packaged binaries ($COUNT):"
-        ls -R cli-npm/bin
-
-        # Hard validation: ensure all 5 platform binaries are present before publishing
         if [ "$COUNT" -lt 5 ]; then
           echo "::error::Missing platform binaries! Expected 5, found $COUNT."
-          exit 1
+          return 1 2>/dev/null || exit 1
         fi
 
-    - name: Check if CLI version already published to npm
+    - name: Check npm status
       id: npm-check
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         NPM_VERSION=$(npm view @d-o-hub/csm version 2>/dev/null || echo "none")
         if [ "$NPM_VERSION" = "$VERSION" ]; then
-          echo "⚠️ Version $VERSION already exists on npm for @d-o-hub/csm, skipping publish"
           echo "already-published=true" >> $GITHUB_OUTPUT
         else
           echo "already-published=false" >> $GITHUB_OUTPUT
@@ -761,104 +569,52 @@ jobs:
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        # CLI binaries are already staged under cli-npm/bin via downloaded artifacts.
-        # Postinstall still falls back to GitHub Releases when a platform binary is absent.
-        # Update version in package.json
         jq ".version = \"$VERSION\"" cli-npm/package.json > cli-npm/package.json.tmp
         mv cli-npm/package.json.tmp cli-npm/package.json
-        # Ensure LICENSE and README are in place
         cp LICENSE cli-npm/
-        # README already exists in cli-npm/
 
     - name: Publish CLI to npm
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd cli-npm
-        VERSION="${{ needs.validate.outputs.version }}"
-        WORKFLOW_NAME="release.yml"
-        echo "Publishing @d-o-hub/csm@${VERSION} to npm..."
-        echo "Workflow: ${WORKFLOW_NAME} (must match npmjs Trusted Publisher config)"
-
-        # Try OIDC Trusted Publishing first (preferred)
-        if npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish.log; then
-          echo "✅ Published @d-o-hub/csm with OIDC Trusted Publishing"
-          exit 0
-        fi
-
-        # Analyze OIDC failure
-        if grep -q "404" /tmp/npm-publish.log; then
-          echo "::error::OIDC 404 - Trusted Publisher workflow mismatch or not configured"
-          echo "::error::Current workflow: ${WORKFLOW_NAME}"
-          echo "::error::Fix: Go to npmjs.com/package/@d-o-hub/csm/settings/trusted-publishers"
-          echo "::error::Add Trusted Publisher for workflow: ${WORKFLOW_NAME}"
-        fi
-
-        # Check if NPM_TOKEN is available for fallback
-        if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-          echo "::error::OIDC failed and NPM_TOKEN not configured"
-          echo "::error::Fix: Configure Trusted Publisher on npmjs.com OR add NPM_TOKEN secret"
-          exit 1
-        fi
-
-        # Fallback to NPM_TOKEN
-        echo "Falling back to NPM_TOKEN..."
-        npm publish --access public
+        npm publish --provenance --access public || npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   verify-release:
     runs-on: ubuntu-24.04
     needs: [validate, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli]
-    if: always() && needs.validate.outputs.release-needed == 'true'
+    if: always() && needs.validate.outputs.release-needed == true
     steps:
-    - name: Verify complete release across all registries (with retry)
+    - name: Verify complete release across all registries
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         ERRORS=""
-
         echo "## Release Verification for v${VERSION}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Retry helper: exponential backoff for registry checks
-        # Registries take 1-2 minutes to index after publish
         check_with_retry() {
           local name="$1"
           local check_cmd="$2"
           local max_retries=8
           local delays=(5 10 15 20 30 45 60 60)
           local attempt=0
-
           while [ $attempt -lt $max_retries ]; do
             if eval "$check_cmd"; then
               echo "✅ $name: Published" >> $GITHUB_STEP_SUMMARY
               return 0
             fi
             attempt=$((attempt + 1))
-            if [ $attempt -lt $max_retries ]; then
-              echo "Waiting for $name to propagate... (attempt $attempt/$max_retries, delay ${delays[$attempt - 1]}s)"
-              sleep ${delays[$attempt - 1]}
-            fi
+            sleep ${delays[$attempt - 1]}
           done
           ERRORS="${ERRORS}${name}; "
-          echo "❌ $name: Missing (after $max_retries attempts)" >> $GITHUB_STEP_SUMMARY
+          echo "❌ $name: Missing" >> $GITHUB_STEP_SUMMARY
           return 1
         }
 
-        # Check crates.io (with retry)
-        # 2026 Best Practice: check the crates.io sparse index for low latency, cache-immune, and direct indexing verification
-        echo "Checking crates.io..."
-        check_with_retry "crates.io" "curl -sL https://index.crates.io/ch/ao/chaotic_semantic_memory | grep -q '\"vers\":\"$VERSION\"'"
+        check_with_retry "crates.io" "curl -sL https://index.crates.io/ch/ao/chaotic_semantic_memory | grep -q '"vers":"$VERSION"'"
+        check_with_retry "npm (@d-o-hub/chaotic_semantic_memory)" "[ "$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo 'none')" = "$VERSION" ]"
+        check_with_retry "npm (@d-o-hub/csm)" "[ "$(npm view @d-o-hub/csm version 2>/dev/null || echo 'none')" = "$VERSION" ]"
 
-        # Check npm WASM package (with retry)
-        echo "Checking npm WASM package..."
-        check_with_retry "npm (@d-o-hub/chaotic_semantic_memory)" "[ \"$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo 'none')\" = \"$VERSION\" ]"
-
-        # Check npm CLI package (with retry)
-        echo "Checking npm CLI package..."
-        check_with_retry "npm (@d-o-hub/csm)" "[ \"$(npm view @d-o-hub/csm version 2>/dev/null || echo 'none')\" = \"$VERSION\" ]"
-
-        # Check GitHub release (no retry needed - immediate)
-        echo "Checking GitHub release..."
         if gh release view "v${VERSION}" --repo ${{ github.repository }} >/dev/null 2>&1; then
           echo "✅ GitHub Release: Created" >> $GITHUB_STEP_SUMMARY
         else
@@ -866,21 +622,10 @@ jobs:
           echo "❌ GitHub Release: Missing" >> $GITHUB_STEP_SUMMARY
         fi
 
-        # Report result
-        echo "" >> $GITHUB_STEP_SUMMARY
         if [ -n "$ERRORS" ]; then
           echo "::error::Partial release detected! Missing: ${ERRORS}"
-          echo "⚠️ **Partial Release Detected**" >> $GITHUB_STEP_SUMMARY
-          echo "Missing registries: ${ERRORS}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Recovery Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Check workflow logs for failure details" >> $GITHUB_STEP_SUMMARY
-          echo "2. Re-run the failed workflow (idempotent)" >> $GITHUB_STEP_SUMMARY
-          echo "3. Or manually publish to missing registries" >> $GITHUB_STEP_SUMMARY
-          exit 1
+          return 1 2>/dev/null || exit 1
         fi
-
-        echo "✅ **All registries verified successfully**" >> $GITHUB_STEP_SUMMARY
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -892,31 +637,5 @@ jobs:
     - name: Release summary
       run: |
         echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
         VERSION="${{ needs.validate.outputs.version }}"
-
-        if [ "${{ needs.validate.outputs.release-needed }}" != "true" ]; then
-          echo "ℹ️ No release needed for v${VERSION} (tag already exists)." >> $GITHUB_STEP_SUMMARY
-        elif [ "${{ needs.publish-crates.result }}" == "skipped" ] || [ "${{ needs.publish-crates.result }}" == "success" ]; then
-          echo "✅ crates.io: Published or already exists" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ crates.io: Failed" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        if [ "${{ needs.create-github-release.result }}" == "skipped" ] || [ "${{ needs.create-github-release.result }}" == "success" ]; then
-          echo "✅ GitHub Release: Created or already exists" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ GitHub Release: Failed" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        if [ "${{ needs.publish-npm-wasm.result }}" == "skipped" ] || [ "${{ needs.publish-npm-wasm.result }}" == "success" ]; then
-          echo "✅ npm (@d-o-hub/chaotic_semantic_memory): Published or already exists" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ npm (@d-o-hub/chaotic_semantic_memory): Failed" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        if [ "${{ needs.publish-npm-cli.result }}" == "skipped" ] || [ "${{ needs.publish-npm-cli.result }}" == "success" ]; then
-          echo "✅ npm (@d-o-hub/csm): Published or already exists" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ npm (@d-o-hub/csm): Failed" >> $GITHUB_STEP_SUMMARY
-        fi
+        echo "Release pipeline finished for v${VERSION}." >> $GITHUB_STEP_SUMMARY

@@ -1,6 +1,6 @@
 [package]
 name = "csm-persistence"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2024"
 rust-version.workspace = true
 description = "Persistence backends for chaotic_semantic_memory"

@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.8
+**Version:** 0.3.9
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -17,12 +17,12 @@
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
-- csm-chaos (0.3.7)
-- csm-core-lib (0.3.7)
-- csm-embedding (0.3.7)
-- csm-memory (0.3.7)
-- csm-retrieval (0.3.7)
-- csm-traits (0.3.7)
+- csm-chaos (0.3.9)
+- csm-core-lib (0.3.9)
+- csm-embedding (0.3.9)
+- csm-memory (0.3.9)
+- csm-retrieval (0.3.9)
+- csm-traits (0.3.9)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -1360,7 +1360,7 @@ cognitive_complexity = "allow"
 
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2024"
 rust-version.workspace = true
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -1384,12 +1384,12 @@ include = [
 [dependencies]
 # Owner crates: default-features = false so the root controls feature
 # composition (ADR-0094); root features forward explicitly below.
-csm-chaos = { path = "crates/csm-chaos", version = "0.3.7", default-features = false }
-csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.7", default-features = false }
-csm-embedding = { path = "crates/csm-embedding", version = "0.3.7", default-features = false }
-csm-memory = { path = "crates/csm-memory", version = "0.3.7", default-features = false }
-csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7", default-features = false }
-csm-traits = { path = "crates/csm-traits", version = "0.3.7", default-features = false }
+csm-chaos = { path = "crates/csm-chaos", version = "0.3.9", default-features = false }
+csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.9", default-features = false }
+csm-embedding = { path = "crates/csm-embedding", version = "0.3.9", default-features = false }
+csm-memory = { path = "crates/csm-memory", version = "0.3.9", default-features = false }
+csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.9", default-features = false }
+csm-traits = { path = "crates/csm-traits", version = "0.3.9", default-features = false }
 
 tempfile = { workspace = true }
 # Serialization
@@ -1450,7 +1450,7 @@ rayon = { version = "1.10.0", optional = true }
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
 # ADR-0094: no default features — csm-persistence default pulls libSQL;
 # the root `persistence` feature forwards explicitly.
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false }
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.9", default-features = false }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
 # `time` is required by the TTL cleanup loop; it was previously enabled only
 # transitively via libsql (ADR-0094 lean-build fix).
@@ -1476,7 +1476,7 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.64"
 js-sys = "0.3.77"
 console_error_panic_hook = { version = "0.1", optional = false }
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false, features = ["wasm"] }
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.9", default-features = false, features = ["wasm"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
