@@ -77,6 +77,35 @@ impl ChaoticSemanticFramework {
             return self.probe_text_semantic(query, top_k).await;
         }
 
+        // The shared owner carries the absence lifecycle the per-path probes had
+        // before consolidation: a query that abstained repeatedly against the
+        // current content skips retrieval, and a hit clears the record. Only the
+        // unfiltered probe participates — a record describes content, not a
+        // filter, so a filtered miss must neither write one nor consume one that
+        // would hide a match reachable under a different filter.
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        let absence_lifecycle = filter.is_none();
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        let scope_mode = if mode == HybridMode::SemanticOnly {
+            // A semantic-only probe never reads the token index, so its record is
+            // the same one `probe_text_semantic` writes regardless of tokenizer.
+            crate::framework_ttl::ABSENCE_SCOPE_SEMANTIC_ONLY
+        } else if code_aware {
+            crate::framework_ttl::ABSENCE_SCOPE_HYBRID_CODE_AWARE
+        } else {
+            crate::framework_ttl::ABSENCE_SCOPE_HYBRID
+        };
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        let absence = if absence_lifecycle {
+            Some(self.absence_short_circuit(query, scope_mode).await)
+        } else {
+            None
+        };
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = absence.as_ref().and_then(|a| a.result.clone()) {
+            return Ok(result);
+        }
+
         let encoder = if code_aware {
             TextEncoder::new_code_aware()
         } else {
@@ -129,8 +158,11 @@ impl ChaoticSemanticFramework {
             }
         };
         let results = merge_results(&keyword_results, &semantic_results, weights, top_k);
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        let (absence_revision, absence_record_id) =
+            absence.map_or((0, None), |a| (a.revision, a.record_id));
         if results.is_empty() {
-            Ok(HybridResult::Abstained(RetrievalAbstention {
+            let abstention = RetrievalAbstention {
                 query: query.to_string(),
                 min_score_threshold: self.config.pattern_recognition_threshold as f32,
                 best_score_seen: best_score,
@@ -141,8 +173,19 @@ impl ChaoticSemanticFramework {
                     HybridMode::Custom(_) => "CustomHybrid".to_string(),
                 }],
                 timestamp: chrono::Utc::now(),
-            }))
+            };
+
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            if absence_lifecycle {
+                self.persist_absence_record(&abstention, absence_revision, scope_mode)
+                    .await;
+            }
+
+            Ok(HybridResult::Abstained(abstention))
         } else {
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            self.clear_absence_record(absence_record_id).await;
+
             Ok(HybridResult::Success(results))
         }
     }

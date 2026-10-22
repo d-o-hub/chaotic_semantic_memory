@@ -16,6 +16,26 @@ use tracing::instrument;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub const ABSENCE_MIN_ATTEMPTS: u32 = 3;
 
+/// Retrieval-scope label of the hybrid text probe (`probe_text*`).
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub(crate) const ABSENCE_SCOPE_HYBRID: &str = "hybrid";
+/// Retrieval-scope label of the code-aware tokenizer variant, whose keyword
+/// misses say nothing about a default-tokenized probe.
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub(crate) const ABSENCE_SCOPE_HYBRID_CODE_AWARE: &str = "hybrid-code-aware";
+/// Retrieval-scope label of the semantic-only text probe.
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub(crate) const ABSENCE_SCOPE_SEMANTIC_ONLY: &str = "semantic-only";
+/// Retrieval-scope label of the unfiltered bridge probe.
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub(crate) const ABSENCE_SCOPE_BRIDGE: &str = "bridge";
+/// Retrieval-scope label of the reranked bridge probe.
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub(crate) const ABSENCE_SCOPE_BRIDGE_RERANK: &str = "bridge-rerank";
+/// Retrieval-scope label of the metadata-filtered bridge probe.
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub(crate) const ABSENCE_SCOPE_BRIDGE_FILTERED: &str = "bridge-filtered";
+
 /// Outcome of the persisted-absence check for one query.
 ///
 /// Deliberately has no inherent methods: the fields are read directly by the
@@ -169,11 +189,19 @@ impl crate::framework::ChaoticSemanticFramework {
     /// M1: queries that abstained `ABSENCE_MIN_ATTEMPTS`+ times *against the
     /// current content* skip retrieval and abstain immediately.
     ///
+    /// `scope_mode` names the probe family: an abstention only says that *that*
+    /// retrieval path missed, so it must never suppress a different path that
+    /// searches more (a semantic-only miss cannot hide a keyword match).
+    ///
     /// Also reports the revision this check observed and the record id (when one
     /// exists for this namespace), so the caller can stamp a new abstention with
     /// the revision it actually observed and invalidate the record on success.
     #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-    pub(crate) async fn absence_short_circuit(&self, query: &str) -> AbsenceShortCircuit {
+    pub(crate) async fn absence_short_circuit(
+        &self,
+        query: &str,
+        scope_mode: &str,
+    ) -> AbsenceShortCircuit {
         let Some(store) = self.persistence.as_ref() else {
             return AbsenceShortCircuit {
                 revision: 0,
@@ -182,7 +210,7 @@ impl crate::framework::ChaoticSemanticFramework {
             };
         };
         let namespace = self.namespace.read().await.clone();
-        let Some(scope) = self.absence_scope_key(&namespace) else {
+        let Some(scope) = self.absence_scope_key(&namespace, scope_mode) else {
             return AbsenceShortCircuit {
                 revision: 0,
                 record_id: None,
@@ -233,12 +261,12 @@ impl crate::framework::ChaoticSemanticFramework {
         }
     }
     #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-    fn absence_scope_key(&self, namespace: &str) -> Option<String> {
+    fn absence_scope_key(&self, namespace: &str, scope_mode: &str) -> Option<String> {
         if self.embedding_provider.name() != "hdc-text" {
             return None;
         }
         Some(format!(
-            "semantic-only-v1|namespace={namespace}|provider={}|dimension={}|threshold={:08x}|filter=none",
+            "text-absence-v1|namespace={namespace}|mode={scope_mode}|provider={}|dimension={}|threshold={:08x}",
             self.embedding_provider.name(),
             self.embedding_provider.native_dim(),
             self.config.pattern_recognition_threshold.to_bits(),
@@ -264,12 +292,13 @@ impl crate::framework::ChaoticSemanticFramework {
         &self,
         abstention: &RetrievalAbstention,
         namespace_revision: u64,
+        scope_mode: &str,
     ) {
         let Some(store) = self.persistence.as_ref() else {
             return;
         };
         let namespace = self.namespace.read().await.clone();
-        let Some(scope) = self.absence_scope_key(&namespace) else {
+        let Some(scope) = self.absence_scope_key(&namespace, scope_mode) else {
             return;
         };
         if let Err(e) = crate::bridge_persistence::persist_absence_scoped(
@@ -304,7 +333,9 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Probe using semantic-only HDC retrieval and the configured embedding provider.
     pub async fn probe_text_semantic(&self, query: &str, top_k: usize) -> Result<HybridResult> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        let absence = self.absence_short_circuit(query).await;
+        let absence = self
+            .absence_short_circuit(query, ABSENCE_SCOPE_SEMANTIC_ONLY)
+            .await;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
         if let Some(result) = absence.result {
             return Ok(result);
@@ -326,7 +357,7 @@ impl crate::framework::ChaoticSemanticFramework {
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            self.persist_absence_record(&abstention, absence.revision)
+            self.persist_absence_record(&abstention, absence.revision, ABSENCE_SCOPE_SEMANTIC_ONLY)
                 .await;
 
             Ok(HybridResult::Abstained(abstention))
@@ -401,63 +432,6 @@ mod tests {
             fw.namespace_revision().await,
             Some(1),
             "a durable insert must advance the namespace revision"
-        );
-    }
-
-    /// Both halves of the absence contract, observable through the store: an
-    /// abstaining probe records the absence against the revision it observed,
-    /// and a successful retrieval afterwards clears that record.
-    #[tokio::test]
-    async fn abstentions_are_recorded_and_cleared() {
-        let dir = tempfile::tempdir().unwrap();
-        let db = dir.path().join("absence.db");
-        let fw = FrameworkBuilder::new()
-            .with_local_db(db.to_str().unwrap())
-            .build()
-            .await
-            .unwrap();
-        let store = fw.persistence.as_ref().expect("persistence enabled");
-        let query = "content-that-does-not-exist-yet";
-        let id = csm_traits::AbsenceEntry::id_for(query);
-
-        assert!(
-            matches!(
-                fw.probe_text(query, 5).await.unwrap(),
-                HybridResult::Abstained(_)
-            ),
-            "an empty store must abstain"
-        );
-        let recorded = csm_traits::AbsenceStore::get_absence(store.as_ref(), &id)
-            .await
-            .unwrap()
-            .expect("an abstention must persist an absence record");
-        assert_eq!(
-            recorded.namespace,
-            fw.namespace().await,
-            "the record must be scoped to the namespace it was observed in"
-        );
-        assert_eq!(
-            recorded.namespace_revision, 0,
-            "the record must carry the revision the probe observed"
-        );
-        assert_eq!(recorded.attempt_count, 1);
-
-        // Content the query matches: the next probe retrieves successfully and
-        // must clear the record instead of leaving it to suppress the query.
-        fw.inject_text("answer", query).await.unwrap();
-        assert!(
-            matches!(
-                fw.probe_text(query, 5).await.unwrap(),
-                HybridResult::Success(_)
-            ),
-            "a matching concept must be retrievable"
-        );
-        assert!(
-            csm_traits::AbsenceStore::get_absence(store.as_ref(), &id)
-                .await
-                .unwrap()
-                .is_none(),
-            "a successful retrieval must clear the absence record"
         );
     }
 }

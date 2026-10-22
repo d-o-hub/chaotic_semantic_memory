@@ -22,7 +22,9 @@ impl ChaoticSemanticFramework {
     ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        let absence = self.absence_short_circuit(query).await;
+        let absence = self
+            .absence_short_circuit(query, crate::framework_ttl::ABSENCE_SCOPE_BRIDGE)
+            .await;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
         if let Some(result) = absence.result {
             return Ok(result);
@@ -47,8 +49,12 @@ impl ChaoticSemanticFramework {
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            self.persist_absence_record(&abstention, absence.revision)
-                .await;
+            self.persist_absence_record(
+                &abstention,
+                absence.revision,
+                crate::framework_ttl::ABSENCE_SCOPE_BRIDGE,
+            )
+            .await;
 
             Ok(HybridResult::Abstained(abstention))
         } else {
@@ -95,8 +101,12 @@ impl ChaoticSemanticFramework {
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             let absence_revision = self.namespace_revision().await.unwrap_or(0);
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            self.persist_absence_record(&abstention, absence_revision)
-                .await;
+            self.persist_absence_record(
+                &abstention,
+                absence_revision,
+                crate::framework_ttl::ABSENCE_SCOPE_BRIDGE_RERANK,
+            )
+            .await;
 
             Ok(HybridResult::Abstained(abstention))
         } else {
@@ -123,7 +133,9 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(top_k)?;
         Self::validate_metadata_filter(filter)?;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        let absence = self.absence_short_circuit(query).await;
+        let absence = self
+            .absence_short_circuit(query, crate::framework_ttl::ABSENCE_SCOPE_BRIDGE_FILTERED)
+            .await;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
         if let Some(result) = absence.result {
             return Ok(result);
@@ -174,8 +186,12 @@ impl ChaoticSemanticFramework {
                 };
 
                 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-                self.persist_absence_record(&abstention, absence.revision)
-                    .await;
+                self.persist_absence_record(
+                    &abstention,
+                    absence.revision,
+                    crate::framework_ttl::ABSENCE_SCOPE_BRIDGE_FILTERED,
+                )
+                .await;
 
                 Ok(HybridResult::Abstained(abstention))
             } else {
