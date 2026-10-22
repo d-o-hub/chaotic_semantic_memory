@@ -84,6 +84,16 @@ reading their reports; every catch came from re-deriving state. Rules:
    (handle slot `Some` → signal → await → `None`), then demonstrate the red by disabling
    the line. This is what contained the damage above, and the same property
    cargo-mutants is supposed to give.
+6. **Remove the worktree when its dispatch is done — all of them after a merge.** A
+   worktree keeps its own `target/`: sixteen stale ones measured 13G (one alone), and
+   they fill the disk mid-gate — `validate.sh` died writing `.git/lint-cache` with 149G
+   apparently free. Order: save residue (`git -C <wt> diff > attic/<name>.patch`), then
+   `git worktree remove --force <wt>` and `git worktree prune`, then verify
+   `git worktree list` shows only the main tree. **Keep the local branches** — a
+   squash-merged branch's pre-squash commits exist nowhere else. Read the saved patch
+   before calling residue worthless: most of it here was already-landed work (the
+   SIGTERM wiring that became #836, the queue gate that became #851). Timing is
+   `AGENTS.md` rule 12.
 
 ### Merge Order Rules
 
