@@ -12,6 +12,7 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
 3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: because `pre-release-gate.yml` itself starts only after CI, a gate run still in flight when CI finished is a hard stop rather than a wait — re-dispatch once it lands. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check.
+4. **A failed release run with no jobs is a bad workflow file, not a bad release:** `gh run view <id> --json jobs` returning `[]` means GitHub rejected the file before scheduling (since 2026-10-22 this is how `release.yml` failed: double-quoted / unquoted string literals in `if:` expressions — expressions take single quotes only). There is no step log, so read the YAML and run `scripts/check-actionlint.sh`; nothing published and no tag was created.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
 ## Protected release flow

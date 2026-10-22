@@ -146,6 +146,20 @@ after CI, a gate run still in flight when CI completed makes the release refuse
 rather than wait, and the operator re-dispatches. The blocker semantics survived;
 the trigger did not.
 
+**The binding blocker is more mundane than any of that (measured 2026-10-22):** the
+`release.yml` that `#932` landed does not parse. Its job condition compares against
+double-quoted `"workflow_dispatch"`, `"push"` and `"success"`, and a build step compares
+`matrix.target == aarch64-unknown-linux-gnu` without quotes; GitHub expression string
+literals are single-quoted only. GitHub rejects the file before scheduling, so every run
+since has `conclusion: failure` with an **empty job list** — 39670046551, 39678113001,
+39683503746 and 39734351757 (the last on `0f77c0d0` itself). The last release run that
+executed anything is 39648046550 on `4a85fd47`, immediately before `#932`. Nothing about
+the packages, the gate, or the registry is implicated: no job ran, so nothing was published
+and no tag was created. Diagnosis for the operator: `gh run view <id> --json jobs` returning
+`[]` means the workflow file is invalid, and there is no step log to read. `scripts/check-actionlint.sh`
+(this wave, `c85984de`) is what found it; the four literals are quoted on the branch that
+carries this ADR.
+
 `dist.yml` is now dispatch-only: `#932` disabled its tag trigger, because a tag
 created inside `release.yml` carries `GITHUB_TOKEN` and Actions does not fire a
 tag-push workflow for a token from the same repo. Platform-specific CLI binaries
