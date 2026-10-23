@@ -24,6 +24,15 @@ fn bench_bhvec_hamming(c: &mut Criterion) {
     });
 }
 
+fn bench_bhvec_bind(c: &mut Criterion) {
+    let v1 = BHVec10240::random();
+    let v2 = BHVec10240::random();
+
+    c.bench_function("bhvec_bind", |b| {
+        b.iter(|| black_box(&v1).xor(black_box(&v2)));
+    });
+}
+
 fn bench_bhvec_permute(c: &mut Criterion) {
     let v = BHVec10240::random();
     c.bench_function("bhvec_permute", |b| {
@@ -45,6 +54,7 @@ criterion_group!(
     benches,
     bench_bhvec_bundle,
     bench_bhvec_hamming,
+    bench_bhvec_bind,
     bench_bhvec_permute,
     bench_bhvec_serialization
 );
