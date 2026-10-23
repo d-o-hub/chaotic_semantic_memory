@@ -49,4 +49,8 @@ mod tests {
         use super::*;
         include!("reservoir_tests.rs");
     }
+    mod hyperdim_simd_tests {
+        use super::*;
+        include!("hyperdim_simd_tests.rs");
+    }
 }

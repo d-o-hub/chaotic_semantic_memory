@@ -159,12 +159,13 @@ impl BHVec10240 {
     }
 
     /// XOR binding
+    ///
+    /// Performance Optimization: Delegates to SIMD kernels (`xor_u64`) using `MaybeUninit`
+    /// to eliminate 1,280-byte zero-initialization and execute vectorized 256-bit (AVX2) / 128-bit (NEON) XOR instructions.
     pub fn xor(&self, other: &Self) -> Self {
-        let mut result = [0u64; 160];
-        for i in 0..160 {
-            result[i] = self.bits[i] ^ other.bits[i];
+        Self {
+            bits: crate::hyperdim_simd::xor_u64(&self.bits, &other.bits),
         }
-        Self { bits: result }
     }
 
     /// Hamming distance (popcount of XOR).
