@@ -403,23 +403,23 @@ impl HVec10240 {
 
     /// Serialize to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(1280);
         #[cfg(target_endian = "little")]
         {
             // Performance Optimization: [u128; 80] is bit-compatible with [u8; 1280]
-            // on little-endian platforms. Using extend_from_slice with a casted
-            // byte reference avoids 80 bounds checks and word-by-word serialization.
+            // on little-endian platforms. Direct `.to_vec()` creates the vector
+            // directly without two-phase allocation and length mutation.
             // SAFETY: Alignment of u128 is stricter than u8. Pointers are valid.
-            let data_bytes: &[u8; 1280] = unsafe { &*(self.data.as_ptr() as *const [u8; 1280]) };
-            bytes.extend_from_slice(data_bytes);
+            let data_bytes: &[u8; 1280] = unsafe { &*(self.data.as_ptr().cast::<[u8; 1280]>()) };
+            data_bytes.to_vec()
         }
         #[cfg(not(target_endian = "little"))]
         {
+            let mut bytes = Vec::with_capacity(1280);
             for word in &self.data {
                 bytes.extend_from_slice(&word.to_le_bytes());
             }
+            bytes
         }
-        bytes
     }
 
     /// Deserialize from bytes
@@ -432,26 +432,26 @@ impl HVec10240 {
             });
         }
 
-        #[allow(unused_mut)]
-        let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
-        {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 80 loop iterations and multiple bounds checks per word.
-            // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
-            unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr() as *mut u8, 1280);
-            }
-        }
+        let data = unsafe {
+            // Performance Optimization: Eliminates zero-initialization of 1,280 bytes
+            // prior to `copy_nonoverlapping`.
+            // SAFETY: bytes length is verified to be 1280. `uninit` points to valid
+            // uninitialized memory of size 1,280 bytes.
+            let mut uninit = std::mem::MaybeUninit::<[u128; 80]>::uninit();
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), uninit.as_mut_ptr().cast::<u8>(), 1280);
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let data = {
+            let mut data = [0u128; 80];
             for i in 0..80 {
                 let mut word_bytes = [0u8; 16];
                 word_bytes.copy_from_slice(&bytes[i * 16..(i + 1) * 16]);
                 data[i] = u128::from_le_bytes(word_bytes);
             }
-        }
+            data
+        };
 
         Ok(Self { data })
     }

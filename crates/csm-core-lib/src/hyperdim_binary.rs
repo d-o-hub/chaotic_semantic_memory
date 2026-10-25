@@ -100,29 +100,29 @@ impl BHVec10240 {
     /// iterations with bit shifts, casts, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn from_hvec(v: &HVec10240) -> Self {
-        #[allow(unused_mut)]
-        let mut bits = [0u64; 160];
         #[cfg(target_endian = "little")]
-        {
+        let bits = unsafe {
             // SAFETY:
             // 1. Memory equivalence: `[u128; 80]` and `[u64; 160]` occupy exactly 1,280 contiguous bytes.
-            // 2. Alignment & Validity: `v.data` is an initialized `[u128; 80]` array, and `bits` is a mutable
-            //    `[u64; 160]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    v.data.as_ptr().cast::<u8>(),
-                    bits.as_mut_ptr().cast::<u8>(),
-                    1280,
-                );
-            }
-        }
+            // 2. Alignment & Validity: `v.data` is an initialized `[u128; 80]` array, and `uninit` points
+            //    to valid uninitialized memory of size 1,280 bytes. Pointers do not overlap.
+            let mut uninit = MaybeUninit::<[u64; 160]>::uninit();
+            std::ptr::copy_nonoverlapping(
+                v.data.as_ptr().cast::<u8>(),
+                uninit.as_mut_ptr().cast::<u8>(),
+                1280,
+            );
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let bits = {
+            let mut bits = [0u64; 160];
             for i in 0..80 {
                 bits[i * 2] = v.data[i] as u64;
                 bits[i * 2 + 1] = (v.data[i] >> 64) as u64;
             }
-        }
+            bits
+        };
         Self { bits }
     }
 
@@ -133,28 +133,28 @@ impl BHVec10240 {
     /// iterations with bit shifts, bitwise OR operations, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn to_hvec(&self) -> HVec10240 {
-        #[allow(unused_mut)]
-        let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
-        {
+        let data = unsafe {
             // SAFETY:
             // 1. Memory equivalence: `[u64; 160]` and `[u128; 80]` occupy exactly 1,280 contiguous bytes.
-            // 2. Alignment & Validity: `self.bits` is an initialized `[u64; 160]` array, and `data` is a mutable
-            //    `[u128; 80]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    self.bits.as_ptr().cast::<u8>(),
-                    data.as_mut_ptr().cast::<u8>(),
-                    1280,
-                );
-            }
-        }
+            // 2. Alignment & Validity: `self.bits` is an initialized `[u64; 160]` array, and `uninit` points
+            //    to valid uninitialized memory of size 1,280 bytes. Pointers do not overlap.
+            let mut uninit = MaybeUninit::<[u128; 80]>::uninit();
+            std::ptr::copy_nonoverlapping(
+                self.bits.as_ptr().cast::<u8>(),
+                uninit.as_mut_ptr().cast::<u8>(),
+                1280,
+            );
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let data = {
+            let mut data = [0u128; 80];
             for i in 0..80 {
                 data[i] = (self.bits[i * 2] as u128) | ((self.bits[i * 2 + 1] as u128) << 64);
             }
-        }
+            data
+        };
         HVec10240 { data }
     }
 
@@ -420,30 +420,23 @@ impl BHVec10240 {
 
     /// Serialize to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(1280);
         #[cfg(target_endian = "little")]
         {
             // Performance Optimization: [u64; 160] is bit-compatible with [u8; 1280]
-            // on little-endian platforms. Using extend_from_slice with a casted
-            // byte reference avoids 160 bounds checks and word-by-word serialization.
-            // SAFETY:
-            // 1. Pointer Validity: `self.bits` is an initialized `[u64; 160]` array, which occupies
-            //    exactly 1,280 contiguous bytes of memory.
-            // 2. Alignment: `u64` has a stricter alignment constraint (8 bytes) than `u8` (1 byte).
-            //    Casting a stricter aligned pointer (`*const u64`) to a weaker aligned pointer (`*const u8`)
-            //    is always safe and does not cause alignment violations.
-            // 3. Lifetime: The returned reference is bound to the lifetime of `self`, and we copy
-            //    its contents immediately into `bytes` before the reference is discarded.
-            let data_bytes: &[u8; 1280] = unsafe { &*(self.bits.as_ptr() as *const [u8; 1280]) };
-            bytes.extend_from_slice(data_bytes);
+            // on little-endian platforms. Direct `.to_vec()` creates the vector
+            // directly without two-phase allocation and length mutation.
+            // SAFETY: `self.bits` is initialized `[u64; 160]`, occupying 1,280 contiguous bytes.
+            let data_bytes: &[u8; 1280] = unsafe { &*(self.bits.as_ptr().cast::<[u8; 1280]>()) };
+            data_bytes.to_vec()
         }
         #[cfg(not(target_endian = "little"))]
         {
+            let mut bytes = Vec::with_capacity(1280);
             for word in &self.bits {
                 bytes.extend_from_slice(&word.to_le_bytes());
             }
+            bytes
         }
-        bytes
     }
 
     /// Deserialize from bytes
@@ -455,26 +448,26 @@ impl BHVec10240 {
                 actual: bytes.len(),
             });
         }
-        #[allow(unused_mut)]
-        let mut bits = [0u64; 160];
         #[cfg(target_endian = "little")]
-        {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 160 loop iterations and multiple bounds checks per word.
-            // SAFETY: bytes length is verified to be 1280. [u64; 160] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
-            unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), bits.as_mut_ptr() as *mut u8, 1280);
-            }
-        }
+        let bits = unsafe {
+            // Performance Optimization: Eliminates zero-initialization of 1,280 bytes
+            // prior to `copy_nonoverlapping`.
+            // SAFETY: bytes length is verified to be 1280. `uninit` points to valid
+            // uninitialized memory of size 1,280 bytes.
+            let mut uninit = MaybeUninit::<[u64; 160]>::uninit();
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), uninit.as_mut_ptr().cast::<u8>(), 1280);
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let bits = {
+            let mut bits = [0u64; 160];
             for i in 0..160 {
                 let mut word_bytes = [0u8; 8];
                 word_bytes.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
                 bits[i] = u64::from_le_bytes(word_bytes);
             }
-        }
+            bits
+        };
         Ok(Self { bits })
     }
 }
