@@ -19,6 +19,9 @@ use crate::singularity::Concept;
 use csm_core_lib::error::Result;
 use csm_core_lib::hyperdim::{HVec10240, Hypervector};
 
+/// Maximum allowed LSH tables to prevent resource exhaustion (CWE-770).
+pub const MAX_LSH_TABLES: usize = 1_000;
+
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(bound = "H: Hypervector")]
@@ -32,11 +35,11 @@ pub struct LshIndex<H: Hypervector = HVec10240> {
 
 impl<H: Hypervector> LshIndex<H> {
     pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self> {
-        // #9: Reject zero-table configurations.
-        if num_tables == 0 {
+        // #9: Reject zero-table configurations or excessive tables (CWE-770).
+        if num_tables == 0 || num_tables > MAX_LSH_TABLES {
             return Err(csm_core_lib::error::MemoryError::InvalidInput {
                 field: "num_tables".to_string(),
-                reason: "num_tables must be greater than zero".to_string(),
+                reason: format!("num_tables must be between 1 and {MAX_LSH_TABLES}"),
             });
         }
         // Safety check: prevent hash_bits > 64 since we use u64 hashes
@@ -417,6 +420,19 @@ mod tests {
         let mut seen = HashSet::new();
         for (id, _) in &results {
             assert!(seen.insert(id.as_str()), "duplicate ID returned: {id}");
+        }
+    }
+
+    #[test]
+    fn lsh_index_num_tables_bounds_validation() {
+        use csm_core_lib::error::MemoryError;
+
+        let err = LshIndex::<HVec10240>::new(MAX_LSH_TABLES + 1, 8);
+        match err {
+            Err(MemoryError::InvalidInput { field, .. }) => {
+                assert_eq!(field, "num_tables");
+            }
+            other => panic!("expected InvalidInput for num_tables > MAX_LSH_TABLES, got {other:?}"),
         }
     }
 
