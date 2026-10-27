@@ -239,5 +239,28 @@
         122699610.0
       ]
     }
+  },
+  "first_base_run_criterion_console_summary": {
+    "permute_321": {
+      "slope_ns": 143.03,
+      "confidence_interval_ns": [
+        133.37,
+        157.41
+      ]
+    },
+    "permute_320": {
+      "slope_ns": 95.072,
+      "confidence_interval_ns": [
+        94.382,
+        95.744
+      ]
+    },
+    "xor": {
+      "slope_ns": 102.08,
+      "confidence_interval_ns": [
+        100.49,
+        103.59
+      ]
+    }
   }
 }
