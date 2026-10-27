@@ -401,13 +401,15 @@ impl BHVec10240 {
         for i in 0..word_shift {
             let src_idx = i + 160 - word_shift;
             let next_idx = src_idx - 1;
-            uninit_result[i].write((self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift));
+            uninit_result[i]
+                .write((self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift));
         }
 
         // Segment 2: i = word_shift
         // src_idx = 0, next_idx = 159.
         if word_shift < 160 {
-            uninit_result[word_shift].write((self.bits[0] << bit_shift) | (self.bits[159] >> inv_bit_shift));
+            uninit_result[word_shift]
+                .write((self.bits[0] << bit_shift) | (self.bits[159] >> inv_bit_shift));
         }
 
         // Segment 3: i > word_shift
@@ -416,12 +418,14 @@ impl BHVec10240 {
         for i in word_shift + 1..160 {
             let src_idx = i - word_shift;
             let next_idx = src_idx - 1;
-            uninit_result[i].write((self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift));
+            uninit_result[i]
+                .write((self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift));
         }
 
         // SAFETY: All 160 elements in `uninit_result` have been initialized across Segment 1 (0..word_shift),
         // Segment 2 (word_shift), and Segment 3 (word_shift + 1..160).
-        let result = unsafe { std::mem::transmute::<[MaybeUninit<u64>; 160], [u64; 160]>(uninit_result) };
+        let result =
+            unsafe { std::mem::transmute::<[MaybeUninit<u64>; 160], [u64; 160]>(uninit_result) };
 
         Self { bits: result }
     }
