@@ -6,8 +6,7 @@ fn and_simd_avx2_correctness() {
     if is_x86_feature_detected!("avx2") {
         let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
         let rhs = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
-        // SAFETY: AVX2 support is checked above.
-        let res = unsafe { and_simd_avx2(&lhs, &rhs) };
+        let res = test_and_avx2(&lhs, &rhs).expect("AVX2 was detected");
         for word in &res {
             assert_eq!(*word, 0);
         }
@@ -34,8 +33,7 @@ fn bind_simd_avx2_correctness() {
     if is_x86_feature_detected!("avx2") {
         let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
         let rhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-        // SAFETY: AVX2 support is checked above.
-        let res = unsafe { bind_simd_avx2(&lhs, &rhs) };
+        let res = test_bind_avx2(&lhs, &rhs).expect("AVX2 was detected");
         for word in &res {
             assert_eq!(*word, 0);
         }
@@ -62,8 +60,7 @@ fn hamming_distance_simd_avx2_correctness() {
     if is_x86_feature_detected!("avx2") {
         let lhs = [0u128; 80];
         let rhs = [!0u128; 80];
-        // SAFETY: AVX2 support is checked above.
-        let res = unsafe { hamming_distance_simd_avx2(&lhs, &rhs) };
+        let res = test_hamming_avx2(&lhs, &rhs).expect("AVX2 was detected");
         assert_eq!(res, 10240);
     }
 }
@@ -76,8 +73,7 @@ fn hamming_distance_simd_avx2_edge_cases() {
         let mut rhs = [0u128; 80];
         rhs[0] = 1;
         rhs[79] = 1 << 127;
-        // SAFETY: AVX2 support is checked above.
-        let res = unsafe { hamming_distance_simd_avx2(&lhs, &rhs) };
+        let res = test_hamming_avx2(&lhs, &rhs).expect("AVX2 was detected");
         assert_eq!(res, 2);
     }
 }

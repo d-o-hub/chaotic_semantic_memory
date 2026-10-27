@@ -412,3 +412,32 @@ pub(crate) fn xor_u64_scalar(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
     // SAFETY: All 160 elements of `res` have been initialized.
     unsafe { res.assume_init() }
 }
+
+// These test-only wrappers keep the pre-existing AVX2 test calls alongside the
+// kernels, while the extracted test module exercises them through safe APIs.
+#[cfg(all(test, target_arch = "x86_64", not(target_arch = "wasm32")))]
+pub(crate) fn test_and_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> Option<[u128; 80]> {
+    if !std::is_x86_feature_detected!("avx2") {
+        return None;
+    }
+    // SAFETY: Runtime detection above guarantees the kernel's AVX2 requirement.
+    Some(unsafe { and_simd_avx2(lhs, rhs) })
+}
+
+#[cfg(all(test, target_arch = "x86_64", not(target_arch = "wasm32")))]
+pub(crate) fn test_bind_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> Option<[u128; 80]> {
+    if !std::is_x86_feature_detected!("avx2") {
+        return None;
+    }
+    // SAFETY: Runtime detection above guarantees the kernel's AVX2 requirement.
+    Some(unsafe { bind_simd_avx2(lhs, rhs) })
+}
+
+#[cfg(all(test, target_arch = "x86_64", not(target_arch = "wasm32")))]
+pub(crate) fn test_hamming_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> Option<u32> {
+    if !std::is_x86_feature_detected!("avx2") {
+        return None;
+    }
+    // SAFETY: Runtime detection above guarantees the kernel's AVX2 requirement.
+    Some(unsafe { hamming_distance_simd_avx2(lhs, rhs) })
+}

@@ -1,0 +1,243 @@
+{
+  "description": "Preliminary BHVec10240 XOR comparison; not a reference-runner verdict",
+  "base_commit": "85cc1cf27d6cd9dc6d72ccab312cac2db08366c9",
+  "pr_head_under_test": "da92facfb9090502f030612231887a19ddcd2f44",
+  "machine": "Shared x86_64 Intel Xeon Platinum 8573C; 3 visible CPUs; cgroup quota 2 CPUs",
+  "toolchain": "rustc 1.88.0; Criterion 0.5.1; release opt-level=3, fat LTO, codegen-units=1",
+  "command": "compare --bench --warm-up-time 1 --measurement-time 2 --sample-size 30 --noplot",
+  "order": "base, PR 942, PR 936, PR 935, base; competing local compilation paused",
+  "warning": "Unchanged aligned rotation baseline drifted from 95.07 ns to 107.17 ns. Data do not establish an XOR speedup on this shared host.",
+  "harness_source": "use csm_core_lib::BHVec10240;\nuse criterion::{black_box,criterion_group,criterion_main,Criterion};\nfn bench(c: &mut Criterion) {\n let a=BHVec10240::random(); let b=BHVec10240::random();\n c.bench_function(\"permute_321\", |x| x.iter(|| black_box(black_box(&a).permute(black_box(321)))));\n c.bench_function(\"permute_320\", |x| x.iter(|| black_box(black_box(&a).permute(black_box(320)))));\n c.bench_function(\"xor\", |x| x.iter(|| black_box(black_box(&a).xor(black_box(&b)))));\n}\ncriterion_group!(benches,bench);\ncriterion_main!(benches);\n",
+  "base_second": {
+    "estimates": {
+      "mean": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 97.81546267817137,
+          "upper_bound": 101.18364999237743
+        },
+        "point_estimate": 99.27640086683822,
+        "standard_error": 0.8685503457015022
+      },
+      "median": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 97.2046064176275,
+          "upper_bound": 99.18754279891222
+        },
+        "point_estimate": 97.87292507145159,
+        "standard_error": 0.4854271605693512
+      },
+      "median_abs_dev": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 1.134269696648978,
+          "upper_bound": 3.533752570227394
+        },
+        "point_estimate": 2.281893887736116,
+        "standard_error": 0.5749539616029358
+      },
+      "slope": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 97.51213096437094,
+          "upper_bound": 101.57688394817599
+        },
+        "point_estimate": 99.17646988286437,
+        "standard_error": 1.102718440844858
+      },
+      "std_dev": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 1.8234123469964671,
+          "upper_bound": 7.203869902115091
+        },
+        "point_estimate": 4.831286153530782,
+        "standard_error": 1.4969734690478576
+      }
+    },
+    "sample": {
+      "sampling_mode": "Linear",
+      "iters": [
+        43333.0,
+        86666.0,
+        129999.0,
+        173332.0,
+        216665.0,
+        259998.0,
+        303331.0,
+        346664.0,
+        389997.0,
+        433330.0,
+        476663.0,
+        519996.0,
+        563329.0,
+        606662.0,
+        649995.0,
+        693328.0,
+        736661.0,
+        779994.0,
+        823327.0,
+        866660.0,
+        909993.0,
+        953326.0,
+        996659.0,
+        1039992.0,
+        1083325.0,
+        1126658.0,
+        1169991.0,
+        1213324.0,
+        1256657.0,
+        1299990.0
+      ],
+      "times": [
+        5176162.0,
+        8937442.0,
+        12588709.0,
+        17634309.0,
+        20639771.0,
+        25366712.0,
+        29984029.0,
+        33366437.0,
+        37524414.0,
+        42919939.0,
+        45380109.0,
+        52532076.0,
+        55227186.0,
+        60429958.0,
+        62209293.0,
+        67682968.0,
+        73337537.0,
+        74670557.0,
+        81779680.0,
+        87989481.0,
+        88873626.0,
+        93393214.0,
+        96696409.0,
+        101690612.0,
+        109497841.0,
+        109252267.0,
+        112883348.0,
+        119058326.0,
+        122384139.0,
+        143173758.0
+      ]
+    }
+  },
+  "pr935": {
+    "estimates": {
+      "mean": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 97.62298471467952,
+          "upper_bound": 103.27692529936093
+        },
+        "point_estimate": 100.27937781313285,
+        "standard_error": 1.4520322033428819
+      },
+      "median": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 95.40927649325627,
+          "upper_bound": 98.69662694530902
+        },
+        "point_estimate": 95.92712184708355,
+        "standard_error": 1.0257064595189747
+      },
+      "median_abs_dev": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 0.6078374227347345,
+          "upper_bound": 6.196561422632987
+        },
+        "point_estimate": 1.4666328128874484,
+        "standard_error": 1.4991100000506996
+      },
+      "slope": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 95.9080877904554,
+          "upper_bound": 99.58664065910611
+        },
+        "point_estimate": 97.43875990377296,
+        "standard_error": 0.9440729111874712
+      },
+      "std_dev": {
+        "confidence_interval": {
+          "confidence_level": 0.95,
+          "lower_bound": 5.086399932941414,
+          "upper_bound": 10.026790503385788
+        },
+        "point_estimate": 8.113183216240866,
+        "standard_error": 1.2645186853962986
+      }
+    },
+    "sample": {
+      "sampling_mode": "Linear",
+      "iters": [
+        43250.0,
+        86500.0,
+        129750.0,
+        173000.0,
+        216250.0,
+        259500.0,
+        302750.0,
+        346000.0,
+        389250.0,
+        432500.0,
+        475750.0,
+        519000.0,
+        562250.0,
+        605500.0,
+        648750.0,
+        692000.0,
+        735250.0,
+        778500.0,
+        821750.0,
+        865000.0,
+        908250.0,
+        951500.0,
+        994750.0,
+        1038000.0,
+        1081250.0,
+        1124500.0,
+        1167750.0,
+        1211000.0,
+        1254250.0,
+        1297500.0
+      ],
+      "times": [
+        4858761.0,
+        8966354.0,
+        12435317.0,
+        16512587.0,
+        20746915.0,
+        24748534.0,
+        34018036.0,
+        40803653.0,
+        47216767.0,
+        41602190.0,
+        45723049.0,
+        49654016.0,
+        56901510.0,
+        71497996.0,
+        68071111.0,
+        66385949.0,
+        77056101.0,
+        74496645.0,
+        77679345.0,
+        82349078.0,
+        86095129.0,
+        91268633.0,
+        94008886.0,
+        98756387.0,
+        102463638.0,
+        107237709.0,
+        121065322.0,
+        115146068.0,
+        120455596.0,
+        122699610.0
+      ]
+    }
+  }
+}
