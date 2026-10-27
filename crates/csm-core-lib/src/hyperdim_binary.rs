@@ -384,9 +384,12 @@ impl BHVec10240 {
 
         let mut res_uninit: [MaybeUninit<u64>; 160] = [const { MaybeUninit::<u64>::uninit() }; 160];
 
+        // Optimized path for word-aligned rotations.
         if bit_shift == 0 {
             let (left, right) = self.bits.split_at(160 - word_shift);
             let ptr = res_uninit.as_mut_ptr().cast::<u64>();
+            // SAFETY: The source slices are disjoint from the result and together
+            // contain exactly 160 words. Both writes initialize the entire result.
             unsafe {
                 std::ptr::copy_nonoverlapping(right.as_ptr(), ptr, word_shift);
                 std::ptr::copy_nonoverlapping(left.as_ptr(), ptr.add(word_shift), 160 - word_shift);
@@ -397,21 +400,26 @@ impl BHVec10240 {
         }
 
         let inv_shift = 64 - bit_shift;
+        // Segment 1: i < word_shift; source indices are 160 - word_shift..160.
         for i in 0..word_shift {
             let src = i + 160 - word_shift;
             res_uninit[i].write((self.bits[src] << bit_shift) | (self.bits[src - 1] >> inv_shift));
         }
 
+        // Segment 2: i = word_shift, wrapping the previous word to index 159.
         if word_shift < 160 {
             res_uninit[word_shift]
                 .write((self.bits[0] << bit_shift) | (self.bits[159] >> inv_shift));
         }
 
+        // Segment 3: i > word_shift; source indices start at 1.
         for i in word_shift + 1..160 {
             let src = i - word_shift;
             res_uninit[i].write((self.bits[src] << bit_shift) | (self.bits[src - 1] >> inv_shift));
         }
 
+        // SAFETY: word_shift is less than 160, and the three segments above
+        // initialize every result element exactly once.
         unsafe {
             Self {
                 bits: res_uninit.as_ptr().cast::<[u64; 160]>().read(),
