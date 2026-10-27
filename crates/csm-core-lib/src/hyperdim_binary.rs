@@ -373,8 +373,10 @@ impl BHVec10240 {
     ///
     /// Optimized implementation that eliminates modulo operations and branches
     /// from the hot loop by splitting the rotation into three contiguous segments.
+    ///
+    /// Performance Optimization: Uses `MaybeUninit` array initialization to eliminate 1,280 bytes
+    /// of zero-initialization before writing all 160 word values across the three segments.
     pub fn permute(&self, shift: usize) -> Self {
-        let mut result = [0u64; 160];
         let bit_shift = shift % 64;
         let word_shift = (shift / 64) % 160;
 
@@ -383,12 +385,14 @@ impl BHVec10240 {
             if word_shift == 0 {
                 return *self;
             }
+            let mut result = [0u64; 160];
             let (left, right) = self.bits.split_at(160 - word_shift);
             result[..word_shift].copy_from_slice(right);
             result[word_shift..].copy_from_slice(left);
             return Self { bits: result };
         }
 
+        let mut uninit_result = [const { MaybeUninit::<u64>::uninit() }; 160];
         let inv_bit_shift = 64 - bit_shift;
 
         // Segment 1: i < word_shift
@@ -397,13 +401,13 @@ impl BHVec10240 {
         for i in 0..word_shift {
             let src_idx = i + 160 - word_shift;
             let next_idx = src_idx - 1;
-            result[i] = (self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift);
+            uninit_result[i].write((self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift));
         }
 
         // Segment 2: i = word_shift
         // src_idx = 0, next_idx = 159.
         if word_shift < 160 {
-            result[word_shift] = (self.bits[0] << bit_shift) | (self.bits[159] >> inv_bit_shift);
+            uninit_result[word_shift].write((self.bits[0] << bit_shift) | (self.bits[159] >> inv_bit_shift));
         }
 
         // Segment 3: i > word_shift
@@ -412,8 +416,12 @@ impl BHVec10240 {
         for i in word_shift + 1..160 {
             let src_idx = i - word_shift;
             let next_idx = src_idx - 1;
-            result[i] = (self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift);
+            uninit_result[i].write((self.bits[src_idx] << bit_shift) | (self.bits[next_idx] >> inv_bit_shift));
         }
+
+        // SAFETY: All 160 elements in `uninit_result` have been initialized across Segment 1 (0..word_shift),
+        // Segment 2 (word_shift), and Segment 3 (word_shift + 1..160).
+        let result = unsafe { std::mem::transmute::<[MaybeUninit<u64>; 160], [u64; 160]>(uninit_result) };
 
         Self { bits: result }
     }
