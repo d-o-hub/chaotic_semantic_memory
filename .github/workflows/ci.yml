@@ -613,7 +613,12 @@ jobs:
         retention-days: 7
 
   lint:
-    runs-on: ubuntu-latest
+    # 2026-10-28: pinned off ubuntu-latest, which migrated to Ubuntu 26 on 2026-10-19.
+    # validate.sh's cargo-deny stage runs `git clone` of the RustSec advisory-db inside
+    # `nix develop`; on the migrated image the host git-remote-https mixes with the
+    # nix-store glibc 2.44 shims (GLIBC_ABI_DT_X86_64_PLT) and the clone always fails
+    # (measured twice on PR #947, same line, ~100% on 26, green while runners were 24).
+    runs-on: ubuntu-24.04
     # 2026-10-12: with CARGO_BUILD_JOBS=2 the job's compile-bound work no longer fits
     # the old 15-minute budget — two consecutive runs were killed at 15m16s and 15m19s
     # (main's lint took 12m59s at the default job count). 30 leaves room for a cold cache.
@@ -689,7 +694,9 @@ jobs:
 
   cargo-deny:
     name: Cargo Deny
-    runs-on: ubuntu-latest
+    # 2026-10-28: same pin as the lint job — nix'd git clone of the advisory-db is
+    # broken on the Ubuntu 26 migration (see lint job comment).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
