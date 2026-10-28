@@ -21,4 +21,8 @@ ignore = [
     "RUSTSEC-2026-0367", # zip 6 build-dep; vulnerable extraction path is not built with bundled
     "RUSTSEC-2026-0368", # zip 6 build-dep; vulnerable extraction path is not built with bundled
     "RUSTSEC-2026-0369", # zip 6 build-dep; vulnerable extraction path is not built with bundled
+    "RUSTSEC-2026-0391", # zstd 0.13.3 pinned by tantivy's zstd 0.13; with_context never called (bulk API only)
+    "RUSTSEC-2026-0398", # zstd-safe 7.2.4 behind tantivy pin; seekable decompress never called
+    "RUSTSEC-2026-0403", # zstd-safe 7.2.4 behind tantivy pin; DCtx::decompress_stream never called
+    "RUSTSEC-2026-0410", # zstd-sys wasm32-only shim; zstd absent from the csm-wasm dependency tree
 ]
