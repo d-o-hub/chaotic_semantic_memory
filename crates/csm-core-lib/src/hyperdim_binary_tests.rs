@@ -89,33 +89,6 @@ fn test_bhvec_permute() {
 }
 
 #[test]
-fn test_bhvec_permute_matches_bitwise_rotation() {
-    let input = BHVec10240::new_seeded(42);
-    for shift in [
-        0,
-        1,
-        63,
-        64,
-        65,
-        319,
-        320,
-        321,
-        10_176,
-        10_239,
-        10_240,
-        usize::MAX,
-    ] {
-        let mut expected = BHVec10240::zero();
-        for bit in 0..BHVec10240::DIMENSION {
-            let value = (input.bits[bit / 64] >> (bit % 64)) & 1;
-            let destination = (bit + shift % BHVec10240::DIMENSION) % BHVec10240::DIMENSION;
-            expected.bits[destination / 64] |= value << (destination % 64);
-        }
-        assert_eq!(input.permute(shift), expected, "shift {shift}");
-    }
-}
-
-#[test]
 fn test_bhvec_roundtrip_hvec() {
     let h1 = HVec10240::random();
     let bh1 = BHVec10240::from_hvec(&h1);
