@@ -159,12 +159,39 @@ impl BHVec10240 {
     }
 
     /// XOR binding
+    ///
+    /// Performance Optimization: Dispatches to AVX2 on x86_64 or NEON on aarch64
+    /// and uses `MaybeUninit` to eliminate 1,280-byte zero-initialization before writing.
     pub fn xor(&self, other: &Self) -> Self {
-        let mut result = [0u64; 160];
-        for i in 0..160 {
-            result[i] = self.bits[i] ^ other.bits[i];
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        if std::is_x86_feature_detected!("avx2") {
+            // SAFETY: AVX2 is detected at runtime.
+            return Self {
+                bits: unsafe { crate::hyperdim_simd::xor_simd_u64_avx2(&self.bits, &other.bits) },
+            };
         }
-        Self { bits: result }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        if std::arch::is_aarch64_feature_detected!("neon") {
+            // SAFETY: NEON is detected at runtime.
+            return Self {
+                bits: unsafe { crate::hyperdim_simd::xor_simd_u64_neon(&self.bits, &other.bits) },
+            };
+        }
+
+        let mut result = MaybeUninit::<[u64; 160]>::uninit();
+        // SAFETY: Casting uninit array pointer to a u64 pointer to initialize each element.
+        let ptr = result.as_mut_ptr().cast::<u64>();
+        for i in 0..160 {
+            // SAFETY: i is in 0..160, within bounds of [u64; 160].
+            unsafe {
+                ptr.add(i).write(self.bits[i] ^ other.bits[i]);
+            }
+        }
+        // SAFETY: All 160 elements are initialized in the loop.
+        Self {
+            bits: unsafe { result.assume_init() },
+        }
     }
 
     /// Hamming distance (popcount of XOR).

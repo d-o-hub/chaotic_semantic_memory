@@ -233,6 +233,51 @@ pub(crate) fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     res
 }
 
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
+#[target_feature(enable = "avx2")]
+/// # SAFETY
+/// Caller must ensure AVX2 is supported.
+pub(crate) unsafe fn xor_simd_u64_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    let mut res = std::mem::MaybeUninit::<[u64; 160]>::uninit();
+    let res_ptr = res.as_mut_ptr().cast::<u8>();
+    let l_ptr = lhs.as_ptr().cast::<u8>();
+    let r_ptr = rhs.as_ptr().cast::<u8>();
+    for i in (0..1280).step_by(32) {
+        // SAFETY: lhs, rhs, and res provide 1,280 bytes. i advances by 32 bytes up to 1248.
+        unsafe {
+            let l = _mm256_loadu_si256(l_ptr.add(i).cast());
+            let r = _mm256_loadu_si256(r_ptr.add(i).cast());
+            _mm256_storeu_si256(res_ptr.add(i).cast(), _mm256_xor_si256(l, r));
+        }
+    }
+    // SAFETY: All 1,280 bytes (160 x u64) have been written by AVX2 stores.
+    unsafe { res.assume_init() }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+#[inline]
+#[target_feature(enable = "neon")]
+/// # SAFETY
+/// Caller must ensure NEON is supported.
+pub(crate) unsafe fn xor_simd_u64_neon(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    use std::arch::aarch64::{veorq_u8, vld1q_u8, vst1q_u8};
+    let mut res = std::mem::MaybeUninit::<[u64; 160]>::uninit();
+    let res_ptr = res.as_mut_ptr().cast::<u8>();
+    let l_ptr = lhs.as_ptr().cast::<u8>();
+    let r_ptr = rhs.as_ptr().cast::<u8>();
+    for i in (0..1280).step_by(16) {
+        // SAFETY: lhs, rhs, and res provide 1,280 bytes. i advances by 16 bytes up to 1264.
+        unsafe {
+            let l = vld1q_u8(l_ptr.add(i));
+            let r = vld1q_u8(r_ptr.add(i));
+            vst1q_u8(res_ptr.add(i), veorq_u8(l, r));
+        }
+    }
+    // SAFETY: All 1,280 bytes (160 x u64) have been written by NEON stores.
+    unsafe { res.assume_init() }
+}
+
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
@@ -355,6 +400,20 @@ mod tests {
             let res = unsafe { and_simd_avx2(&lhs, &rhs) };
             for word in &res {
                 assert_eq!(*word, 0);
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    fn xor_simd_u64_avx2_correctness() {
+        if is_x86_feature_detected!("avx2") {
+            let lhs = [0x5555_5555_5555_5555u64; 160];
+            let rhs = [0xAAAA_AAAA_AAAA_AAAAu64; 160];
+            // SAFETY: AVX2 support is checked above.
+            let res = unsafe { xor_simd_u64_avx2(&lhs, &rhs) };
+            for word in &res {
+                assert_eq!(*word, 0xFFFF_FFFF_FFFF_FFFF);
             }
         }
     }
