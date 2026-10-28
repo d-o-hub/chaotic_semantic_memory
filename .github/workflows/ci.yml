@@ -613,17 +613,23 @@ jobs:
         retention-days: 7
 
   lint:
-    # 2026-10-28: this job briefly carried runs-on: ubuntu-24.04, blamed on an
-    # ubuntu-latest image migration breaking the nix'd cargo-deny advisory-db clone
-    # (GLIBC_ABI_DT_X86_64_PLT). Falsified by measurement — the pinned runner failed
-    # the identical line. The cause is the environment: scripts/run-with-libs.sh
-    # exports LD_LIBRARY_PATH=<nix-store libs>, which the host git-remote-https
-    # inherits; fixed in scripts/validate.sh by dropping it for the deny stage.
+    # 2026-10-28: this step runs the canonical gate inside the flake devShell because
+    # scripts/validate.sh now calls cargo-deny and actionlint (unified in c85984de), which
+    # host runner images do not ship. Two costs of that shape were measured, not assumed:
+    #   - The devShell wrapper exports LD_LIBRARY_PATH=<nix-store libs>, and the host `git`
+    #     CLI that cargo-deny spawns for the RustSec advisory-db inherits it, dying in
+    #     git-remote-https on GLIBC_ABI_DT_X86_64_PLT. validate.sh drops the variable for
+    #     that one stage. An earlier commit pinned this job to ubuntu-24.04 on a runner-image
+    #     theory; the pinned runner falsified it by failing the identical line, and the
+    #     unpinned `Cargo Deny` job (same label, same devShell, no wrapper) is the control.
+    #   - The nix toolchain gets no benefit from the host toolchain's dependency cache, so
+    #     clippy alone ran 13m57s; job 123009333543 cleared the deny stage at ~29m and was
+    #     then cancelled by the 30-minute budget before reaching rustdoc/tests/wasm. 60 is a
+    #     placeholder until this shape has one completed run to price against — tighten it
+    #     from that number rather than guessing again. (Earlier history: CARGO_BUILD_JOBS=2
+    #     moved the old 15-minute budget to 30 on 2026-10-12.)
     runs-on: ubuntu-latest
-    # 2026-10-12: with CARGO_BUILD_JOBS=2 the job's compile-bound work no longer fits
-    # the old 15-minute budget — two consecutive runs were killed at 15m16s and 15m19s
-    # (main's lint took 12m59s at the default job count). 30 leaves room for a cold cache.
-    timeout-minutes: 30
+    timeout-minutes: 60
     # scripts/check-goap-queue-issues.sh reads the tracker through `gh`, and the
     # default GITHUB_TOKEN cannot see issues unless the job asks. Job-level
     # permissions REPLACE the workflow-level block rather than merging into it,
