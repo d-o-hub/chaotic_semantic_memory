@@ -73,7 +73,14 @@ echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
 
 echo "==> cargo deny --locked check"
-cargo deny --locked check
+# cargo-deny fetches the RustSec advisory-db by spawning the host `git` CLI, and
+# the CI lint job reaches this script through its LD_LIBRARY_PATH wrapper, so the
+# host git-remote-https resolves libdl/libpthread against nix-store glibc-2.44 and
+# dies on GLIBC_ABI_DT_X86_64_PLT (lint job 122979314258). The standalone Cargo
+# Deny job runs the identical command on the identical devShell without that
+# export and passes — the A/B that localises the failure to the environment
+# rather than the runner image.
+env -u LD_LIBRARY_PATH cargo deny --locked check
 
 # `GitHub Pages` runs `cargo doc --no-deps --all-features` with
 # CARGO_BUILD_WARNINGS=deny exported by actions-rust-lang/setup-rust-toolchain, so

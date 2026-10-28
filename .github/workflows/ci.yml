@@ -613,12 +613,13 @@ jobs:
         retention-days: 7
 
   lint:
-    # 2026-10-28: pinned off ubuntu-latest, which migrated to Ubuntu 26 on 2026-10-19.
-    # validate.sh's cargo-deny stage runs `git clone` of the RustSec advisory-db inside
-    # `nix develop`; on the migrated image the host git-remote-https mixes with the
-    # nix-store glibc 2.44 shims (GLIBC_ABI_DT_X86_64_PLT) and the clone always fails
-    # (measured twice on PR #947, same line, ~100% on 26, green while runners were 24).
-    runs-on: ubuntu-24.04
+    # 2026-10-28: this job briefly carried runs-on: ubuntu-24.04, blamed on an
+    # ubuntu-latest image migration breaking the nix'd cargo-deny advisory-db clone
+    # (GLIBC_ABI_DT_X86_64_PLT). Falsified by measurement — the pinned runner failed
+    # the identical line. The cause is the environment: scripts/run-with-libs.sh
+    # exports LD_LIBRARY_PATH=<nix-store libs>, which the host git-remote-https
+    # inherits; fixed in scripts/validate.sh by dropping it for the deny stage.
+    runs-on: ubuntu-latest
     # 2026-10-12: with CARGO_BUILD_JOBS=2 the job's compile-bound work no longer fits
     # the old 15-minute budget — two consecutive runs were killed at 15m16s and 15m19s
     # (main's lint took 12m59s at the default job count). 30 leaves room for a cold cache.
@@ -694,9 +695,13 @@ jobs:
 
   cargo-deny:
     name: Cargo Deny
-    # 2026-10-28: same pin as the lint job — nix'd git clone of the advisory-db is
-    # broken on the Ubuntu 26 migration (see lint job comment).
-    runs-on: ubuntu-24.04
+    # 2026-10-28: this job was pinned to ubuntu-24.04 alongside the lint job by a
+    # falsified runner-image theory. It is the control for that measurement: same
+    # runner label, same devShell, same `cargo deny --locked check` as the lint
+    # job's deny stage — it passed every time because it does not go through
+    # scripts/run-with-libs.sh, so the host git helper never saw the nix
+    # LD_LIBRARY_PATH.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
