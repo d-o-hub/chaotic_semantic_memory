@@ -8,11 +8,10 @@ use crate::error::{MemoryError, Result};
 use crate::hyperdim::{HVec10240, Hypervector};
 use crate::hyperdim_ops::bundle_word_u64;
 use rand::RngExt;
+use std::mem::MaybeUninit;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
-
-use std::mem::MaybeUninit;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use]
 pub struct BHVec10240 {
@@ -94,20 +93,13 @@ impl BHVec10240 {
     }
 
     /// Convert HVec10240 (bit-packed u128) to BHVec10240 (bit-packed u64).
-    ///
-    /// Performance Optimization: On little-endian architectures, `[u128; 80]` and `[u64; 160]`
-    /// have an identical 1,280-byte memory representation. Using direct memory copy avoids 80 loop
-    /// iterations with bit shifts, casts, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn from_hvec(v: &HVec10240) -> Self {
         #[allow(unused_mut)]
         let mut bits = [0u64; 160];
         #[cfg(target_endian = "little")]
         {
-            // SAFETY:
-            // 1. Memory equivalence: `[u128; 80]` and `[u64; 160]` occupy exactly 1,280 contiguous bytes.
-            // 2. Alignment & Validity: `v.data` is an initialized `[u128; 80]` array, and `bits` is a mutable
-            //    `[u64; 160]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
+            // SAFETY: Memory equivalence between `[u128; 80]` and `[u64; 160]` (1,280 bytes).
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     v.data.as_ptr().cast::<u8>(),
@@ -127,20 +119,13 @@ impl BHVec10240 {
     }
 
     /// Convert BHVec10240 (bit-packed u64) to HVec10240 (bit-packed u128).
-    ///
-    /// Performance Optimization: On little-endian architectures, `[u64; 160]` and `[u128; 80]`
-    /// have an identical 1,280-byte memory representation. Using direct memory copy avoids 80 loop
-    /// iterations with bit shifts, bitwise OR operations, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn to_hvec(&self) -> HVec10240 {
         #[allow(unused_mut)]
         let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
         {
-            // SAFETY:
-            // 1. Memory equivalence: `[u64; 160]` and `[u128; 80]` occupy exactly 1,280 contiguous bytes.
-            // 2. Alignment & Validity: `self.bits` is an initialized `[u64; 160]` array, and `data` is a mutable
-            //    `[u128; 80]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
+            // SAFETY: Memory equivalence between `[u64; 160]` and `[u128; 80]` (1,280 bytes).
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     self.bits.as_ptr().cast::<u8>(),
@@ -164,7 +149,7 @@ impl BHVec10240 {
     /// and uses `MaybeUninit` to eliminate 1,280-byte zero-initialization before writing.
     pub fn xor(&self, other: &Self) -> Self {
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        if std::is_x86_feature_detected!("avx2") {
+        if is_x86_feature_detected!("avx2") {
             // SAFETY: AVX2 is detected at runtime.
             return Self {
                 bits: unsafe { crate::hyperdim_simd::xor_simd_u64_avx2(&self.bits, &other.bits) },
@@ -172,8 +157,8 @@ impl BHVec10240 {
         }
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            // SAFETY: NEON is detected at runtime.
+        {
+            // SAFETY: NEON is always available on aarch64.
             return Self {
                 bits: unsafe { crate::hyperdim_simd::xor_simd_u64_neon(&self.bits, &other.bits) },
             };
