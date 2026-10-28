@@ -272,7 +272,7 @@ jobs:
       with:
         cache: false
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
     - name: Test ${{ matrix.crate }}
@@ -306,7 +306,7 @@ jobs:
       with:
         cache: false
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test-arm64
     - name: Assert arm64 host
@@ -332,7 +332,7 @@ jobs:
       with:
         cache: false
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
     - name: Run graph candidates benchmark
@@ -367,7 +367,7 @@ jobs:
       with:
         cache: false
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
     - name: Run DuckDB tests
@@ -398,7 +398,7 @@ jobs:
         toolchain: nightly
         components: miri
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: miri
     - name: Run Miri tests
@@ -422,7 +422,7 @@ jobs:
         cache: false
         target: x86_64-unknown-linux-gnu
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: cli
     # `-p chaotic_semantic_memory`: `--bin csm` now matches two workspace packages
@@ -468,7 +468,7 @@ jobs:
         target: ${{ matrix.target }}
 
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: cli
 
@@ -498,7 +498,7 @@ jobs:
       with:
         cache: false
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
     # cargo test already compiles; no separate cargo build step
@@ -637,7 +637,7 @@ jobs:
         cache: false
         components: clippy, rustfmt
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
     - name: Format check
@@ -711,7 +711,7 @@ jobs:
       with:
         cache: false
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
     - name: Benchmark workspace unit tests
@@ -736,7 +736,7 @@ jobs:
       with:
         cache: false
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         workspaces: fuzz
         shared-key: fuzz
