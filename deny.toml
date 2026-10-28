@@ -29,6 +29,18 @@ ignore = [
     { id = "RUSTSEC-2026-0367", reason = "zip 6 build-dep; vulnerable extract path is cfg(not bundled); csm-duckdb enables duckdb/bundled" },
     { id = "RUSTSEC-2026-0368", reason = "zip 6 build-dep; vulnerable extract path is cfg(not bundled); csm-duckdb enables duckdb/bundled" },
     { id = "RUSTSEC-2026-0369", reason = "zip 6 build-dep; vulnerable extract path is cfg(not bundled); csm-duckdb enables duckdb/bundled" },
+    # Issue #945: the zstd 2026-10-26 advisory cluster reaches this workspace only
+    # through tantivy-sstable 0.3.0 (tantivy 0.22 pins zstd "0.13", features
+    # ["experimental"]), and tantivy-sstable's entire call surface is
+    # zstd::bulk::{Compressor, Decompressor} + compress_bound — none of the
+    # advisory functions (with_context stream reuse, seekable, dictionary
+    # cdict/ddict/train_*, CCtx::try_clone threading, DCtx::decompress_stream)
+    # is reachable. Patched sets (zstd >=0.14.3, zstd-safe >=8.2.0) are outside
+    # tantivy's 0.13 pin, same class as the lru/time/h2 pins above.
+    { id = "RUSTSEC-2026-0391", reason = "zstd 0.13.3 pinned by tantivy's zstd 0.13; with_context stream reuse never called (bulk API only)" },
+    { id = "RUSTSEC-2026-0398", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; seekable decompress never called" },
+    { id = "RUSTSEC-2026-0403", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; DCtx::decompress_stream never called" },
+    { id = "RUSTSEC-2026-0410", reason = "zstd-sys wasm32-only allocator shim; zstd-sys is absent from the csm-wasm dependency tree" },
     # Dependabot alerts #1, #4: libsql-sqlite3-parser crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5)
     # No patch available upstream. Low severity, requires malformed SQL input.
     # No RUSTSEC ID; will add when assigned.
