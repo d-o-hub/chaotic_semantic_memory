@@ -2772,6 +2772,8 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_decay_guard_tests.rs
+
 ## src/framework_events.rs
 
 ### MemoryEvent
