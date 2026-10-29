@@ -85,6 +85,15 @@ Use separate test files in `tests/` for:
 
 Every Rust file under `src/` and `crates/` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 
+`loc-check.sh` judges each file and knows nothing about the aggregate.
+`docs/architecture/context.yaml` → `current_status.modules_under_loc_limit` is compared against a live
+`src/**/*.rs` file count by `tests/validate_llm_context.py`, so **adding or removing any `src/*.rs` file
+means bumping that counter in the same commit** (measured 2026-10-29: a new `src/framework_decay_guard_
+tests.rs` module left the declaration at 114/114 while the tree held 115 files). The pre-commit hook does
+not run this gate and `scripts/validate.sh` runs it late and fail-fast — so every stage after it is
+unverified too, and the drift costs a whole CI cycle rather than a warning. After adding a file, the
+cheap check is `python3 tests/validate_llm_context.py`.
+
 ## Documentation Link & Command Validation
 
 Run `scripts/check-docs-links.sh` to validate:
