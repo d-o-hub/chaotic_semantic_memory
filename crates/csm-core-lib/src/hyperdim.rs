@@ -10,6 +10,8 @@ use rand::RngExt;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
+use std::mem::MaybeUninit;
+
 use crate::error::Result;
 
 pub use crate::hyperdim_batch::batch_cosine_similarity;
@@ -360,20 +362,31 @@ impl HVec10240 {
 
     /// Permute the hypervector (cyclic rotation)
     ///
-    /// Optimized implementation that eliminates modulo operations and branches
-    /// from the hot loop by splitting the rotation into two contiguous segments.
-    #[allow(clippy::needless_range_loop)]
+    /// Optimized implementation that eliminates zero-initialization using `MaybeUninit`,
+    /// adds an early-return fast path for zero shift, and splits rotation into contiguous segments.
     pub fn permute(&self, shift: usize) -> Self {
-        let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
+
+        if bit_shift == 0 && word_shift == 0 {
+            return *self;
+        }
+
+        let mut res_uninit: [MaybeUninit<u128>; 80] = [const { MaybeUninit::<u128>::uninit() }; 80];
 
         // Optimized path for word-aligned rotations
         if bit_shift == 0 {
             let (left, right) = self.data.split_at(word_shift);
-            result[..80 - word_shift].copy_from_slice(right);
-            result[80 - word_shift..].copy_from_slice(left);
-            return Self { data: result };
+            let ptr = res_uninit.as_mut_ptr().cast::<u128>();
+            // SAFETY: `right` and `left` are disjoint slices from `self.data` with total length 80.
+            // Copies initialize all 80 elements of `res_uninit`.
+            unsafe {
+                std::ptr::copy_nonoverlapping(right.as_ptr(), ptr, 80 - word_shift);
+                std::ptr::copy_nonoverlapping(left.as_ptr(), ptr.add(80 - word_shift), word_shift);
+                return Self {
+                    data: res_uninit.as_ptr().cast::<[u128; 80]>().read(),
+                };
+            }
         }
 
         let inv_bit_shift = 128 - bit_shift;
@@ -384,21 +397,26 @@ impl HVec10240 {
         for i in 0..limit {
             let src1 = i + word_shift;
             let src2 = src1 + 1;
-            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
+            res_uninit[i].write((self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift));
         }
 
         // Handle the wrap-around word at the boundary of segment 1 and 2
         // result[79 - word_shift] uses data[79] and data[0]
-        result[limit] = (self.data[79] << bit_shift) | (self.data[0] >> inv_bit_shift);
+        res_uninit[limit].write((self.data[79] << bit_shift) | (self.data[0] >> inv_bit_shift));
 
         // Segment 2: src1 from 0 to word_shift - 1, src2 from 1 to word_shift
         for i in limit + 1..80 {
             let src1 = i + word_shift - 80;
             let src2 = src1 + 1;
-            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
+            res_uninit[i].write((self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift));
         }
 
-        Self { data: result }
+        // SAFETY: The three writes (0..limit, limit, limit+1..80) initialize all 80 elements.
+        unsafe {
+            Self {
+                data: res_uninit.as_ptr().cast::<[u128; 80]>().read(),
+            }
+        }
     }
 
     /// Serialize to bytes
