@@ -57,6 +57,31 @@ Version note on the "no `--json`" claim above: gh **2.102.0** does ship `gh pr c
 `pass`/`fail`/`pending`/`skipping`/`cancel` — so `--json name,bucket` is a safe snapshot. The hazard was
 always the *default* tab-separated output, not a missing flag; confirm with `gh pr checks --help`.
 
+## Flake, or verdict? Reproducibility decides, and the control may already exist (measured 2026-10-28, #947)
+
+A `lint` failure text of `git-remote-https: … version 'GLIBC_ABI_DT_X86_64_PLT' not found`
+inside `nix develop` read as an infra flake (late `exit 1`, network-shaped words) and then as
+an `ubuntu-latest` image-migration breakage. Both were wrong; the second was falsified by the
+fix's own run — the pinned `ubuntu-24.04` job failed the byte-identical line. Three rules:
+
+1. **A re-run that reproduces the same stage is a verdict, not a flake.** `exit 101` is a
+   cargo/clippy verdict; `exit 1` late in a job that compiled cleanly is *environment-shaped*,
+   which is a hypothesis, not a classification.
+2. **Look for the control before pinning infrastructure.** The same workflow already ran the
+   identical devShell and identical `cargo deny --locked check` in another job on the identical
+   label — and passed every attempt. The single remaining difference was the wrapper
+   (`scripts/run-with-libs.sh` exports `LD_LIBRARY_PATH=<nix-store libs>`), which the host `git`
+   CLI cargo-deny spawns inherits. An A/B the repo is already paying for beats a plausible story.
+3. **Reject knobs you cannot connect to the evidence.** `deny.toml` `git-via-https = true` was
+   applied, then dropped: the logged clone URL was already HTTPS, so an ssh→https switch cannot
+   affect it. Read the command line the failure prints, not the docs of the tool you trust.
+4. **A job shape that has never completed has no budget evidence.** Clearing the deny failure
+   revealed the next one: the same `lint` job was *cancelled at its 30-minute timeout*, because
+   the devShell toolchain cannot reuse the host toolchain's `Cache Rust dependencies` entry and
+   clippy alone took 13m57s. `green on main` proves nothing about a command main never runs —
+   main's `validate.sh` had no `cargo deny` stage at all until this branch unified the gate. When
+   a PR moves a gate into a different toolchain, price the timeout from a run of *that* shape.
+
 ## After green: land and verify
 
 1. `git fetch origin main` — the branch base must equal current `main`.

@@ -9,6 +9,15 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
 2. Run local gates from `references/local-gates.md`.
 3. **Commitlint full PR range** before push:
    `npx commitlint --from origin/main --to HEAD --verbose`
+   Read the **aggregate** verdict, not the last per-commit `✔` — every commit prints its own block, so
+   `tail -8` shows one clean commit while an earlier one is red (measured 2026-10-29, on my own
+   branch: `footer-max-line-length` at 103 chars had already failed locally and I never saw it).
+   Grep the whole output for `✖`. `footer-max-line-length` judges the *last paragraph* no matter how
+   prose-y it is; wrap bodies under 100.
+   A red range is fixed by **rewording** the offending commit, not by a follow-up commit — the range
+   re-checks every message, so the bad line stays red: backup branch, `git reset --hard <parent>`,
+   `git cherry-pick --no-commit <bad>` + `git commit -F <msg>`, cherry-pick the rest, then
+   `git push --force-with-lease`.
 4. Validate GitHub checks with `references/gh-ci-truth.md`.
 5. If checks fail, report failing job and log URL; map failure class via
    `references/ci-pitfalls-pr-triage.md` (commitlint scope, mutation surface,
