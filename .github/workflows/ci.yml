@@ -510,7 +510,33 @@ jobs:
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.mutation == 'true'
     needs: [test, detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 2026-10-29: the old 45-minute ceiling was sized for a handful of in-diff mutants.
+    # Run 40748384533 (head a2639d57, "mutation preflight: 224 mutants to test") hit it after
+    # ~31 mutants. Throughput is not a guess: two older jobs on this branch's predecessor ran
+    # 30 mutants in 38m and 29 in 37m (jobs 119347672236, 118948781459) = 76-80s per mutant
+    # wall, which is what the per-mutant "56-66s build + 17-24s test" lines add up to, so the
+    # 5 lines that printed here were the *not-caught* minority, not the whole progress.
+    # 224 x 78s = 4.9h, so 45 was never going to work for a branch this size — and this ceiling
+    # is only ever consumed by branches this size: a PR with no mutation-visible Rust finishes
+    # in seconds (run 40835994704: "0 mutants to test", step took 3s). Durable fix is sharding
+    # across jobs, which the ruleset's required context name (literally `mutation-test`) blocks;
+    # tracked as a follow-up, not smuggled into a release-blocking PR.
+    timeout-minutes: 300
+    # The workflow-level CARGO_INCREMENTAL=0 (top of this file) is a cache-size choice that
+    # is actively destructive here: this job runs one mutant at a time in the same tree
+    # (--in-place, jobs=1) precisely so each mutant build reuses the previous one's artifacts,
+    # and non-incremental compilation forfeits that. Measured locally on the pinned toolchain
+    # (rustc 1.88.0, CARGO_BUILD_JOBS=2, one mutated crate in the root package, same tree,
+    # A/B by flipping only this variable): a viable mutant's build phase 147-195s with
+    # CARGO_INCREMENTAL=0 vs 107s with incremental, and an unviable mutant's 11s vs 3s. That
+    # is 1.4-1.8x off the dominant cost, not an order of magnitude — recompiling and relinking
+    # the 21k-LOC crate's test harness stays. The ceiling above is sized from the measured
+    # 76-80s/mutant x 224 mutants, and this is what brings that under it. The first run after
+    # the flip also pays one cold rebuild, since changing the flag invalidates the cached
+    # fingerprints of every dependency; scripts/mutation_test.sh now copies mutants.out into
+    # the uploaded artifact so the runner's own phase timings settle the question.
+    env:
+      CARGO_INCREMENTAL: "1"
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
       with:

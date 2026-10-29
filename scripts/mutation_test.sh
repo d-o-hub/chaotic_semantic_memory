@@ -376,10 +376,29 @@ RUN_CMD=(cargo mutants "${MUTANTS_ARGS[@]}" "${EXCLUDE_ARGS[@]}" "$@")
 if [[ ${#TEST_ARGS[@]} -gt 0 ]]; then
   RUN_CMD+=(-- "${TEST_ARGS[@]}")
 fi
+MARKER="$(mktemp)"
+trap 'rm -f "${MARKER}" "${DIFF_FILE:-}"' EXIT
 RUSTFLAGS="" RUST_BACKTRACE=0 "${RUN_CMD[@]}" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
 set -e
+
+# Ship cargo-mutants' own report with the CI artifact. The tee'd stdout only carries what
+# cargo-mutants chose to print — caught mutants are silent, so a run that finishes 31 of 224
+# before the ceiling shows 5 lines and looks stalled (that misread cost a wrong diagnosis
+# here) — and `mutants.out/outcomes.json` is the record that answers it: per-mutant Build/Test
+# phase durations, with `mutants.out/debug.log` carrying the timestamps that separate "this
+# mutant is slow" from "the gap between mutants is slow". Outcomes are written as the sweep
+# progresses, so a mid-run cancellation still leaves the partial data. The copy lands inside
+# OUT_DIR (uploaded as `path: progress/mutation`) rather than going through `--output`,
+# because scripts/mutation_inventory.py reads `mutants.out/outcomes.json` relative to the
+# workspace root; `mutants.out/` is gitignored at any depth, so this adds no untracked churn.
+# `-newer "${MARKER}"` distinguishes this run's report from a stale mutants.out in the tree.
+if [[ -f mutants.out/outcomes.json ]] && [[ -n "$(find mutants.out/outcomes.json -newer "${MARKER}" 2>/dev/null)" ]]; then
+  rm -rf "${OUT_DIR}/mutants.out"
+  cp -a mutants.out "${OUT_DIR}/mutants.out"
+  echo "mutation report copied to ${OUT_DIR}/mutants.out" >&2
+fi
 
 {
   echo "# Unit-Target Mutation Test Report"
