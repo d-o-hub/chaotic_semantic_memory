@@ -397,7 +397,8 @@ impl HVec10240 {
         for i in 0..limit {
             let src1 = i + word_shift;
             let src2 = src1 + 1;
-            res_uninit[i].write((self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift));
+            res_uninit[i]
+                .write((self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift));
         }
 
         // Handle the wrap-around word at the boundary of segment 1 and 2
@@ -408,7 +409,8 @@ impl HVec10240 {
         for i in limit + 1..80 {
             let src1 = i + word_shift - 80;
             let src2 = src1 + 1;
-            res_uninit[i].write((self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift));
+            res_uninit[i]
+                .write((self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift));
         }
 
         // SAFETY: The three writes (0..limit, limit, limit+1..80) initialize all 80 elements.
