@@ -158,3 +158,42 @@ pub async fn run_index_jsonl(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use super::run_index_jsonl;
+    use crate::cli::args::{IndexJsonlArgs, OutputFormat};
+    use std::path::PathBuf;
+    use tempfile::tempdir;
+
+    fn args_for(file: PathBuf) -> IndexJsonlArgs {
+        IndexJsonlArgs {
+            namespace: "_default".to_string(),
+            file,
+            field: "text".to_string(),
+            id_field: None,
+            tag_field: None,
+            code_aware: false,
+        }
+    }
+
+    // The whole `--lib` mutation surface for this entry point is the missing-file
+    // guard: with `persistence` off the success path would create a database in the
+    // checkout, so this asserts the error the `-> Ok(())` mutant cannot produce.
+    #[tokio::test]
+    async fn index_jsonl_rejects_a_file_that_does_not_exist() {
+        let dir = tempdir().expect("tempdir");
+        let missing = dir.path().join("absent.jsonl");
+        let result = run_index_jsonl(args_for(missing.clone()), None, OutputFormat::Quiet).await;
+        assert!(
+            result.is_err(),
+            "indexing a nonexistent file must report an error, got Ok"
+        );
+        assert!(
+            !missing.exists(),
+            "the guard must not create the file it refused to read"
+        );
+    }
+}
