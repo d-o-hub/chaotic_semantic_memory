@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.9] - 2026-10-21
+## [0.3.9] - 2026-10-30
 
 ### Added
 - **Binary export (`chaotic_semantic_memory`, ADR-0100)**: new public binary snapshots are written with the maintained Postcard codec behind an explicit envelope (`CSMBIN01`, format version 1, codec id 2) instead of bincode 1.x (unmaintained, RUSTSEC-2025-0141). The envelope is produced identically by the native file API, the namespace byte API, and the WASM `exportToBytes` binding, and the writer streams through a size-limited writer, so a snapshot can never grow past the 100 MiB import limit before the check. The reader still accepts the historical version-1 fixed-int bincode envelope and both un-enveloped legacy bincode payloads, so existing exports keep loading; bincode remains only for those legacy readers and for internal ANN snapshot storage.
@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Retrieval (`csm-retrieval`)**: framework, CLI, MCP, and WASM text search now share the BM25 implementation owner and index path; the CLI reuses the index rather than rebuilding it per query, indexes full document text rather than truncating at 200 characters, and preserves the stable concept ID in JSON results.
 - **GraphRAG (`csm-retrieval`)**: the root facade now re-exports the single owner implementation, and public GraphRAG weights reject NaN, infinity, and out-of-range values with `InvalidInput`.
 - **Prometheus (`observability`)**: the `/metrics` endpoint adds low-cardinality counters for JSON/binary import failures, ANN snapshot rebuild reasons, absence-cache outcomes, TTL purge results/counts, and persistence reconciliation; labels come from internal fixed values, not user input.
+- **Security (supply chain, #946)**: four `zstd`-family advisories disclosed 2026-10-16 are
+  **ignored, not fixed** — `RUSTSEC-2026-0391` (`zstd` 0.13.3), `RUSTSEC-2026-0398` and
+  `RUSTSEC-2026-0403` (`zstd-safe` 7.2.4), and `RUSTSEC-2026-0410` (`zstd-sys`, a wasm32-only
+  allocator shim). They are unreachable here: `zstd 0.13.3` enters the
+  graph only through `tantivy-sstable 0.3.0` (`Cargo.lock:5547`), and a workspace-wide grep for
+  `with_context`, `seekable`, `decompress_stream` and `advanced_decompress` over `src` and
+  `crates` returns **0** call sites — the compressed paths the advisories describe are never
+  reached — while `zstd-sys` is absent from the `csm-wasm` dependency tree. Both RustSec policy files carry the
+  same four IDs with those reasons (`.cargo/audit.toml`, `deny.toml`), and
+  `scripts/check-audit-ignore-parity.sh` fails if the two lists diverge. A release therefore
+  ships with known-unresolved-but-unused `zstd` entries: they clear when `tantivy-sstable` moves
+  to `zstd >= 0.14.3`, not here.
 - **CI tooling**: `scripts/SCRIPT_CATALOG.md` is generated and drift-gated; `actionlint` is required and fail-closed, while optional ShellCheck is explicit about not being a pass. `scripts/validate-low-memory.sh` documents a bounded local path without substituting for required gates.
 - **Release gate (ADR-0042)**: the Pre-Release Gate is a publication blocker for the exact release SHA. `release.yml` resolves the CI run's `head_sha`, checks it out, and refuses to tag or publish until both the CI run and the `pre-release-gate.yml` run for that same SHA are `completed/success`; a manual dispatch and a `recover` run resolve their target SHA and pass the same check. `dist.yml` is dispatch-only and no longer publishes: a tag created inside `release.yml` carries `GITHUB_TOKEN`, which does not fire a tag-push workflow, so platform CLI binaries are built by an explicit `gh workflow run dist.yml`. A main push without a bounded PR diff is explicitly “mutation not run,” never a green mutation score.
 - **CI (`workspace`, #905)**: bare `cargo clippy --all-targets --all-features` / `cargo test` at the repo root selected the **root package only** — the root manifest is both a package and a workspace, and with no `default-members` its `workspace_default_members` is that one package — so no `crates/*` member was compiled, linted or tested by the `lint` job, and two real `missing_const_for_fn` findings in `crates/csm-persistence/src/persistence_wasm.rs` (`query_count`, `reset_query_count`) sat behind a green job. `[workspace] default-members` now lists every member; the two findings are fixed; the wasm check in `scripts/validate.sh` is package-scoped (`cargo check --target wasm32-unknown-unknown -p csm-wasm`, the command the CI wasm job runs) because the bare form now selects the whole workspace and dies on tokio's wasm feature gate (`Only features sync,macros,io-util,rt,time are supported on wasm`). `scripts/ci-workspace-crate-matrix.sh` gained enforcement 5: a member present in `members` but absent from `default-members` is an error, so the hand-kept copy cannot rot back into the same blind spot; fixtures 17/18 prove the failure and fail-closed directions, and the gate reports `all 12 workspace member(s) are default members` on every run.
