@@ -104,24 +104,24 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
   - Detail, with the #767 `grep -c ADR-0094` 3→3 verification, the surviving-tag
     rule, restore-for-symmetry, flipped test expectations, `const fn` → `fn`, and
     #816's dedup-deletes-prose case: `references/rationale-comments.md`.
-- **"Not breaking" is a semver claim, not a compile claim** (2026-10-03, #816
-  self-roast): a workspace that still builds says nothing about a removed public
-  derive or impl. Use the repo's `**Breaking (scope)**` changelog label (count
-  `!`-header precedent in `git log --format=%s` first), and re-measure every
-  count an implementer agent reports — its summary is a lead, not evidence.
-- **`unsafe` bounds in generic code (PR #769, 2026-09-25)**: a `get_unchecked`
-  SAFETY comment that hardcodes a dimension while the fn is generic over a
-  trait constant is a **future out-of-bounds read**, not a perf tradeoff — all
-  current impls matching proves nothing about the next one. Verify the
-  invariant, then require the bound be type-enforced (`H::DIMENSION`) or the
-  trait document it. Also check the *other* shift in the same loop: `hash_bits`
-  is capped at 64 upstream precisely so `1u64 << i` cannot overflow.
-- **Self-contradicting evidence tables (PR #768, 2026-09-25)**: a "measured"
-  table with a headline number beside rows marked "Not measured" is a close.
-  Also reject research scaffolding committed to the repo root (arXiv/Crossref
-  search helpers, ad-hoc runners) and self-marked `[FALLBACK]` citations on a
-  new public API. Close **as submitted, not as rejected** — name the clean
-  diff that would be reviewable.
+- **"Not breaking" is a semver claim, not a compile claim** (2026-10-03, #816 self-roast): a workspace
+  that still builds says nothing about a removed public derive or impl. Use the repo's
+  `**Breaking (scope)**` changelog label (count `!`-header precedent in `git log --format=%s` first), and
+  re-measure every count an implementer agent reports — its summary is a lead, not evidence.
+  **Positive-control a probe before believing a zero**: one path segment short returns 0 for every input,
+  and the zero agrees with the story the title already told (#955 read `versions[*].attestations` instead
+  of `versions[*].dist.attestations` and "proved" 0 of 11 npm versions unattested; the registry says 19
+  of 21 were attested). Run the query on one input that must be non-zero before trusting its verdict.
+- **`unsafe` bounds in generic code (PR #769, 2026-09-25)**: a `get_unchecked` SAFETY comment that
+  hardcodes a dimension while the fn is generic over a trait constant is a **future out-of-bounds read**,
+  not a perf tradeoff — all current impls matching proves nothing about the next one. Verify the
+  invariant, then require the bound be type-enforced (`H::DIMENSION`) or the trait document it. Also check
+  the *other* shift in the same loop: `hash_bits` is capped at 64 upstream precisely so `1u64 << i` cannot
+  overflow.
+- **Self-contradicting evidence tables (PR #768, 2026-09-25)**: a "measured" table with a headline number
+  beside rows marked "Not measured" is a close. Also reject research scaffolding committed to the repo root
+  (arXiv/Crossref search helpers, ad-hoc runners) and self-marked `[FALLBACK]` citations on a new public
+  API. Close **as submitted, not as rejected** — name the clean diff that would be reviewable.
 - **deny.toml**: must only ADD ignores with advisory ID + reason. Deleting or
   commenting out existing ignores re-breaks `cargo deny` — reject.
 - **Perf claims**: no `criterion` output or flamegraph = not review-ready.
