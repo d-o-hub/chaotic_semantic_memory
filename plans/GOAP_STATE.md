@@ -149,25 +149,39 @@ world_state:
   yaml_gate_severity_classified_and_gated: true  # 2026-10-05 (#841, PR #854, main 2984d3e): validate-workflows.sh classifies yamllint output on `-f parsable` into syntax error / error-level / warning-level instead of calling every finding "YAML syntax error", .yamllint gives it a profile (relaxed; line-length 200 warning, priced from ci.yml:516 at 166 cols and benchmark-ci.yml:61 at 207), an unavailable parser prints SKIPPED — NOT A PASS instead of a silent pass, and the 12-case fixture runs from validate.sh:297-303 with yamllint apt-installed in the lint job (pip hits PEP 668 on ubuntu-24.04).
 
   # ── Active wave ───────────────────────────────────────────────
-  release_pipeline_validated: false  # 2026-10-30: v0.3.9 is prepared (Cargo.toml 0.3.9, one dated
-                               #   CHANGELOG header, link row) and unpublished — crates.io and both npm
-                               #   channels sit at 0.3.8 and no v0.3.9 tag exists. Flip true only when the
-                               #   tag, 9 crates, both npm packages and the release assets all verify.
+  release_pipeline_validated: false  # 2026-10-30, re-measured after run 41110522627: the v0.3.9 tag is
+                               #   live (→ 642238f0, lightweight), npm is 2/2 at 0.3.9 with
+                               #   attestations=provenance,url, and the GitHub release carries 7 assets
+                               #   (SHA256SUMS + 6 platform tarballs). crates.io is 0/9 — every upload
+                               #   403s on `authentication failed`, an owner-only credential rotation
+                               #   (#967), not a pipeline defect. Stays false until 9/9 land; recovery is
+                               #   `recover=true recovery_tag=v0.3.9`, which is idempotent and re-uses
+                               #   the existing tag.
   audit_followup_wave_merged: true   # 2026-10-30: PR #947 squashed into main as 3953e818 (12:55:38Z);
                                #   roasted before merge in plans/PR_ROAST_2026_10_30.md, mutation gate
                                #   measured at 94.0476% on that head.
   release_gate_race_repaired: true   # 2026-10-30: PR #962 replaced release.yml's one-shot pre-release
-                               #   gate read with a bounded 30m wait (#953). Not yet exercised — no
-                               #   jobful Release run has happened since #947 restored parsability.
+                               #   gate read with a bounded 30m wait (#953). Exercised both directions
+                               #   the same day: refusal on 4ac8422d (gate 41078875116 completed/failure,
+                               #   release 41078875362) and success on 642238f0 (gate 41110522706
+                               #   completed/success → tag v0.3.9 created by run 41110522627).
+  release_refusal_names_the_failing_gate_job: true  # 2026-10-30 (#960): scripts/gate-failure-detail.sh
+                               #   renders the gate run's per-job status and a SUMMARY line naming which
+                               #   job blocked, and release.yml's verify step now prints it inside the
+                               #   ::error:: annotation. Replay-verified against both real runs above
+                               #   (refusal → "2 of 7 gate jobs failed: pr-drain-check, gate-summary",
+                               #   rc 1; success → rc 0). Fixture: scripts/test-gate-failure-detail.sh
+                               #   (8 cases / 22 checks) wired into scripts/validate.sh.
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 12       # 2026-10-30: eight ci/release follow-ups + #961, #964, #965, #966 (gates)
-                               #   (#960 #954 #955 #948 #949 #951 #952 #959) plus #961, the one genuine
-                               #   defect the #956/#957/#958 drain surfaced. Rule 11 order: issue first,
+  queued_actions_count: 11       # 2026-10-30: eight ci/release follow-ups + #961, #964, #965, #966 (gates)
+                               #   (#954 #955 #948 #949 #951 #952 #959) plus #961, the one genuine
+                               #   defect the #956/#957/#958 drain surfaced. #960 left the queue when
+                               #   its refusal-detail landed. Rule 11 order: issue first,
                                #   then the dependency-ordered action. Gate: `grep -c '^  - name:
-                               #   plans/ACTIONS.md` reads 9, which is what the checker compares.
+                               #   plans/ACTIONS.md` reads 11, which is what the checker compares.
                                # 2026-10-15: removed the completed
                                #   `mutation_baseline_the_feature_gated_mcp_module` (#833) — its effect is
                                #   now recorded as `mcp_module_mutation_baselined` below, with the evidence in
@@ -403,40 +417,31 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_the_release_gate_race  # 2026-10-30 — PR #962 squashed
-                               #   `release.yml`'s one-shot `Verify CI and Pre-Release Gate` read with a
-                               #   bounded poll. `release.yml` and `pre-release-gate.yml` both trigger on
-                               #   the same CI completion, so `validate` (62 s measured on run 39648046550)
-                               #   always read the gate before its verdict existed (slowest measured pass
-                               #   4m37s, run 39060608423). #953 is a code-read prediction, not a recorded
-                               #   refusal: the workflow was unparsable from 0f77c0d0 until #947, so no run
-                               #   ever reached the step — the PR body and the code comment both say so.
-                               #   Gates: check-actionlint.sh rc 0, validate-workflows.sh --check rc 0
-                               #   (10 files, 0 errors), commitlint rc 0. Previous action:
-                               #   `repair_the_merged_tree` (2026-10-22), whose evidence stays in
-                               #   `plans/PR_ROAST_2026_10_21.md` and in the git history of #947.
-                               #   into the audit-follow-up wave produces a tree neither parent tested.
-                               #   The name drops `and_land_the_wave`: the wave is committed locally on
-                               #   a branch re-created off `0f77c0d0`, and no push, PR or merge has
-                               #   happened (operator scope for this session is validate + commit only),
-                               #   so landing is an unfinished action, not a completed one. The gate then
-                               #   caught an eighth cause the native suite cannot see: the WASM import
-                               #   binding called into a `not(wasm32)` module — see
-                               #   `import_apply_path_shared_across_targets`.
-                               #   The full suite (not `--lib`) is the only honest check of a merged
-                               #   head; it reported eight failures in seven targets, each root-caused
-                               #   before being fixed: the consolidated text probe had dropped main's
-                               #   absence persist/clear and its record key was not mode-qualified
-                               #   (`fix(retrieval)`), `OtlpBatchConfig::validate()` left
-                               #   `shutdown_timeout` unbounded, the MCP wire handshake asserted an
-                               #   impossible protocol echo and the stateless Streamable HTTP requests
-                               #   omitted the SEP-2243 `Mcp-Method` header the `2026-07-28` revision
-                               #   makes mandatory (`-32020` → 400), eight tests wrote scratch to a
-                               #   quota-capped `/tmp` or to a `TMPDIR` the path guard rejects, one CLI
-                               #   test invoked a `--format` flag `query` never had, and three of main's
-                               #   tests pinned import/backup contracts this wave replaces on purpose —
-                               #   the lib target already pinned the new ones, which is why a `--lib`
-                               #   view looked clean. `Cargo.lock` is spliced from `main`'s lock plus the
-                               #   four stanzas the manifests newly require (re-resolving reproduces the
-                               #   21 unrelated version-reference flips), leaving 35 insertions and 0
-                               #   deletions. Previous action: `implement_audit_followups_2026_10_20`.
+  action_last_completed: name_the_failing_job_in_the_release_refusal  # 2026-10-30 (#960) — scripts/gate-failure-detail.sh
+                               #   renders a gate run's per-job conclusions plus a SUMMARY naming the
+                               #   blocking job(s), and release.yml's verify step puts that SUMMARY in the
+                               #   ::error:: annotation. The 8-case / 22-check fixture
+                               #   scripts/test-gate-failure-detail.sh is wired fail-closed into
+                               #   scripts/validate.sh and is the only proof available: scripts/ sit
+                               #   outside the mutation surface (`--lib` only), so the harness owns this
+                               #   behavior. Replayed against both real gate runs using the step body
+                               #   extracted from the current YAML: 41078875116 refuses with rc 1 and
+                               #   "2 of 7 gate jobs failed: pr-drain-check, gate-summary"; 41110522706
+                               #   passes with rc 0. Gates: actionlint rc 0, validate-workflows.sh 0 errors
+                               #   with the warning count held at its pre-PR 24 (a 206-column line I added
+                               #   was split out), shellcheck clean, check-script-catalog.sh pass after
+                               #   regeneration.
+                               #   Previous action: `repair_the_release_gate_race` (2026-10-30, PR #962
+                               #   squashed as 4ac8422d) — release.yml's one-shot `Verify CI and
+                               #   Pre-Release Gate` read replaced by a bounded 30m poll. Its premise
+                               #   (#953) was a code-read prediction when written and is now measured in
+                               #   production in both directions: the refusal above, and the success that
+                               #   created tag v0.3.9 on 642238f0 (run 41110522627). The race was timed,
+                               #   not argued: `validate` reached the read in 62 s (run 39648046550) while
+                               #   the slowest measured gate pass ran 4m37s (run 39060608423).
+                               #   Previous action: `repair_the_merged_tree` (2026-10-22). Its evidence —
+                               #   the eight root-caused full-suite failures, the SEP-2243 `Mcp-Method`
+                               #   header, the TMPDIR findings and the Cargo.lock splice — stays in
+                               #   `plans/PR_ROAST_2026_10_21.md` and in the git history of #947; this file
+                               #   is the active queue, not a second ledger (header hygiene rule), so it is
+                               #   cited here rather than restated.

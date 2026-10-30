@@ -1867,3 +1867,22 @@ not carry), and **#964** is the member→root version-pin blind spot in `sync-ve
   (`record_and_gate_the_zip_bundled_assumption`, `queued_actions_count: 12`), lesson distilled into
   `github-ci-guardrails` (122 → 136 lines, format-validated), no new PR and no labels — issues do not fail
   `pr-drain-check`, so the v0.3.9 path is unchanged.
+
+- 22:4xZ **#960 implemented on `fix/name-the-failing-gate-job` off `642238f0` — the release refusal now
+  names the gate job.** `scripts/gate-failure-detail.sh` reads the gate run's jobs JSON from stdin and
+  emits per-job lines plus one `SUMMARY:` for the `::error::` annotation; `release.yml`'s
+  `Verify CI and Pre-Release Gate` step captures `databaseId` and calls it on both refusal branches (the
+  30m-timeout branch and the non-success branch). Fail-closed semantics are untouched — the diagnostic
+  always exits 0 so it can never itself become a refusal reason, and rc 1 still comes from the existing
+  guard. Proof: fixture `scripts/test-gate-failure-detail.sh` (8 cases / 22 checks, wired fail-closed into
+  `scripts/validate.sh`), and both *real* gate runs replayed through the step body extracted from the
+  current YAML — 41078875116 → `SUMMARY: 2 of 7 gate jobs failed: pr-drain-check, gate-summary` rc 1;
+  41110522706 → rc 0. Gates green: actionlint rc 0, shellcheck clean, validate-workflows.sh 0 errors with
+  warnings held at the pre-PR 24, `check-script-catalog.sh` pass after regenerating
+  `scripts/SCRIPT_CATALOG.md`, `CSM_GOAP_QUEUE_REQUIRED=true check-goap-queue-issues.sh` →
+  11 actions / 11 issues / 11 effect keys. GOAP sync rides in the same PR (`name_the_failing_job_in_the_release_refusal`
+  removed, `queued_actions_count: 12 → 11`, effect key added, `action_last_completed` moved, and the two
+  stale prose claims corrected: #962's wait is now *measured in both directions*, and
+  `release_pipeline_validated` reflects the live tag + npm 2/2 + 7 assets against crates.io 0/9 blocked on
+  the owner-only credential in #967). Roast verdict: `plans/PR_ROAST_2026_10_30.md` ("#960 — roasted before
+  implementation"), including the five self-inflicted errors the re-derivation caught.
