@@ -335,7 +335,11 @@ mod framework_persistence_tests;
 #[cfg(test)]
 mod framework_rerank_tests;
 #[cfg(test)]
+mod framework_traversal_tests;
+#[cfg(test)]
 mod framework_ttl_purge_tests;
+#[cfg(test)]
+mod framework_ttl_tests;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 #[cfg(target_arch = "wasm32")]

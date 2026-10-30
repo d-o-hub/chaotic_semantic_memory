@@ -215,3 +215,29 @@ async fn merge_import_resolves_an_endpoint_from_the_live_namespace() {
         "merge must keep the concepts already live"
     );
 }
+
+#[tokio::test]
+async fn backup_and_restore_refuse_a_memory_only_framework() {
+    // Both wrappers resolve `self.persistence` before touching the disk, so the
+    // contract "no persistence, no backup file" is what the gate can see. Without a
+    // lib-target assertion, replacing either body with `Ok(())` reported success.
+    let framework = memory_only_framework().await;
+    let directory = tempfile::tempdir().unwrap();
+    let target = directory.path().join("backup.db");
+    let target_str = target.to_str().unwrap();
+
+    let error = framework.backup(target_str).await.unwrap_err();
+    assert!(
+        matches!(error, MemoryError::UnsupportedOperation(_)),
+        "backup without persistence must report UnsupportedOperation, got {error:?}"
+    );
+    let error = framework.restore(target_str).await.unwrap_err();
+    assert!(
+        matches!(error, MemoryError::UnsupportedOperation(_)),
+        "restore without persistence must report UnsupportedOperation, got {error:?}"
+    );
+    assert!(
+        !target.exists(),
+        "a refused backup must not leave a destination file behind"
+    );
+}

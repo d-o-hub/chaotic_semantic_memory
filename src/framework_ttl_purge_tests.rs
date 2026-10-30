@@ -74,3 +74,41 @@ async fn durable_purge_removes_expired_concepts_and_edges_before_reload() {
             .is_empty()
     );
 }
+
+#[tokio::test]
+async fn cascading_purge_removes_the_dependents_of_an_expired_concept() {
+    use crate::framework_ttl_advanced::TtlConfig;
+
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .with_ttl_config(TtlConfig {
+            cascading_purge: true,
+            ..TtlConfig::default()
+        })
+        .build()
+        .await
+        .unwrap();
+    framework
+        .inject_concept_with_ttl("expired", HVec10240::zero(), 0)
+        .await
+        .unwrap();
+    framework
+        .inject_concept("dependent", HVec10240::random())
+        .await
+        .unwrap();
+    framework
+        .associate("expired", "dependent", 0.8)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        framework.purge_expired().await.unwrap(),
+        2,
+        "cascading purge must follow the expired concept's outgoing edges"
+    );
+    assert!(framework.get_concept("expired").await.unwrap().is_none());
+    assert!(
+        framework.get_concept("dependent").await.unwrap().is_none(),
+        "a concept whose only incoming association expired must be cascaded away"
+    );
+}

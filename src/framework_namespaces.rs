@@ -398,4 +398,73 @@ mod tests {
         }
         assert!(fw.export_namespace_to_bytes("").await.is_err());
     }
+
+    #[tokio::test]
+    async fn list_namespaces_reports_every_loaded_namespace() {
+        let fw = empty_framework().await;
+        // A namespace only materialises once a concept lands in it, so all three
+        // (including the initial `_default`) have to be written before listing.
+        fw.inject_concept("in-default", HVec10240::random())
+            .await
+            .unwrap();
+        for ns in ["alpha", "beta"] {
+            fw.set_namespace(ns).await.unwrap();
+            fw.inject_concept("concept", HVec10240::random())
+                .await
+                .unwrap();
+        }
+
+        let mut listed = fw.list_namespaces().await.unwrap();
+        listed.sort();
+        assert_eq!(
+            listed,
+            vec![
+                "_default".to_string(),
+                "alpha".to_string(),
+                "beta".to_string()
+            ],
+            "every namespace that received a concept must be listed exactly once"
+        );
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    #[tokio::test]
+    async fn list_namespaces_does_not_repeat_a_namespace_live_in_both_memory_and_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("namespaces.db");
+        let db = db.to_str().unwrap();
+
+        let fw = ChaoticSemanticFramework::builder()
+            .with_local_db(db)
+            .build()
+            .await
+            .unwrap();
+        fw.set_namespace("alpha").await.unwrap();
+        fw.inject_concept("concept", HVec10240::random())
+            .await
+            .unwrap();
+        drop(fw);
+
+        let reopened = ChaoticSemanticFramework::builder()
+            .with_local_db(db)
+            .build()
+            .await
+            .unwrap();
+        reopened.set_namespace("alpha").await.unwrap();
+
+        let listed = reopened.list_namespaces().await.unwrap();
+        assert!(
+            listed.contains(&"alpha".to_string()),
+            "the persisted namespace must be listed after a reopen: {listed:?}"
+        );
+        let mut sorted = listed.clone();
+        sorted.sort();
+        let unique_count = sorted.len();
+        sorted.dedup();
+        assert_eq!(
+            sorted.len(),
+            unique_count,
+            "the persistence merge must skip namespaces already held in memory: {listed:?}"
+        );
+    }
 }

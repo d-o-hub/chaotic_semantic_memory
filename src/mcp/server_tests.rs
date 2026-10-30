@@ -270,3 +270,72 @@ fn http_traceparent_is_extracted_as_a_remote_parent() {
             .is_valid()
     );
 }
+
+#[tokio::test]
+async fn bearer_and_trace_middleware_pass_a_valid_request_through_and_reject_the_rest() {
+    // Both middlewares were only ever exercised by a live server, which the --lib
+    // mutation profile does not run. Driving the router with tower::ServiceExt::oneshot
+    // costs no port, no task, and no deadline: `require_bearer` returning a default
+    // Response (200, no WWW-Authenticate) and `trace_context` returning one instead of
+    // calling `next` are both visible in the status and the body.
+    use axum::Router;
+    use axum::body::{Body, to_bytes};
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt as _;
+
+    let expected: Arc<str> = Arc::from("secret-token");
+    let app = Router::new()
+        .route("/", axum::routing::post(|| async { "ok" }))
+        .layer(axum::middleware::from_fn(trace_context))
+        .route_layer(axum::middleware::from_fn_with_state(
+            expected,
+            require_bearer,
+        ));
+
+    let request = |authorization: Option<&'static str>, traceparent: Option<&'static str>| {
+        let mut builder = Request::builder().method("POST").uri("/");
+        if let Some(value) = authorization {
+            builder = builder.header(axum::http::header::AUTHORIZATION, value);
+        }
+        if let Some(value) = traceparent {
+            builder = builder.header("traceparent", value);
+        }
+        builder.body(Body::empty()).unwrap()
+    };
+
+    let accepted = app
+        .clone()
+        .oneshot(request(
+            Some("Bearer secret-token"),
+            Some("00-0af7651916cd43dd8448eb211980319c-b7ad6b7169203331-01"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(accepted.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(accepted.into_body(), 1024).await.unwrap(),
+        "ok",
+        "trace_context must forward to the handler, not answer the request itself"
+    );
+
+    for unauthenticated in [None, Some("Bearer wrong-token"), Some("not-a-bearer")] {
+        let rejected = app
+            .clone()
+            .oneshot(request(unauthenticated, None))
+            .await
+            .unwrap();
+        assert_eq!(
+            rejected.status(),
+            StatusCode::UNAUTHORIZED,
+            "{unauthenticated:?} must not reach the handler"
+        );
+        assert_eq!(
+            rejected
+                .headers()
+                .get(axum::http::header::WWW_AUTHENTICATE)
+                .and_then(|value| value.to_str().ok()),
+            Some("Bearer"),
+            "a 401 from this middleware must carry the Bearer challenge"
+        );
+    }
+}
