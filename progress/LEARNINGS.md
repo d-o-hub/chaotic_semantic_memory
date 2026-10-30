@@ -371,3 +371,17 @@
   Generalize: an issue and an action are two encodings of one intent, and they drift independently — the
   issue's granularity ("the exclusion or a cfg-aware generator") let part of it land, while the action's
   single boolean effect had no way to say "half".
+
+- **The lockfile cannot tell you what a dependency *is*, and two advisory databases are not one (2026-10-30, #966)**:
+  `Cargo.lock` lists `zip` inside `libduckdb-sys`'s flat `dependencies` array, which reads as a runtime
+  dependency of anything downstream of duckdb. It is a **build**-dependency — knowable only from the sparse index
+  (`index.crates.io/li/bd/libduckdb-sys`, `"kind":"build"`, `req":"^6`) or the vendored `[build-dependencies.zip]`.
+  Half of an exposure assessment was therefore wrong the moment it was written, and the correction changed the
+  answer: a build-only dep that unpacks a network-fetched archive matters only on the code path that calls it,
+  which here is `#[cfg(not(feature = "bundled"))]` (`build.rs:144` → `:326-327` → `:371-374` `archive.extract()`).
+  Second half: `cargo deny`/`cargo audit` read **RustSec**, Dependabot reads the **GitHub advisory DB**, and
+  neither is a superset of the other — `GHSA-m665-v7pm-7grj` (critical, 2026-10-28) has no RustSec id, so the
+  repository can be simultaneously green on every security gate and carrying an *unowned* critical. Do not read
+  "deny passed" as "no critical advisory": query `…/dependabot/alerts?state=open`, and treat the push banner as
+  the trigger for that query rather than as a duplicate of the gate. Rule now in `github-ci-guardrails`
+  ("A green `cargo deny` says nothing about a GHSA that has no RustSec id").

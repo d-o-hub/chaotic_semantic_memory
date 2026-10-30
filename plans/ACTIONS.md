@@ -75,6 +75,25 @@
     # Fix: check `printf '%s (#%s)' "$title" "$N" | wc -c` <= 100 before merge, ideally as
     # `scripts/check-squash-subject-length.sh` wired into CI.
 
+  - name: record_and_gate_the_zip_bundled_assumption
+    github_issue: 966
+    preconditions: []
+    effects:
+      zip_bundled_assumption_gated: true
+    cost: 2
+    status: queued
+    # Measured 2026-10-30: Dependabot alert #40 is `GHSA-m665-v7pm-7grj` / CVE-2026-115905, **critical**,
+    # published 2026-10-28T21:09:50Z, `zip <= 9.0.4` patched only in 9.0.5 while `Cargo.lock:7083` holds
+    # 6.0.0 as a **build**-dependency of `libduckdb-sys` (sparse index `"kind":"build"`, `req":"^6"` — a
+    # classification `Cargo.lock` itself cannot express). Harmless today because
+    # `libduckdb-sys/build.rs:144` gates the download/extract module under `#[cfg(not(feature = "bundled"))]`
+    # and `:371-374` is the `archive.extract()` call RUSTSEC-2026-0369 names, while
+    # `crates/csm-duckdb/Cargo.toml:22` enables `bundled`. The gate blindness is the finding: no RUSTSEC id
+    # exists, so `cargo deny`/`cargo audit` cannot report it and `deny.toml` has nothing to ignore.
+    # Fix: record the decision beside the existing "No RUSTSEC ID" prose entries, and fail a gate when
+    # `bundled` disappears from csm-duckdb while RUSTSEC-2026-0367/0368/0369 stay ignored, so those three
+    # ignore reasons cannot expire silently.
+
   - name: bound_chaotic_lsh_and_voronoi_lsh_input_dim
     github_issue: 961
     preconditions: []

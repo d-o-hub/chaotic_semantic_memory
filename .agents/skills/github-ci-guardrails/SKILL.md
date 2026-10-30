@@ -120,3 +120,17 @@ Before settling any such design objection, grep `progress/LEARNINGS.md` and `pla
 was recorded on 2026-09-30, and #962 re-derived the same tension in isolation and answered it without ever
 citing it. A change that departs from a standing rule says so in the code comment and the PR body, with the
 measured reason and the condition that would overturn it.
+
+## A green `cargo deny` says nothing about a GHSA that has no RustSec id (2026-10-30, #966)
+
+`cargo deny`/`cargo audit` read **RustSec**; Dependabot reads the **GitHub advisory database**. The sets
+overlap but neither contains the other, so a *critical* Dependabot alert can coexist with every security gate
+green and with a correct `deny.toml` — there is simply no id to ignore or to fail on. Measured case:
+`GHSA-m665-v7pm-7grj`/CVE-2026-115905 (zip `<= 9.0.4`, patched 9.0.5, published 2026-10-28) against a lock at
+`zip 6.0.0`, while the three RustSec-visible zip advisories (`RUSTSEC-2026-0367/0368/0369`) were already
+ignored on a verified mechanism claim. Consequences for triage: (1) treat the push-time
+"GitHub found N vulnerabilities" banner as a signal to query `…/dependabot/alerts?state=open`, not as a
+duplicate of the gate; (2) never argue safety from `Cargo.lock` — it cannot express dependency **kind**, so
+build-vs-runtime reachability comes from the sparse index (`"kind":"build"`) or the vendored manifest; (3) when
+an ignore's reason is a feature flag, make the flag a checked assumption, because the ignore is only as durable
+as a `Cargo.toml` line nothing reads.

@@ -1853,3 +1853,17 @@ not carry), and **#964** is the member→root version-pin blind spot in `sync-ve
   the issue stays open for the owner to close-or-retitle, and the queued action was **renamed** to the
   surviving half (`detect_new_cfg_disabled_mutants`, with `#959`'s precondition retargeted to the new
   effect key) because its old name described work `main` already does.
+- 17:16Z **a *critical* Dependabot alert that no gate of ours can see, filed as #966 and queued in the same
+  breath.** The `git push` above printed "7 vulnerabilities on the default branch (1 critical, 2 high, …)";
+  alert #40 is `GHSA-m665-v7pm-7grj`/CVE-2026-115905 (`zip <= 9.0.4`, patched **9.0.5**, published
+  2026-10-28T21:09:50Z) against `Cargo.lock:7083`'s `zip 6.0.0`. `cargo deny` cannot report it because RustSec
+  has **no id for it yet**, so there is nothing to fail and nothing to ignore — the two advisory sources are
+  disjoint. Exposure measured to zero: `zip` is a *build*-dependency of `libduckdb-sys` (sparse index
+  `"kind":"build"`, `req":"^6`), reachable only from `csm-duckdb`, and `libduckdb-sys/build.rs:144` gates the
+  whole download/extract module under `#[cfg(not(feature = "bundled"))]` while `:371-374` is the
+  `archive.extract()` call `RUSTSEC-2026-0369` names — i.e. `deny.toml`'s existing ignore reason for
+  0367/0368/0369 is **true**, verified rather than inherited, but it rests on one `Cargo.toml` line
+  (`crates/csm-duckdb/Cargo.toml:22`) that no sensor reads. Queue **11 → 12 actions**
+  (`record_and_gate_the_zip_bundled_assumption`, `queued_actions_count: 12`), lesson distilled into
+  `github-ci-guardrails` (122 → 136 lines, format-validated), no new PR and no labels — issues do not fail
+  `pr-drain-check`, so the v0.3.9 path is unchanged.
