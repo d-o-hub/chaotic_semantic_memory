@@ -40,6 +40,19 @@
     cost: 2
     status: queued
 
+  - name: gate_the_member_to_root_version_pins
+    github_issue: 964
+    preconditions: []
+    effects:
+      version_pin_edges_checked_by_gate: true
+    cost: 2
+    status: queued
+    # Independent of the #960 -> #954 -> #955 release-chain trio; runnable any time.
+    # Measured 2026-10-30: three member manifests pin `chaotic_semantic_memory = { path = …,
+    # version = "0.3.8" }` while every package version is 0.3.9, and
+    # `scripts/verify-version-sync.sh` exits 0 over it. Not a v0.3.9 blocker (^0.3.8 accepts
+    # 0.3.9, and only csm-duckdb of the three goes to crates.io).
+
   - name: bound_chaotic_lsh_and_voronoi_lsh_input_dim
     github_issue: 961
     preconditions: []

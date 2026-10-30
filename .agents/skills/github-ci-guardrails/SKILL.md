@@ -18,6 +18,13 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
    re-checks every message, so the bad line stays red: backup branch, `git reset --hard <parent>`,
    `git cherry-pick --no-commit <bad>` + `git commit -F <msg>`, cherry-pick the rest, then
    `git push --force-with-lease`.
+   This is a **per-push** gate, not a per-PR one: re-run it after every amend and after each of the
+   two rewrites, never only on the first push (measured 2026-10-30 — a 101-char body line reached an
+   open PR because the lint was run on commit 1 and not on commit 4, and its own PR body then asserted
+   rc 0). Nothing in CI's visible surface warns you in the meantime: `Tooling Guard` had already passed
+   while the job that owns `commitlint` sat `queued` for 25 min, so the failing check was invisible, and
+   a re-push cancelled it before it could speak. Measure the exit status directly: piping to `tail`
+   and then reading `$?` reports the pipe's status, not the linter's.
 4. Validate GitHub checks with `references/gh-ci-truth.md`.
 5. If checks fail, report failing job and log URL; map failure class via
    `references/ci-pitfalls-pr-triage.md` (commitlint scope, mutation surface,

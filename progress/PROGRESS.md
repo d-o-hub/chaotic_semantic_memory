@@ -1791,3 +1791,40 @@ wasm32 check, size gate and `wasm-pack build` pass; ADR parity, GOAP queue (0 ac
 test-attribute scan, script catalog, LLM-context drift, workflow semantic validation, actionlint and RUSTSEC
 parity all rc=0. `origin/main` is still `0f77c0d0`; nothing has been pushed. Open issues 0; the only open PR
 is #933 (not this wave's work).
+
+## 2026-10-30 (afternoon) — #962 in flight, v0.3.9 static half closed, queue at 10 actions
+
+**#962 (the #953 gate-race repair) — roasted, self-corrected twice, waiting on a runner jam.** Head moved
+`9b395d94 → 73d02f87` for a message-only reason: the fourth commit carried a 101-char body line that
+`footer-max-line-length` rejects, so CI's `commitlint` job would have failed a PR whose own body asserted
+`commitlint → rc 0`. Proof the tree did not change: `git diff 9b395d94 73d02f87 --stat` empty,
+`git diff --numstat origin/main...HEAD` still `42 5 .github/workflows/release.yml`, range lint rc 0.
+The load-bearing assumption behind the fix is now measured rather than asserted: `gh run list
+--workflow=pre-release-gate.yml --commit "$SHA"` **does** see a `workflow_run`-triggered gate run
+(`ae117fb987c6…` → `{"conclusion":"failure","status":"completed"}`) and returns `{}` with rc 0 for a SHA
+that has none (`3953e818f407…`), which is the arm that must keep polling. Without that test the change
+would have converted an instant refusal into a 30-minute one — worse, and green CI could not tell.
+
+**Context, measured:** hosted runners are congested org-wide — main's push CI for the current head
+`3953e818f407` (run 41059071360) was created 12:55:41Z and was still `queued` at 13:42Z, and no
+`pre-release-gate` run exists for any main head after `ae117fb9` (2026-10-28T14:42Z) because the four
+most recent gate runs all concluded `failure` on `pr-drain-check` while #956/#957/#958 were open. When
+that queued main run finally completes it will fire `release.yml` from **main's** copy of the workflow —
+the pre-#962 one-shot code — so one more `validate` refusal on `3953e818` is expected and harmless: the
+gate check (`:76`) precedes tag creation (`:175`), so a refused run leaves no tag and publishes nothing.
+
+**Release static half closed** (`/tmp/release-validation-2026-10-30.md`): 11 of 11 manifests at 0.3.9;
+`wasm/package.json` + `cli-npm/package.json` + `VERSION` at 0.3.9; exactly one dated CHANGELOG header and
+one `[0.3.9]:` link row; `./scripts/verify-version-sync.sh` rc 0 (the npm-registry mismatch is a warning —
+0.3.8 is live, 0.3.9 is not yet published); `cargo package --list --allow-dirty` rc 0 over 603 files; no
+local `v0.3.9` tag. Publish set re-measured end to end: **9 crates.io** (7 in the `:352` loop + root at
+`:379` + `csm-duckdb` at `:392`, which waits for the root version in the sparse index because it
+dev-depends on it) **+ 2 npm** = 11 registry artifacts, and `verify-release` (`:626`) probes 3 of them.
+
+**Queue is at 10 actions, all with a numeric `github_issue:`, checker rc 0** (`10 action(s), 10 tracked
+issue(s), 10 effect key(s), one gh call`). Two new tracker items from this pass, both filed with the
+measurement in the issue rather than in a comment afterwards: **#954 gained the 3-of-11 coverage table and
+the `bash -e {0}` abort mechanism** (confirming the title's premise and adding a dimension the title did
+not carry), and **#964** is the member→root version-pin blind spot in `sync-version.sh` /
+`verify-version-sync.sh`, deliberately *not* folded into the release PRs because opening a PR now fails
+`pr-drain-check` and delays the publication the owner asked for.
