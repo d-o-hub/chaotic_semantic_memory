@@ -384,6 +384,18 @@ EXCLUDE_ARGS=(
   --exclude-re "replace - with / in ChaoticSemanticFramework::associate"
   --exclude-re "replace - with [+] in ChaoticSemanticFramework::purge_expired_inner"
   --exclude-re "replace - with / in ChaoticSemanticFramework::purge_expired_inner"
+  # Fourth of the same rule. `hybrid_result_to_array` (src/wasm_ext.rs:34-35) is under
+  # #[cfg(target_arch = "wasm32")] like the two operators above, and its two
+  # `-> Result<Array, JsValue> with Ok(Default::default())` mutants were both MISSED on
+  # run 40855342249. Proof on the binary this profile actually builds (cargo test
+  # --no-run --lib -p chaotic_semantic_memory --features chaotic_semantic_memory/mcp,
+  # rustc as pinned): "failed to set JS property" (wasm_ext.rs:43, inside the gated fn)
+  # occurs 0 times, while "min_strength must be finite" (wasm_ext.rs:26, the ungated
+  # helper in the same file) occurs once — so the file is linked and only this fn is
+  # absent. Named by function, not by file, because src/wasm_ext.rs is not wholly gated;
+  # its only callers (wasm_ext.rs:195, :206) are WasmFramework methods that the
+  # pre-existing --exclude-re "WasmFramework::" already covers.
+  --exclude-re "hybrid_result_to_array"
 )
 
 # Preflight count (omit -j; listing does not need parallel workers).
