@@ -29,7 +29,7 @@ async fn export_json_absolute_path_in_current_dir() {
 }
 
 #[tokio::test]
-async fn backup_without_persistence_is_ok() {
+async fn backup_without_persistence_is_rejected() {
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
@@ -41,24 +41,40 @@ async fn backup_without_persistence_is_ok() {
         .await
         .unwrap();
 
-    // Backup without persistence should succeed (no-op)
+    // A backup that writes nothing must not report success: `main` returned Ok
+    // for this no-op, which reads to a caller as "your backup exists".
     let temp = NamedTempFile::new().unwrap();
     let backup_path = temp.path().to_str().unwrap();
-    framework.backup(backup_path).await.unwrap();
+    let err = framework
+        .backup(backup_path)
+        .await
+        .expect_err("backup without persistence must fail");
+    assert!(
+        matches!(err, MemoryError::UnsupportedOperation(_)),
+        "the failure must name the missing capability, got {err}"
+    );
 }
 
 #[tokio::test]
-async fn restore_without_persistence_is_ok() {
+async fn restore_without_persistence_is_rejected() {
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
         .unwrap();
 
-    // Restore without persistence should succeed (no-op)
+    // Restoring a durable backup into a memory-only framework has no durable
+    // rows to read, so it reports `UnsupportedOperation` instead of pretending.
     let temp = NamedTempFile::new().unwrap();
     let restore_path = temp.path().to_str().unwrap();
-    framework.restore(restore_path).await.unwrap();
+    let err = framework
+        .restore(restore_path)
+        .await
+        .expect_err("restore without persistence must fail");
+    assert!(
+        matches!(err, MemoryError::UnsupportedOperation(_)),
+        "the failure must name the missing capability, got {err}"
+    );
 }
 
 #[tokio::test]

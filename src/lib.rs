@@ -41,6 +41,7 @@ mod framework_cleanup;
 mod framework_events;
 pub mod framework_events_ce;
 mod framework_graph_rag;
+mod framework_import_apply;
 mod framework_metrics;
 mod framework_namespaces;
 #[cfg(not(target_arch = "wasm32"))]
@@ -49,8 +50,14 @@ mod framework_ops;
 mod framework_ops_import;
 mod framework_persistence;
 mod framework_rerank;
+mod framework_sequence;
+mod framework_text_search;
+#[cfg(test)]
+mod framework_text_search_tests;
+mod framework_traversal;
 mod framework_ttl;
 pub mod framework_ttl_advanced;
+mod framework_ttl_purge;
 mod framework_validation;
 pub mod graph_traversal;
 pub use csm_core_lib::hyperdim;
@@ -106,6 +113,35 @@ pub mod persistence {
         }
         pub async fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()> {
             unsupported("save_concepts")
+        }
+        pub async fn replace_namespace_transactional(
+            &self,
+            _ns: &str,
+            _concepts: &[Concept],
+            _associations: &[(String, String, f32)],
+        ) -> Result<u64> {
+            unsupported("replace_namespace_transactional")
+        }
+        pub async fn merge_namespace_transactional(
+            &self,
+            _ns: &str,
+            _concepts: &[Concept],
+            _associations: &[(String, String, f32)],
+        ) -> Result<u64> {
+            unsupported("merge_namespace_transactional")
+        }
+        pub async fn delete_concepts(&self, _ns: &str, _ids: &[String]) -> Result<usize> {
+            unsupported("delete_concepts")
+        }
+        pub async fn delete_associations(
+            &self,
+            _ns: &str,
+            _edges: &[(String, String)],
+        ) -> Result<usize> {
+            unsupported("delete_associations")
+        }
+        pub async fn reinforce_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {
+            unsupported("reinforce_association")
         }
         pub async fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>> {
             unsupported("load_concept")
@@ -284,14 +320,28 @@ mod bridge_persistence_tests;
 mod bridge_retrieval_expiry_tests;
 #[cfg(test)]
 mod bridge_retrieval_tests;
+#[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
+mod framework_absence_scope_tests;
+#[cfg(test)]
+mod framework_binary_compat_tests;
 #[cfg(test)]
 mod framework_builder_tests;
 #[cfg(test)]
+mod framework_decay_guard_tests;
+#[cfg(test)]
 mod framework_ops_tests;
+#[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
+mod framework_persistence_reconcile_tests;
 #[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
 mod framework_persistence_tests;
 #[cfg(test)]
 mod framework_rerank_tests;
+#[cfg(test)]
+mod framework_traversal_tests;
+#[cfg(test)]
+mod framework_ttl_purge_tests;
+#[cfg(test)]
+mod framework_ttl_tests;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 #[cfg(target_arch = "wasm32")]

@@ -20,15 +20,15 @@ It prints the package directory, the artifact size and its SHA-256.
 ## JavaScript API
 
 ```javascript
-import init, { WasmFramework } from 'chaotic_semantic_memory';
+import init, { WasmFramework, random_hypervector } from 'chaotic_semantic_memory';
 
 await init();
 
 // Create framework
-const framework = new WasmFramework();
+const framework = await WasmFramework.new();
 
 // Inject concept
-const vector = WasmFramework.random_vector();
+const vector = random_hypervector();
 await framework.inject_concept('my-concept', vector);
 
 // Query similar
@@ -43,12 +43,18 @@ const sequence = [
     new Float32Array([0.1, 0.2, ...]),
     new Float32Array([0.3, 0.4, ...])
 ];
-const resultVector = await framework.process_sequence(sequence);
+const resultVector = await framework.processSequence(sequence);
 
 // Export/Import
-const exported = await framework.export_to_bytes();
-await framework.import_from_bytes(exported);
+const exported = await framework.exportToBytes();
+await framework.importFromBytes(exported, false); // false = replace, true = merge
 ```
+
+Exported bytes use the shared bounded `CSMBIN01` envelope: format version `1`,
+codec identifier `2` (Postcard), then the encoded payload. Imports also read the
+legacy version-1 fixed-bincode envelope and the two historical un-enveloped
+bincode encodings. Replacement validates the entire payload before changing
+memory; invalid associations reject the whole import rather than being skipped.
 
 ## TypeScript Types
 
@@ -73,16 +79,17 @@ declare class WasmFramework {
     get_associations(id: string): Promise<SimilarityHit[]>;
     disassociate(from: string, to: string): Promise<void>;
     update_concept(id: string, vector: Uint8Array): Promise<void>;
-    process_sequence(inputs: Float32Array[]): Promise<Uint8Array>;
-    export_to_bytes(): Promise<Uint8Array>;
-    import_from_bytes(data: Uint8Array): Promise<number>;
+    processSequence(inputs: Float32Array[]): Promise<Uint8Array>;
+    exportToBytes(): Promise<Uint8Array>;
+    importFromBytes(data: Uint8Array, merge: boolean): Promise<number>;
     neighbors(id: string, minStrength: number): Promise<string[]>;
     bfs(start: string): Promise<string[]>;
     shortest_path(from: string, to: string): Promise<string[] | null>;
 }
 
+declare function random_hypervector(): Uint8Array;
+
 declare class WasmFramework {
-    static random_vector(): Uint8Array;
     static bundle(vectors: Uint8Array[]): Uint8Array;
     static bind(a: Uint8Array, b: Uint8Array): Uint8Array;
     static cosine_similarity(a: Uint8Array, b: Uint8Array): number;

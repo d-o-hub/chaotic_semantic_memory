@@ -8,13 +8,13 @@ primary_goal:
     - wasm_compiles: true
     - binary_built: true
     - sample_app_working: true
-    - documentation_complete: true
+    - documentation_complete: true  # 2026-10-20: MCP, versioned exports, OTLP, and same-SHA release docs reconciled; link/changelog/llms gates pass
 
 performance_goals:
   - reservoir_step_under_100us: true
   - turso_roundtrip_under_20ms: true
-  - 10m_concepts_under_12mb: true
-  - wasm_binary_under_500kb: true
+  - 10m_concepts_under_12mb: not_supported
+  - wasm_binary_under_500kb: superseded_by_800kb_gate
 
 engineering_goals:
   - no_hardcoded_runtime_settings: true
@@ -118,15 +118,15 @@ release_and_validation_goals:
 # Wave 33 targets (from plans/RECOMMENDATIONS_2026_07_20.md)
 wave_33_goals:
   name: "Docs Truth, Ownership, Missing Behavior, Evidence"
-  note: "Queued after Wave 32 P0/P1 subset; see ACTIONS.md wave-33"
+  note: "Completed 2026-10-20 with the audit follow-up set; see ACTIONS.md completion record"
   targets:
     - workspace_implementation_owners_unique: true   # 2026-08-12: csm-cli/csm-wasm dead dupes removed (#626/#627); comment trued-up 2026-09-17
     - no_default_features_is_lean: true              # ADR-0094, 2026-08-08
     - bm25_absence_todo_resolved: true               # PR wire/bm25-absence-short-circuit (2026-08-12)
-    - ttl_cleanup_task_owned: true                   # src/framework.rs cleanup_handle + Drop abort
+    - ttl_cleanup_task_owned: true                   # 2026-10-01: cooperative cancellation + bounded shutdown
     - readme_version_consistent: true                # PR docs/plans-truth-sync (2026-08-12)
     - readme_ann_section_matches_code: true          # PR docs/plans-truth-sync (2026-08-12)
-    - agents_skill_count_matches_disk: true          # 32 SKILL.md on disk == GOAP_STATE skills_count
+    - agents_skill_count_matches_disk: true          # 33 SKILL.md on disk == GOAP_STATE skills_count
     - cli_metrics_reset_implemented: true            # src/cli/commands/metrics.rs reset branch
     - performance_claims_have_current_artifacts: true  # 2026-09-17: plans/evidence/scale_2026_09_17
     - active_plan_set_compact: true   # achieved 2026-07-20

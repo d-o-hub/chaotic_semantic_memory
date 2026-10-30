@@ -23,11 +23,8 @@ rustup component add rustfmt clippy
 # Install WASM target (optional)
 rustup target add wasm32-unknown-unknown
 
-# Set up git hooks
-pip install pre-commit
-pre-commit install
-pre-commit install --hook-type commit-msg
-pre-commit install --hook-type pre-push
+# Set up the repository's canonical hooks
+scripts/install-hooks.sh
 ```
 
 ## Code Standards
@@ -39,6 +36,21 @@ pre-commit install --hook-type pre-push
 - Use `libsql` (never `turso-client`)
 - Gate WASM threading with `#[cfg(not(target_arch = "wasm32"))]`
 - No hardcoded magic numbers — use named constants
+
+## Resource-Constrained Rust Validation
+
+When the full workspace test/link step exceeds available memory, run the
+bounded-memory Rust path:
+
+```bash
+scripts/validate-low-memory.sh
+```
+
+It uses one Cargo job, disables debug info and incremental compilation, runs
+workspace-wide all-feature Clippy, then tests every workspace package and target
+separately. `set -e` propagates every compile, test, or linker failure. This is
+not a replacement for `scripts/validate.sh` or `scripts/harness-check.sh all`;
+it does not run their non-Cargo gates.
 
 ## Commit Conventions
 
@@ -122,11 +134,12 @@ This profile inherits from `release` but preserves debug symbols (`debug = 1`) a
 
 ## Release Process
 
-Releases are managed using `cargo-release`, `git-cliff`, and `cargo-dist`.
+Releases are managed by the repository's release scripts and GitHub Actions.
+Do not push release tags from an unreviewed local branch; `main` is protected.
 
 ### 1. Preparation
 
-Ensure your workspace is clean and you are on the `main` branch.
+Ensure your workspace is clean and the reviewed release commit is on `main`.
 
 ### 2. Validation
 
@@ -141,7 +154,7 @@ scripts/validate.sh
 Verify the release process without making any changes:
 
 ```bash
-cargo release [patch|minor|major] --dry-run
+scripts/release-manager.sh full X.Y.Z --dry-run
 ```
 
 ### 4. Execute Release
@@ -149,18 +162,20 @@ cargo release [patch|minor|major] --dry-run
 Perform the release. This will bump the version, update `CHANGELOG.md` using `git-cliff`, sync versions across the codebase, create a git tag, and push to GitHub.
 
 ```bash
-cargo release [patch|minor|major] --execute
+scripts/release-manager.sh full X.Y.Z --yes
 ```
 
 ### 5. Distribution
 
-Once the tag is pushed, GitHub Actions will automatically:
+After the reviewed commit lands on `main`, the release workflow is triggered by
+successful completion of the matching CI workflow. GitHub Actions then:
 1. Build and publish workspace crates to crates.io.
 2. Build and publish WASM bindings to npm.
 3. Build and publish the CLI to npm.
 4. Create a GitHub Release with binaries for all supported platforms (managed by `cargo-dist`).
 
-See [ADR-0042](plans/adr/0042-release-automation-v010.md) for historical release automation details.
+See [book/src/release.md](book/src/release.md) for the current workflow and
+[ADR-0042](plans/adr/0042-release-automation-v010.md) for historical details.
 
 ## Security
 

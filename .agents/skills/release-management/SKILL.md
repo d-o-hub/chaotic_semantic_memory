@@ -11,15 +11,19 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Single trigger:** the workflow runs when the **CI workflow completes successfully on `main`** (`workflow_run` on `ci.yml`; no polling and no ceiling) or on `workflow_dispatch`, which must see a green CI run for HEAD. It then applies the version/tag check and creates `v{version}` from `Cargo.toml`.
+3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: because `pre-release-gate.yml` itself starts only after CI, a gate run still in flight when CI finished is a hard stop rather than a wait — re-dispatch once it lands. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check.
+4. **A failed release run with no jobs is a bad workflow file, not a bad release:** `gh run view <id> --json jobs` returning `[]` means GitHub rejected the file before scheduling (since 2026-10-22 this is how `release.yml` failed: double-quoted / unquoted string literals in `if:` expressions — expressions take single quotes only). There is no step log, so read the YAML and run `scripts/check-actionlint.sh`; nothing published and no tag was created.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
 ## Protected release flow
 
 ```
 feature branch → PR → CI green → merge to main
-        → CI completes on main → release.yml (workflow_run) → create tag v* → publish
+        → CI completes for the main SHA → release.yml starts
+        → release.yml verifies CI + Pre-Release Gate for that exact SHA
+        → checks out that SHA → create tag v* → publish
 ```
+`release.yml` owns the version tag and library/package publication. `dist.yml` has a single `workflow_dispatch` trigger and opens with a `disabled-notice` job: a tag created inside `release.yml` carries `GITHUB_TOKEN`, and Actions does not fire a tag-push trigger for a workflow from the same token, so platform CLI binaries are built by a manual `gh workflow run dist.yml` when a release needs them. `dist.yml` never creates a second tag or publishes crates/npm.
 
 ### Operator steps
 
@@ -37,11 +41,9 @@ git checkout -b release/v0.2.0
 
 # 4. Local gates
 ./scripts/pre-release-validate.sh --skip-bench
-# Optional skill-local extras:
-.agents/skills/release-management/scripts/validate-release.sh
 
-# 5. Commit on the branch — never on main
-git add -A
+# 5. Commit only the intended release files on the branch — never on main
+git add Cargo.toml Cargo.lock CHANGELOG.md VERSION wasm/package.json cli-npm/package.json
 git commit -m "release: v0.2.0"
 
 # 6. PR → wait for CI → merge (squash preferred; no --auto multi-PR loops)

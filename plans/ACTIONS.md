@@ -12,7 +12,82 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-22):
+> `repair_the_merged_tree` — the `origin/main` merge into the audit-follow-up wave
+> produced a tree neither parent had tested, and the only honest sensor was
+> `cargo test --all-targets --all-features --no-fail-fast`: **1159 passed / 8 failed / 1 ignored** on the
+> merged head. `validate.sh:102` runs the same command *without* `--no-fail-fast`, so one failing target
+> hid every target after it and every text gate after the suite; a `--lib` probe never compiles `tests/**`
+> at all. Each failure was root-caused before being touched — see `plans/PR_ROAST_2026_10_21.md`:
+> `fix(retrieval)` (the consolidated text probe had dropped main's absence persist/clear, and restoring it
+> exposed a scope key that named namespace/provider/dimension/threshold plus a false `filter=none` but not
+> the probe family), `fix(observability)` (`shutdown_timeout` unbounded), `test(mcp)` x2 (an impossible
+> `initialize` echo of `2026-07-28`; and the stateless Streamable HTTP requests without the SEP-2243
+> `Mcp-Method` header that revision makes mandatory — `-32020` → HTTP 400, while the same file's
+> `2024-11-05` session test correctly sends none), `test(framework)` x2 + `test(persistence)` +
+> `fix(workspace)` (eight scratch paths that assumed `/tmp` is writable, or that `TMPDIR` is `/tmp` where
+> `framework_validation` accepts only CWD-or-`/tmp`), `test(cli)` (`csm query --format json`, a flag that
+> never existed; the global is `--output-format`), `test(framework)` (three of main's tests still pinned the
+> lenient import/backup contracts this wave replaces on purpose — the lib target already pinned the new
+> ones, which is why a `--lib` view looked clean) and `fix(deps)` (21 unrelated `windows-sys`/`socket2`/
+> `getrandom` version-reference flips left by the merge; re-resolving from `main`'s lock reproduces them,
+> so the lock is spliced to 35 insertions / 0 deletions and `cargo metadata --offline` + `cargo deny
+> --locked` prove the resolver does not want the churn).
+> Remote state at the end of this action (re-measured 2026-10-22): nothing was pushed — the session's scope is
+> validate + commit only. `origin/main` had moved to `0f77c0d0` (#932 rewrote `release.yml`, the same mechanism the
+> wave touched), so the wave was re-created as a fresh branch off that head per `AGENTS.md` Rule 10 rather than
+> ground through the collision; `4a85fd47` is now an ancestor of it. Open issues `0`, so the queue stays at 0, and
+> the only open PR is **#933** (`perf/hyperdim_binary-defer-zero-init-permute-…`, not this wave's work and not
+> triaged here).
 
+> Last completed (verified 2026-10-20):
+> `implement_audit_followups_2026_10_20` — the follow-up set recorded in
+> `plans/RECOMMENDATIONS_2026_10_19.md` is implemented on this branch. What landed, by area:
+> durable-or-unchanged mutations (every public mutation commits to the durable rows first; a
+> persistence failure leaves the live framework *and* a fresh reload at the pre-mutation state);
+> transactional replacement import (the whole payload — concepts and association endpoints — is
+> validated before any memory or durable row changes, and an invalid endpoint rejects the whole
+> replacement); one TTL/namespace policy (a persistent purge removes expired concepts *and* their
+> durable rows, a namespace switch loads the target namespace's concepts *and* associations, and a
+> cold export carries the graph edges); a versioned, bounded binary export envelope
+> (`CSMBIN01` + Postcard, ADR-0100) shared by the native, namespace-byte and WASM paths; the
+> current MCP Streamable HTTP transport with explicit Host/Origin/bearer-token policy
+> (`Transport::Sse` -> `Transport::StreamableHttp`, breaking, ADR-0101); a bounded OTLP export
+> lifecycle with observable flush/shutdown (ADR-0102); one shared BM25 owner with long-document
+> indexing and stable JSON concept ids; GraphRAG ownership consolidation; the release path now treats
+> the Pre-Release Gate as a same-SHA publication blocker (release.yml owns tag/package publication;
+> dist.yml owns only tag-triggered CLI binaries; main-push mutation evidence is explicitly not run);
+> the gate-graph/script-catalog work (required-vs-CI-only checks, generated catalog, actionlint and
+> optional ShellCheck); and measured behavioral skill evals — five skills x 4 cases = 20/20, mean
+> probability 0.871, evidence in `plans/evidence/skill_eval_2026_10_20.md`.
+> Three ADRs added (registry 98 rows / 97 unique ids on disk). The ADR-parity gate's old
+> `00[0-9]{2}` pattern ignored ids >= 0100; it now matches all four-digit IDs (`[0-9]{4}`), with
+> missing/present fixtures at 0100 and 1000. The queue stays at 0 because `gh issue list --state
+> open` returned no open issues. Preflight found two unrelated open dependency PRs: #920 conflicts
+> and #921 has one failing check; no open issue or PR duplicates this implementation.
+>
+> Last completed (verified 2026-10-19):
+> `triage_pr_roast_2026_10_19` — six open PRs, 0 issues, empty queue. Draft Jules PR #917
+> (`perf(retrieval)`: sort `query_weights` by posting length in `Bm25Index::search`) was **closed as
+> no demonstrated impact** and its branch deleted. `commitlint` was red on
+> `scripts/check-perf-pr-evidence.py` (no `## Performance Evidence`), and the claim was then
+> refuted by measurement rather than by shape: the sort is a semantic no-op on every bm25 corpus in
+> the repository (all posting lists are equal length — `benches/benchmark.rs:711-719`,
+> `benches/bm25_benchmark.rs:19-29`, `selective_100000`), so the cited comparator cannot see it at
+> all, and on a purpose-built skewed corpus (20 000 docs; postings 20 000/2 000/200; query supplied
+> descending) it measured **+8 % slower** — median 168.3 → 180.0 µs, consistent sign across four
+> time-interleaved A/B pairs run from two saved binaries with no rebuild between. The naive
+> rebuild-straddling pair had pointed the other way (190 vs 255 µs, a fake 25 % win) because
+> `csm-ref-01` absolute times drift ~50 % with desktop load. The predicted correctness objection
+> (reordered `f32` accumulation, `touched_indices` feeding two unstable sorts) was **tested and
+> withdrawn**: bit-identical `to_bits()` and the same top-5 on a corpus built to expose tie-breaks.
+> Record: `plans/PR_ROAST_2026_10_19.md`; flag `bm25_posting_length_sort_measured_slower`; method
+> distilled into `pr-roast-triage` (third bench-blindness cause + the two-binary interleave).
+> #918-#922 (dependabot: `taiki-e/install-action`, root `serde_json`/`tokio`/`proptest`,
+> `fuzz/Cargo.lock` `serde_json`/`tokio`) are keepers — all `MERGEABLE`, each head containing
+> `origin/main`, each diff minimal, root vs `fuzz` lockfiles being different workspaces and so not
+> duplicates. Not a queued action; the queue stays at 0.
+>
 > Last completed (verified 2026-10-17):
 > `repair_the_pre_release_gate_verdict_and_audit_parity` (Fixes #903) — distinguish no verdict
 > from a failed gate when upstream CI is unsuccessful; mirror Cargo Audit and Cargo Deny RustSec

@@ -139,24 +139,22 @@ GATE_NAMES=(
     'WASM Build=skipped'
     'Planning State=skipped'
     'Benchmark Gate=skipped'
-    'Unit-Target Mutation Score=skipped'
 )
 
-printf '%s\n' 'Test 1: failed CI with seven skipped checks has no gate verdict'
+printf '%s\n' 'Test 1: failed CI with six skipped checks has no gate verdict'
 run_summary "${TEST_DIR}/no-verdict.md" failure deadbeef "${GATE_NAMES[@]}"
 expect_pass 'failure conclusion exits 0'
 expect_file_has 'summary reports no verdict with trigger and SHA' "⏭️ **No verdict** — CI concluded \`failure\` for \`deadbeef\`"
-expect_row_count 'summary contains all seven check rows' 7
+expect_row_count 'summary contains all six blocking check rows' 6
 expect_stdout_has 'stdout emits the GitHub warning annotation' '::warning title=Pre-release gate::No verdict:'
 expect_file_lacks 'no-verdict summary does not report a gate failure' 'Gate failed'
 
-printf '%s\n' 'Test 2: seven successful checks pass'
+printf '%s\n' 'Test 2: six successful blocking checks pass'
 run_summary "${TEST_DIR}/pass.md" success deadbeef \
     'PR Drain=success' 'Version Triad=success' 'Security Audit=success' \
-    'WASM Build=success' 'Planning State=success' 'Benchmark Gate=success' \
-    'Unit-Target Mutation Score=success'
+    'WASM Build=success' 'Planning State=success' 'Benchmark Gate=success'
 expect_pass 'successful checks exit 0'
-expect_file_has 'summary reports all gates passed' '✅ **All gates passed**'
+expect_file_has 'summary reports all blocking gates passed' '✅ **All blocking gates passed**'
 
 printf '%s\n' 'Test 3: a failed check fails the gate and is named'
 run_summary "${TEST_DIR}/failed-check.md" success deadbeef 'Security Audit=failure'
@@ -165,9 +163,9 @@ expect_file_has 'summary reports gate failure' 'Gate failed'
 expect_file_has 'summary names failed check' 'Failed checks: Security Audit'
 
 printf '%s\n' 'Test 4: skipped need on successful CI is not a pass'
-run_summary "${TEST_DIR}/skipped-check.md" success deadbeef 'Unit-Target Mutation Score=skipped'
+run_summary "${TEST_DIR}/skipped-check.md" success deadbeef 'Benchmark Gate=skipped'
 expect_status 'skipped check on successful CI exits 1' 1
-expect_file_has 'summary names skipped check as failed' 'Failed checks: Unit-Target Mutation Score'
+expect_file_has 'summary names skipped check as failed' 'Failed checks: Benchmark Gate'
 
 printf '%s\n' 'Test 5: no arguments are a usage error'
 run_cli

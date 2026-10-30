@@ -25,9 +25,18 @@ pub fn absence_from_abstention(
     namespace: &str,
     namespace_revision: u64,
 ) -> AbsenceEntry {
+    absence_from_abstention_scoped(abstention, namespace, namespace_revision, &abstention.query)
+}
+
+pub fn absence_from_abstention_scoped(
+    abstention: &RetrievalAbstention,
+    namespace: &str,
+    namespace_revision: u64,
+    scope: &str,
+) -> AbsenceEntry {
     let normalized = AbsenceEntry::normalize(&abstention.query);
     AbsenceEntry {
-        id: AbsenceEntry::id_for(&abstention.query),
+        id: AbsenceEntry::id_for_scoped(scope, &abstention.query),
         query: abstention.query.clone(),
         normalized_query: normalized,
         attempt_count: 1,
@@ -82,7 +91,24 @@ pub async fn persist_absence(
     namespace: &str,
     namespace_revision: u64,
 ) -> Result<AbsenceEntry> {
-    let id = AbsenceEntry::id_for(&abstention.query);
+    persist_absence_scoped(
+        abstention,
+        store,
+        namespace,
+        namespace_revision,
+        &abstention.query,
+    )
+    .await
+}
+
+pub async fn persist_absence_scoped(
+    abstention: &RetrievalAbstention,
+    store: &dyn AbsenceStore,
+    namespace: &str,
+    namespace_revision: u64,
+    scope: &str,
+) -> Result<AbsenceEntry> {
+    let id = AbsenceEntry::id_for_scoped(scope, &abstention.query);
     match store.get_absence(&id).await? {
         Some(mut existing) => {
             merge_absence_with(&mut existing, abstention, namespace, namespace_revision);
@@ -90,7 +116,8 @@ pub async fn persist_absence(
             Ok(existing)
         }
         None => {
-            let entry = absence_from_abstention(abstention, namespace, namespace_revision);
+            let entry =
+                absence_from_abstention_scoped(abstention, namespace, namespace_revision, scope);
             store.upsert_absence(&entry).await?;
             Ok(entry)
         }

@@ -102,6 +102,9 @@
 | 0097 | GOAP Reconciliation and Plans Compaction 2026-08-08 | Accepted | [adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md](adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md) |
 | 0098 | GOAP Reconciliation 2026-08-12 | Accepted | [adr/0098-goap-reconciliation-2026-08-12.md](adr/0098-goap-reconciliation-2026-08-12.md) |
 | 0099 | TTL Cleanup Task Lifecycle and Bounded Shutdown | Accepted | [adr/0099-ttl-cleanup-task-lifecycle.md](adr/0099-ttl-cleanup-task-lifecycle.md) |
+| 0100 | Versioned Postcard Memory Export | Accepted | [adr/0100-versioned-postcard-memory-export.md](adr/0100-versioned-postcard-memory-export.md) |
+| 0101 | MCP Streamable HTTP Compatibility and Security | Accepted | [adr/0101-mcp-streamable-http-and-security.md](adr/0101-mcp-streamable-http-and-security.md) |
+| 0102 | Bounded OTLP Lifecycle and Operational Counters | Accepted | [adr/0102-batched-otlp-and-operational-metrics.md](adr/0102-batched-otlp-and-operational-metrics.md) |
 
 ## Status Definitions
 

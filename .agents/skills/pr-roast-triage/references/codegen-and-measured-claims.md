@@ -114,6 +114,47 @@ workaround either. Before treating a lockfile bump as trivial, check
 `/api/v1/crates/<crate>/<ver>`); the cure is a dependabot `ignore` with a
 "remove when the MSRV moves" reason, or an MSRV move — a whole-repo decision.
 
+## Interleaving on `csm-ref-01`: two binaries, not two rebuilds (2026-10-19, #917)
+
+`csm-ref-01` is a ThinkPad T480 (i5-8350U, `powersave` governor) running a desktop session,
+and a `cargo bench` leg competes with the rebuild that produced it. Absolute times for the
+**same binary** moved ~50 % across one triage session as the load average fell from 3.7 to 2.3.
+
+The failure mode is directional, not merely noisy. Toggling the source and rebuilding gives
+legs that straddle a 2-minute build at different thermal states:
+
+| leg | reading | note |
+|---|---|---|
+| with sort, first read | 190.29 µs | taken right after its own rebuild |
+| without sort, first read | 255.69 µs | taken after a *different* rebuild |
+| ⇒ naive conclusion | **sort is 25 % faster** | the claim appears confirmed |
+
+Repeat the same two states as saved binaries and the sign inverts: A (no sort) 166.16 /
+170.48 / 163.47 / 168.45 µs vs B (sort) 181.16 / 179.22 / 179.95 / 180.61 µs — every pair
+positive, median 168.3 → 180.0, **+8 % slower**. Protocol:
+
+1. Build arm A, `cp target/release/deps/<bench>-<hash> /tmp/bench_A`. Cargo reuses the same
+   hashed filename for the variant — re-resolve with `ls -t` after each build, and confirm the
+   toggle is actually in the source (`grep -c`) before trusting which binary is which.
+2. Toggle, build arm B, `cp … /tmp/bench_B`.
+3. Run `A B A B …` from `/tmp`, **never rebuilding between legs**, printing `/proc/loadavg`
+   per leg so a reviewer can see the drift the pairing absorbed.
+4. Run the bench binary directly with `--bench` (`/tmp/bench_A <filter> --bench --warm-up-time 1
+   --measurement-time 3`); without `--bench` criterion executes in test mode and prints no
+   timings, which looks like a silently passing run.
+5. Quote the paired deltas and their consistency, not an absolute, and keep an unchanged-arm
+   control (the canonical `bm25_search/search_1000_docs` A/B/A/B sign-flipped
+   11.59 / 10.87 / 11.81 / 14.82 µs — that spread is the host's floor, so a claim smaller
+   than it is unmeasurable here and needs the CI runner or a committed baseline).
+
+For a change whose guard never fires on the repo's corpora (see the `bench-blindness`
+reference), step 3's two arms differ only by the added code, so any residual delta is
+codegen/layout — which is why #783's warning applies in reverse: a reproducible delta is
+not confirmation of the stated mechanism, and the mechanism must be argued from the access
+pattern. Here it predicted the measured sign: reordering the *term* loop cannot cluster
+`doc_idx`, so the working set over `doc_scores`/`factors` is unchanged and the sort is pure
+overhead.
+
 ## Search for the predecessor before you publish the verdict (PR #927, 2026-10-21)
 
 I roasted #927 (`perf(encoder)`: guard ahead of `split_whitespace().collect()` on the single-token
@@ -170,3 +211,44 @@ Two rulings that survived, and why they differ:
   the *same* fixed saving is ~4 % against an inflated 650 ns base and ~7 % against a 471 ns base, so
   a host-dependent denominator can make a correct claim look inflated. Say which host class produced
   the number, because a reviewer cannot reproduce a pair measured on a different class.
+
+## A green `Cargo Deny` proves no banned version, not fewest edges (2026-10-21, #926 post-merge)
+
+The roast said "drop the `Cargo.lock` hunk", the author did not, and CI could not object: 0.59.0 is not
+advisory-flagged and `deny.toml` has no `windows-sys` rule, so `Cargo Deny` stayed green and the PR
+merged carrying the churn. Counted from the locks (`grep -c '"windows-sys 0.59.0"' Cargo.lock`):
+
+| head | unforced `windows-sys 0.59.0` edges |
+|---|---|
+| `7b72e869` (#928, after the advisory prune) | 2 |
+| `4a85fd47` (#926 merged) | **11** |
+
+Two properties make this class invisible: a rebase **applies cleanly** (the bumps the PR shared with
+`main` drop out as no-ops while the resolver churn survives), and the rubric's "no lockfile churn"
+bullet has no mechanical check behind it. So measure instead of trusting the merge state — before any
+squash of a PR that touches `Cargo.lock`:
+
+```bash
+git diff origin/main HEAD -- Cargo.lock | grep -cE '^[+-] "windows-sys'   # edge count, both directions
+git show <head>:Cargo.lock | grep -c 'name = "windows-sys"'               # duplicate versions
+```
+
+The cure is usually not hand-editing: re-resolving the lock on a current tree (`cargo update -p <crate>`
+or any build against the merged manifest) pruned 11 → 4 unasked. Lock churn is a *generation* problem —
+carry the regenerated file, not the bot's hunk.
+
+## A counter that leaves the function only through `println!` cannot be mutation-killed (#926)
+
+Seven survivors in `run_index_dir` at 75 % < 85 %, and three families shared one cause:
+`replaced_count` / `deleted_count` / the JSON-vs-message branch choice were observable only on stdout,
+while `scripts/mutation_test.sh` scores the `--lib` target — no test in `src/**` can see stdout it never
+captures. `+= → -=` underflows and `+= → *=` zeroes a value nobody asserts on, so the mutant lives.
+
+One shape change kills all three families: the command **returns** its counters
+(`run_index_dir() -> Result<IndexDirSummary>`) and the print/JSON selection moves into a pure
+`index_dir_report`. Then `-=` panics on underflow, `*=` fails `== 1`, and a flipped comparison changes
+the returned *variant*, which two `#[test]`s can assert field-by-field. stdout stayed byte-identical
+(`cli_parity` 3/3), so the refactor is invisible to users and visible to the gate. The general test to
+ask of any bot PR that adds a counter: **which target does the mutation gate run, and can that target
+observe this value?** If the answer is stdout, exit code, or `tests/**`, the number is unguarded no
+matter how many assertions exist.

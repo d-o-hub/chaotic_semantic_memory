@@ -70,7 +70,9 @@ The `prepare` command automatically updates version references across all docume
 
 ### Release (`release.yml`)
 
-Triggered by git tag push (`v*`):
+Triggered by successful completion of the `CI` workflow on `main` (and by a
+fail-closed manual dispatch). It uses the completed workflow's `head_sha`, not
+the SHA of a later workflow run:
 
 1. **validate** — Extract version from git tag, match Cargo.toml, dry-run publish
 2. **build-artifacts** — Build release binary + WASM, create tarballs
@@ -79,9 +81,10 @@ Triggered by git tag push (`v*`):
 5. **notify** — Report success or failure with per-job status table
 6. **update-rolling-tags** — Update major/minor tags (v1, v1.2)
 
-### npm Publish (`npm-publish.yml`)
+### npm distribution
 
-Triggered by tag push (`v*`):
+The npm package is published by the npm distribution job owned by the release
+workflow; there is no separate `npm-publish.yml` workflow:
 - Builds the WASM package via `scripts/build-wasm.sh release-web` (the same script and mode CI smoke-tests)
 - Publishes `@d-o-hub/chaotic_semantic_memory` to npm
 - Includes npm provenance (`--provenance`)

@@ -122,8 +122,10 @@ jobs:
             echo "cli_cross=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Mutation: production-relevant sources + manifests + mutation tooling
-          if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$|scripts/mutation_test\.sh$|\.cargo/|deny\.toml$'; then
+          # Mutation evidence is required only for changed production Rust modules.
+          # Tests, manifests, and tooling changes do not create mutants themselves.
+          if echo "${DIFF}" | grep -E '^(src/.*\.rs|crates/[^/]+/src/.*\.rs)$' \
+            | grep -Ev '(^|/)(tests/|tests\.rs$|[^/]*_tests\.rs$)' >/dev/null; then
             echo "mutation=true" >> "$GITHUB_OUTPUT"
           else
             echo "mutation=false" >> "$GITHUB_OUTPUT"
@@ -204,6 +206,24 @@ jobs:
       run: sudo mount -t tmpfs -o size=8g,mode=1777 tmpfs /tmp
     - name: Run tests
       run: nix develop --command scripts/run-with-libs.sh cargo test --all-features --locked -- --quiet
+
+  stable-toolchain:
+    name: Current Stable Rust Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
+    - name: Install current stable Rust
+      uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      with:
+        cache: false
+        toolchain: stable
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      with:
+        shared-key: stable-smoke
+    - name: Test retrieval owners on current stable
+      run: cargo test -p csm-core-lib -p csm-retrieval --locked -- --quiet
 
   # The crate list for "Test Workspace Crates" is derived here instead of typed
   # by hand (issue #827, audit A6). A hand-written matrix guarded only by a
@@ -490,7 +510,33 @@ jobs:
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.mutation == 'true'
     needs: [test, detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 2026-10-29: the old 45-minute ceiling was sized for a handful of in-diff mutants.
+    # Run 40748384533 (head a2639d57, "mutation preflight: 224 mutants to test") hit it after
+    # ~31 mutants. Throughput is not a guess: two older jobs on this branch's predecessor ran
+    # 30 mutants in 38m and 29 in 37m (jobs 119347672236, 118948781459) = 76-80s per mutant
+    # wall, which is what the per-mutant "56-66s build + 17-24s test" lines add up to, so the
+    # 5 lines that printed here were the *not-caught* minority, not the whole progress.
+    # 224 x 78s = 4.9h, so 45 was never going to work for a branch this size — and this ceiling
+    # is only ever consumed by branches this size: a PR with no mutation-visible Rust finishes
+    # in seconds (run 40835994704: "0 mutants to test", step took 3s). Durable fix is sharding
+    # across jobs, which the ruleset's required context name (literally `mutation-test`) blocks;
+    # tracked as a follow-up, not smuggled into a release-blocking PR.
+    timeout-minutes: 300
+    # The workflow-level CARGO_INCREMENTAL=0 (top of this file) is a cache-size choice that
+    # is actively destructive here: this job runs one mutant at a time in the same tree
+    # (--in-place, jobs=1) precisely so each mutant build reuses the previous one's artifacts,
+    # and non-incremental compilation forfeits that. Measured locally on the pinned toolchain
+    # (rustc 1.88.0, CARGO_BUILD_JOBS=2, one mutated crate in the root package, same tree,
+    # A/B by flipping only this variable): a viable mutant's build phase 147-195s with
+    # CARGO_INCREMENTAL=0 vs 107s with incremental, and an unviable mutant's 11s vs 3s. That
+    # is 1.4-1.8x off the dominant cost, not an order of magnitude — recompiling and relinking
+    # the 21k-LOC crate's test harness stays. The ceiling above is sized from the measured
+    # 76-80s/mutant x 224 mutants, and this is what brings that under it. The first run after
+    # the flip also pays one cold rebuild, since changing the flag invalidates the cached
+    # fingerprints of every dependency; scripts/mutation_test.sh now copies mutants.out into
+    # the uploaded artifact so the runner's own phase timings settle the question.
+    env:
+      CARGO_INCREMENTAL: "1"
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
       with:
@@ -593,11 +639,23 @@ jobs:
         retention-days: 7
 
   lint:
+    # 2026-10-28: this step runs the canonical gate inside the flake devShell because
+    # scripts/validate.sh now calls cargo-deny and actionlint (unified in c85984de), which
+    # host runner images do not ship. Two costs of that shape were measured, not assumed:
+    #   - The devShell wrapper exports LD_LIBRARY_PATH=<nix-store libs>, and the host `git`
+    #     CLI that cargo-deny spawns for the RustSec advisory-db inherits it, dying in
+    #     git-remote-https on GLIBC_ABI_DT_X86_64_PLT. validate.sh drops the variable for
+    #     that one stage. An earlier commit pinned this job to ubuntu-24.04 on a runner-image
+    #     theory; the pinned runner falsified it by failing the identical line, and the
+    #     unpinned `Cargo Deny` job (same label, same devShell, no wrapper) is the control.
+    #   - The nix toolchain gets no benefit from the host toolchain's dependency cache, so
+    #     clippy alone ran 13m57s; job 123009333543 cleared the deny stage at ~29m and was
+    #     then cancelled by the 30-minute budget before reaching rustdoc/tests/wasm. 60 is a
+    #     placeholder until this shape has one completed run to price against — tighten it
+    #     from that number rather than guessing again. (Earlier history: CARGO_BUILD_JOBS=2
+    #     moved the old 15-minute budget to 30 on 2026-10-12.)
     runs-on: ubuntu-latest
-    # 2026-10-12: with CARGO_BUILD_JOBS=2 the job's compile-bound work no longer fits
-    # the old 15-minute budget — two consecutive runs were killed at 15m16s and 15m19s
-    # (main's lint took 12m59s at the default job count). 30 leaves room for a cold cache.
-    timeout-minutes: 30
+    timeout-minutes: 60
     # scripts/check-goap-queue-issues.sh reads the tracker through `gh`, and the
     # default GITHUB_TOKEN cannot see issues unless the job asks. Job-level
     # permissions REPLACE the workflow-level block rather than merging into it,
@@ -609,6 +667,8 @@ jobs:
       PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
+    - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+    - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
       with:
@@ -663,10 +723,16 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSM_GOAP_QUEUE_REQUIRED: "true"
-      run: bash scripts/validate.sh
+      run: nix develop --command scripts/run-with-libs.sh bash scripts/validate.sh
 
   cargo-deny:
     name: Cargo Deny
+    # 2026-10-28: this job was pinned to ubuntu-24.04 alongside the lint job by a
+    # falsified runner-image theory. It is the control for that measurement: same
+    # runner label, same devShell, same `cargo deny --locked check` as the lint
+    # job's deny stage — it passed every time because it does not go through
+    # scripts/run-with-libs.sh, so the host git helper never saw the nix
+    # LD_LIBRARY_PATH.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

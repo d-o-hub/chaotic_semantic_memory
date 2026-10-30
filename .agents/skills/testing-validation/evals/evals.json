@@ -1,0 +1,45 @@
+{
+  "skill_name": "testing-validation",
+  "version": "1.0.0",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "The Rust tests pass, but I have not run the repository's required validation. What gates should I run before calling this validated?",
+      "expected_output": "Run both scripts/validate.sh and scripts/harness-check.sh all; neither substitutes for the other.",
+      "assertions": [
+        "Requires scripts/validate.sh",
+        "Requires scripts/harness-check.sh all",
+        "Does not treat tests alone as complete validation"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "This is a fresh checkout and the strict validation script says hooks are missing. Should validation install them silently?",
+      "expected_output": "No. Run scripts/install-hooks.sh explicitly on a fresh checkout, then rerun validation.",
+      "assertions": [
+        "Rejects silent hook installation by strict validation",
+        "Names scripts/install-hooks.sh as the explicit bootstrap"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "The all-features test link was killed by the OOM killer. Can I use the low-memory script's successful result as proof the full validation passed?",
+      "expected_output": "No. Run scripts/validate-low-memory.sh as a bounded Cargo-only development path; it does not replace validate.sh or harness-check.sh all, and the killed linker remains a failure.",
+      "assertions": [
+        "Identifies the low-memory path as Cargo-only",
+        "Does not claim it replaces both required gates",
+        "Treats the killed linker as failure rather than a pass"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "A bug fix compiles and its unit tests pass. What else must I do before declaring the changed behavior verified?",
+      "expected_output": "Run a focused smoke scenario that exercises the changed path and report only the observed result; tests alone are not behavioral proof.",
+      "assertions": [
+        "Requires a focused smoke scenario on the changed path",
+        "Says tests alone are not proof",
+        "Avoids claiming unobserved results"
+      ]
+    }
+  ]
+}

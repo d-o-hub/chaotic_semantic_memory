@@ -73,7 +73,7 @@ async fn framework_input_validation_rejects_invalid_public_inputs() {
 
 #[cfg(feature = "persistence")]
 #[tokio::test]
-async fn framework_import_skips_orphan_associations_without_failing() {
+async fn framework_import_rejects_associations_without_endpoints_and_changes_nothing() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap();
     let import_file = NamedTempFile::new().unwrap();
@@ -95,8 +95,19 @@ async fn framework_import_skips_orphan_associations_without_failing() {
         .await
         .unwrap();
 
-    let imported = framework.import_json(&import_path, false).await.unwrap();
-    assert_eq!(imported, 0);
+    // A replacement import is transactional: an edge whose endpoints are not in
+    // the payload is rejected rather than skipped, so a partial import can never
+    // land. `main` skipped such edges and reported `0 imported`.
+    match framework.import_json(&import_path, false).await {
+        Err(MemoryError::NotFound { entity, id }) => {
+            assert_eq!(entity, "Concept", "the report must name the missing entity");
+            assert_eq!(
+                id, "a",
+                "the first dangling endpoint must be the one reported"
+            );
+        }
+        other => panic!("a dangling association endpoint must reject the import, got {other:?}"),
+    }
     assert_eq!(framework.stats().await.unwrap().concept_count, 0);
 }
 

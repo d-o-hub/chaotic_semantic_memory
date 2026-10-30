@@ -26,7 +26,8 @@ impl Persistence {
             .prepare(
                 "INSERT INTO csm_associations (namespace, from_id, to_id, strength, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5)
-                 ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET strength = excluded.strength",
+                 ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET
+                    strength = excluded.strength, created_at = excluded.created_at",
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to prepare statement: {e}")))?;
@@ -56,6 +57,10 @@ impl Persistence {
             return Err(error);
         }
 
+        if let Err(error) = self.bump_namespace_revision_with_conn(&conn, ns).await {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(error);
+        }
         conn.execute("COMMIT", ())
             .await
             .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {e}")))?;
@@ -76,6 +81,7 @@ impl Persistence {
             "DELETE FROM csm_concepts WHERE namespace = ?1",
             "DELETE FROM csm_hnsw_graph WHERE namespace = ?1",
             "DELETE FROM csm_canonical WHERE namespace = ?1",
+            "DELETE FROM csm_absences WHERE namespace = ?1",
         ];
 
         for sql in &tables {
@@ -85,6 +91,10 @@ impl Persistence {
                     "Failed to clear namespace data: {e}"
                 )));
             }
+        }
+        if let Err(error) = self.bump_namespace_revision_with_conn(&conn, ns).await {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(error);
         }
 
         conn.execute("COMMIT", ())
@@ -97,12 +107,14 @@ impl Persistence {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         conn.execute_batch(
-            "BEGIN;
+            "BEGIN IMMEDIATE;
              DELETE FROM csm_associations;
              DELETE FROM csm_versions;
              DELETE FROM csm_concepts;
              DELETE FROM csm_hnsw_graph;
              DELETE FROM csm_canonical;
+             DELETE FROM csm_absences;
+             UPDATE csm_namespace_meta SET revision = revision + 1;
              COMMIT;",
         )
         .await
@@ -242,10 +254,13 @@ impl Persistence {
                  DELETE FROM csm_concepts;
                  DELETE FROM csm_hnsw_graph;
                  DELETE FROM csm_canonical;
+                 DELETE FROM csm_absences;
+                 DELETE FROM csm_namespace_meta;
                  DELETE FROM csm_schema_version;",
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to clear current database: {e}")))?;
+
 
             conn.execute_batch(
                 "INSERT INTO csm_concepts (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
@@ -254,8 +269,6 @@ impl Persistence {
                  SELECT namespace, from_id, to_id, strength, created_at FROM restore_db.csm_associations;
                  INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
                  SELECT namespace, concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
-                 INSERT INTO csm_hnsw_graph (namespace, id, data, modified_at)
-                 SELECT namespace, id, data, modified_at FROM restore_db.csm_hnsw_graph;
                  INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)
                  SELECT namespace, id, version, labels_json, related_json FROM restore_db.csm_canonical;
                  INSERT INTO csm_schema_version(version)
@@ -263,6 +276,25 @@ impl Persistence {
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to import backup data: {e}")))?;
+
+            let mut rows = conn
+                .query(
+                    "SELECT namespace FROM csm_concepts UNION SELECT namespace FROM csm_associations",
+                    (),
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed to rebuild namespace metadata: {e}")))?;
+            let mut namespaces = Vec::new();
+            while let Some(row) = rows.next().await.map_err(|e| {
+                MemoryError::database(format!("Failed to read restored namespaces: {e}"))
+            })? {
+                namespaces.push(row.get::<String>(0).map_err(|e| {
+                    MemoryError::database(format!("Failed to decode restored namespace: {e}"))
+                })?);
+            }
+            for namespace in namespaces {
+                self.bump_namespace_revision_with_conn(&conn, &namespace).await?;
+            }
 
             Ok::<(), MemoryError>(())
         }
@@ -294,14 +326,8 @@ impl Persistence {
 
     /// Delete a single association between two concepts.
     pub async fn delete_association(&self, ns: &str, from: &str, to: &str) -> Result<()> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-        conn.execute(
-            "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2 AND to_id = ?3",
-            params![ns, from, to],
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to delete association: {e}")))?;
+        self.delete_associations(ns, &[(from.to_string(), to.to_string())])
+            .await?;
         Ok(())
     }
 
@@ -309,12 +335,33 @@ impl Persistence {
     pub async fn clear_concept_associations(&self, ns: &str, id: &str) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-        conn.execute(
-            "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
-            params![ns, id],
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
+        conn.execute("BEGIN IMMEDIATE", ()).await.map_err(|e| {
+            MemoryError::database(format!("Failed to begin association clear: {e}"))
+        })?;
+        let deleted = match conn
+            .execute(
+                "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
+                params![ns, id],
+            )
+            .await
+        {
+            Ok(deleted) => deleted,
+            Err(error) => {
+                let _ = conn.execute("ROLLBACK", ()).await;
+                return Err(MemoryError::database(format!(
+                    "Failed to clear concept associations: {error}"
+                )));
+            }
+        };
+        if deleted > 0
+            && let Err(error) = self.bump_namespace_revision_with_conn(&conn, ns).await
+        {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(error);
+        }
+        conn.execute("COMMIT", ()).await.map_err(|e| {
+            MemoryError::database(format!("Failed to commit association clear: {e}"))
+        })?;
         Ok(())
     }
 }

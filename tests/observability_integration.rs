@@ -255,8 +255,9 @@ mod otlp_grpc_tests {
     #[test]
     fn otlp_guard_shutdown_idempotent_on_none() {
         let mut guard = chaotic_semantic_memory::observability::otlp_grpc::OtlpGuard::empty();
-        guard.shutdown();
-        guard.shutdown();
+
+        assert!(guard.shutdown().is_ok());
+        assert!(guard.shutdown().is_ok());
     }
 
     /// OtlpGuard drop must call shutdown. This kills the mutant that replaces

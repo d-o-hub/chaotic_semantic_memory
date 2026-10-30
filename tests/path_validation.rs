@@ -45,7 +45,7 @@ async fn export_json_path_traversal_rejected() {
 }
 
 #[tokio::test]
-async fn import_json_skips_invalid_association() {
+async fn import_json_rejects_an_invalid_association_strength() {
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
@@ -103,9 +103,20 @@ async fn import_json_skips_invalid_association() {
     let path = temp.path().to_str().unwrap();
     std::fs::write(path, serde_json::to_string(&payload_json).unwrap()).unwrap();
 
-    // Import should succeed, skipping the invalid association
-    let imported = framework.import_json(path, false).await.unwrap();
-    assert_eq!(imported, 3);
+    // One malformed edge rejects the whole payload: `main` skipped it, imported
+    // the three concepts anyway, and left the caller with a silently truncated
+    // graph.
+    match framework.import_json(path, false).await {
+        Err(MemoryError::InvalidInput { field, reason }) => {
+            assert_eq!(field, "strength", "the rejected field must be named");
+            assert!(
+                reason.contains("-0.5"),
+                "the rejected value must be reported, got {reason}"
+            );
+        }
+        other => panic!("an invalid association strength must reject the import, got {other:?}"),
+    }
+    assert_eq!(framework.stats().await.unwrap().concept_count, 0);
 }
 
 #[cfg(feature = "persistence")]

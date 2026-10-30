@@ -29,6 +29,7 @@
 - opentelemetry (0.32)
 - opentelemetry-otlp (0.32) [features: grpc-tonic]
 - opentelemetry_sdk (0.32)
+- postcard (1.1.3) [features: alloc, use-std]
 - prometheus (0.13)
 - rand
 - rand_chacha
@@ -37,6 +38,7 @@
 - serde
 - serde_json
 - sha2
+- subtle (2.6)
 - tempfile
 - thiserror
 - tracing
@@ -55,7 +57,7 @@
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - experimental-coupled-lorenz: [csm-chaos/experimental-coupled-lorenz]
 - experimental-neural-circuit: [csm-chaos/experimental-neural-circuit]
-- mcp: [dep:rmcp, cli, dep:axum, dep:tower, dep:tower-http]
+- mcp: [dep:rmcp, dep:subtle, cli, dep:axum, dep:tower, dep:tower-http]
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
 - parallel: [dep:rayon, csm-memory/parallel, csm-traits/parallel]
@@ -85,8 +87,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bridge_persistence.rs
 
 - pub fn absence_from_abstention
+- pub fn absence_from_abstention_scoped
 - pub fn merge_absence_with
 - pub fn persist_absence
+- pub fn persist_absence_scoped
 
 ### src/bridge_retrieval.rs
 
@@ -340,6 +344,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub use csm_embedding::*
 
+### src/export_payload.rs
+
+- impl Write for BoundedPostcardWriter
+
 ### src/framework.rs
 
 - pub struct ChaoticSemanticFramework
@@ -390,6 +398,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_import_apply.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_metrics.rs
 
 - pub struct FrameworkMetrics
@@ -417,6 +429,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_sequence.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_text_search.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_traversal.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ttl.rs
 
 - pub const ABSENCE_MIN_ATTEMPTS
@@ -428,6 +452,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum TtlPolicy
 - pub struct TtlRule
 - pub struct TtlConfig
+
+### src/framework_ttl_purge.rs
+
+- impl ChaoticSemanticFramework
 
 ### src/framework_validation.rs
 
@@ -553,6 +581,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum Transport
 - pub enum TransportType
 - pub struct McpConfig
+- impl std::fmt::Debug for McpConfig
 - impl Default for McpConfig
 - pub fn serve
 - pub fn serve_with_shutdown
@@ -571,8 +600,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod otlp
 - pub mod otlp_grpc
 - pub enum LogFormat
+- pub struct OtlpBatchConfig
+- impl Default for OtlpBatchConfig
+- impl OtlpBatchConfig
 - pub struct ObservabilityConfig
 - pub struct Guard
+- impl Guard
 - impl Drop for Guard
 - pub fn init
 - pub fn render_metrics
@@ -870,7 +903,7 @@ are never blocked by database writes.
 |---|---|---|
 | `inject_concept` | O(1) amortized | HashMap insert + dense vector append |
 | `associate` | O(1) amortized | HashMap insert with optional eviction |
- `probe` (exact scan) | O(n) | Cosine similarity over all n concepts; parallelized via Rayon on native. Zero-copy caching: uses hashed keys and `Arc` to share cache results. |
+| `probe` (exact scan) | O(n) | Cosine similarity over all n concepts; parallelized via Rayon on native. Zero-copy caching: uses hashed keys and `Arc` to share cache results. |
 | `probe` (bucket candidates) | O(n / 2^w) | w-bit bucket width narrows candidate set before exact scoring |
 | `probe` (graph candidates) | O(f^d) | BFS from nearest neighbor at depth d, fanout f |
 
@@ -1319,6 +1352,12 @@ this conversion bridges the framework-level abstention event into the
 owner-neutral persistence contract, stamped with the namespace and revision
 the query was observed at (ADR-0093).
 
+### absence_from_abstention_scoped
+
+```rust
+pub fn absence_from_abstention_scoped(abstention: &RetrievalAbstention, namespace: &str, namespace_revision: u64, scope: &str) -> AbsenceEntry
+```
+
 ### merge_absence_with
 
 ```rust
@@ -1339,6 +1378,12 @@ pub fn persist_absence(abstention: &RetrievalAbstention, store: &dyn Trait, name
 ```
 
 Persist a RetrievalAbstention event as an AbsenceEntry.
+
+### persist_absence_scoped
+
+```rust
+pub fn persist_absence_scoped(abstention: &RetrievalAbstention, store: &dyn Trait, namespace: &str, namespace_revision: u64, scope: &str) -> Result<AbsenceEntry>
+```
 
 ## src/bridge_persistence_tests.rs
 
@@ -2486,6 +2531,8 @@ pub enum McpCommands {
 pub struct McpServeArgs {
     pub transport: crate::mcp::TransportType,
     pub bind: Option<String>,
+    pub allowed_hosts: Vec<String>,
+    pub allowed_origins: Vec<String>,
     pub ttl_cleanup: crate::cli::args_commands::TtlCleanupArgs,
 }
 ```
@@ -2540,6 +2587,15 @@ pub use csm_embedding::*;
 
 ## src/export_payload.rs
 
+### impl Write for BoundedPostcardWriter
+
+```rust
+impl Write for BoundedPostcardWriter {
+}
+```
+
+## src/export_payload/binary_codec_tests.rs
+
 ## src/export_payload/export_payload_tests.rs
 
 ## src/framework.rs
@@ -2565,9 +2621,6 @@ impl ChaoticSemanticFramework {
     pub fn inject_concept_with_metadata(&self, id: impl Trait, vector: HVec10240, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
     pub fn probe_filtered(&self, query: &HVec10240, top_k: usize, filter: &MetadataFilter) -> Result<Vec<(String, f32)>>;
-    pub fn traverse(&self, start: &str, config: TraversalConfig) -> Result<Vec<(String, u32)>>;
-    pub fn shortest_path(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
-    pub fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240>;
     pub fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn delete_concept(&self, id: &str) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
@@ -2576,6 +2629,8 @@ impl ChaoticSemanticFramework {
     pub fn prune_decayed_associations(&self, threshold: f32) -> Result<usize>;
 }
 ```
+
+## src/framework_absence_scope_tests.rs
 
 ## src/framework_accessors.rs
 
@@ -2591,6 +2646,8 @@ impl ChaoticSemanticFramework {
     pub fn stats(&self) -> Result<FrameworkStats>;
 }
 ```
+
+## src/framework_binary_compat_tests.rs
 
 ## src/framework_bridge.rs
 
@@ -2714,6 +2771,8 @@ impl ChaoticSemanticFramework {
     pub fn shutdown(&self) -> Result<()>;
 }
 ```
+
+## src/framework_decay_guard_tests.rs
 
 ## src/framework_events.rs
 
@@ -2866,6 +2925,15 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_import_apply.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+}
+```
+
 ## src/framework_metrics.rs
 
 ### FrameworkMetrics
@@ -2965,6 +3033,8 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_ops_import_tests.rs
+
 ## src/framework_ops_tests.rs
 
 ## src/framework_persistence.rs
@@ -2984,6 +3054,10 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_persistence_import_tests.rs
+
+## src/framework_persistence_reconcile_tests.rs
+
 ## src/framework_persistence_tests.rs
 
 ## src/framework_rerank.rs
@@ -2997,6 +3071,44 @@ impl ChaoticSemanticFramework {
 ```
 
 ## src/framework_rerank_tests.rs
+
+## src/framework_sequence.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240>;
+}
+```
+
+## src/framework_text_search.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult>;
+    pub fn probe_text_filtered(&self, query: &str, top_k: usize, filter: &MetadataFilter) -> Result<HybridResult>;
+    pub fn probe_text_with_mode(&self, query: &str, top_k: usize, mode: HybridMode) -> Result<HybridResult>;
+    pub fn probe_text_with_options(&self, query: &str, top_k: usize, mode: HybridMode, code_aware: bool) -> Result<HybridResult>;
+}
+```
+
+## src/framework_text_search_tests.rs
+
+## src/framework_traversal.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn traverse(&self, start: &str, config: TraversalConfig) -> Result<Vec<(String, u32)>>;
+    pub fn shortest_path(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
+}
+```
+
+## src/framework_traversal_tests.rs
 
 ## src/framework_ttl.rs
 
@@ -3014,12 +3126,10 @@ Minimum persisted absence attempts before a query short-circuits retrieval (M1).
 impl crate::framework::ChaoticSemanticFramework {
     pub fn inject_concept_with_ttl(&self, id: impl Trait, vector: HVec10240, ttl_seconds: u64) -> Result<()>;
     pub fn inject_text_with_ttl(&self, id: &str, text: &str, ttl_seconds: u64) -> Result<()>;
-    pub fn purge_expired(&self) -> Result<usize>;
     pub fn inject_text(&self, id: &str, text: &str) -> Result<()>;
     pub fn inject_text_with_metadata(&self, id: &str, text: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
-    pub fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult>;
+    pub fn probe_text_semantic(&self, query: &str, top_k: usize) -> Result<HybridResult>;
     pub fn probe_with_best_score(&self, query: HVec10240, top_k: usize) -> Result<(Vec<(String, f32)>, Option<f32>)>;
-    pub fn probe_text_filtered(&self, query: &str, top_k: usize, filter: &MetadataFilter) -> Result<HybridResult>;
     pub fn query_in_session(&self, query: &str, session_id: &str, top_k: usize) -> Result<HybridResult>;
 }
 ```
@@ -3072,6 +3182,20 @@ Rule for metadata-based TTL assignment.
 ```rust
 pub use csm_memory::singularity::DecayCurve;
 ```
+
+## src/framework_ttl_purge.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn purge_expired(&self) -> Result<usize>;
+}
+```
+
+## src/framework_ttl_purge_tests.rs
+
+## src/framework_ttl_tests.rs
 
 ## src/framework_validation.rs
 
@@ -3353,6 +3477,11 @@ pub use framework_events::MemoryEvent;
 impl Persistence {
     pub fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()>;
     pub fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()>;
+    pub fn replace_namespace_transactional(&self, _ns: &str, _concepts: &[Concept], _associations: &[(String, String, f32)]) -> Result<u64>;
+    pub fn merge_namespace_transactional(&self, _ns: &str, _concepts: &[Concept], _associations: &[(String, String, f32)]) -> Result<u64>;
+    pub fn delete_concepts(&self, _ns: &str, _ids: &[String]) -> Result<usize>;
+    pub fn delete_associations(&self, _ns: &str, _edges: &[(String, String)]) -> Result<usize>;
+    pub fn reinforce_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()>;
     pub fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>>;
     pub fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>>;
     pub fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()>;
@@ -3577,11 +3706,14 @@ Schema for memory_traverse tool.
 ### McpConfig
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct McpConfig {
     pub transport: Transport,
     pub bind: Option<String>,
     pub database: Option<std::path::PathBuf>,
+    pub auth_token: Option<String>,
+    pub allowed_hosts: Option<Vec<String>>,
+    pub allowed_origins: Vec<String>,
     pub ttl_cleanup_interval: u64,
 }
 ```
@@ -3594,7 +3726,7 @@ Configuration for MCP server.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum Transport {
     Stdio,
-    Sse { bind: std::net::SocketAddr },
+    StreamableHttp { bind: std::net::SocketAddr },
 }
 ```
 
@@ -3606,7 +3738,7 @@ Transport type for MCP server.
 #[derive(Debug, Clone, Copy, Default, clap :: ValueEnum)]
 pub enum TransportType {
     Stdio,
-    Sse,
+    StreamableHttp,
 }
 ```
 
@@ -3616,6 +3748,13 @@ Transport type for CLI parsing.
 
 ```rust
 impl Default for McpConfig {
+}
+```
+
+### impl std::fmt::Debug for McpConfig
+
+```rust
+impl std::fmt::Debug for McpConfig {
 }
 ```
 
@@ -3643,7 +3782,7 @@ where
     F: Future + Send + 'static
 ```
 
-Start the MCP server with an explicit shutdown signal for the SSE transport.
+Start the MCP server with an explicit shutdown signal for Streamable HTTP.
 
 [`serve`] is exactly `serve_with_shutdown(config, operator_shutdown())`, so the
 production path and this entry share one mechanism — the signal is not a
@@ -3651,7 +3790,7 @@ test-only seam. It exists for embedders that run the server inside a larger
 lifecycle (a supervisor, a co-located HTTP app, a service manager) and cannot
 rely on being the foreground process that receives SIGINT.
 
-The signal drives the SSE transport only. Stdio ends on stdin EOF and ignores
+The signal drives Streamable HTTP only. Stdio ends on stdin EOF and ignores
 it, deliberately: that transport already has a working exit path, and racing
 two of them would change behaviour nobody asked for.
 
@@ -3717,6 +3856,7 @@ Log formatting selection for [`init`].
 pub struct ObservabilityConfig {
     pub service_name: String,
     pub otlp_endpoint: Option<String>,
+    pub otlp_batch: OtlpBatchConfig,
     pub prometheus_bind: Option<SocketAddr>,
     pub log_format: LogFormat,
 }
@@ -3728,10 +3868,51 @@ All fields are optional. `init` returns `Ok(None)` when nothing was
 actually enabled (no `prometheus_bind`, no `otlp_endpoint`, and
 `log_format == Pretty`), so tests can call it unconditionally.
 
+### OtlpBatchConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct OtlpBatchConfig {
+    pub max_queue_size: usize,
+    pub max_export_batch_size: usize,
+    pub scheduled_delay: Duration,
+    pub max_export_timeout: Duration,
+    pub shutdown_timeout: Duration,
+}
+```
+
+Bounded batch-export and shutdown settings for OTLP gRPC.
+
+Defaults use the OpenTelemetry queue, batch, and schedule values with
+explicit five-second export and shutdown bounds.
+
+### impl Default for OtlpBatchConfig
+
+```rust
+impl Default for OtlpBatchConfig {
+}
+```
+
 ### impl Drop for Guard
 
 ```rust
 impl Drop for Guard {
+}
+```
+
+### impl Guard
+
+```rust
+impl Guard {
+    pub fn force_flush(&self) -> Result<()>;
+    pub fn shutdown(&mut self) -> Result<()>;
+}
+```
+
+### impl OtlpBatchConfig
+
+```rust
+impl OtlpBatchConfig {
 }
 ```
 
@@ -3820,9 +4001,8 @@ pub struct OtlpGuard {
 
 Guard that owns the OTLP `TracerProvider`.
 
-Holding the guard keeps the tracer provider alive. Dropping it flushes
-any buffered spans and shuts down the provider, ensuring clean export
-before process exit.
+Holding the guard keeps the tracer provider alive. Explicit shutdown flushes
+spans and stops the batch processor within the configured timeout.
 
 ### impl Drop for OtlpGuard
 
@@ -3836,22 +4016,22 @@ impl Drop for OtlpGuard {
 ```rust
 impl OtlpGuard {
     pub fn empty() -> Self;
-    pub fn shutdown(&mut self);
+    pub fn force_flush(&self) -> Result<()>;
+    pub fn shutdown(&mut self) -> Result<()>;
 }
 ```
 
 ### install_grpc_tracer
 
 ```rust
-pub fn install_grpc_tracer(endpoint: &str, service_name: &str) -> Result<OtlpGuard>
+pub fn install_grpc_tracer(endpoint: &str, service_name: &str, batch_config: &OtlpBatchConfig) -> Result<OtlpGuard>
 ```
 
 Create an OTLP gRPC tracer provider and wire it into `tracing`.
 
-Uses the **simple** (synchronous) span processor so spans are exported
-immediately — suitable for low-throughput or development workloads.
-For production, callers may wish to replace this with a batch processor
-by constructing the provider directly.
+Uses a bounded batch span processor configured by `batch_config`; its queue
+and export batch size cap buffered telemetry. `OtlpGuard` exposes bounded
+`force_flush` and `shutdown` operations and reports their failures.
 
 This function also installs a `tracing_subscriber` layer so that
 [`tracing::info!`] etc. are exported via OTLP. It uses `try_init()`
@@ -4327,6 +4507,7 @@ impl WasmFramework {
     pub fn on_event(&self, callback: Function);
     pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
+    pub fn probe_text_semantic(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
     pub fn list_versions(&self, id: String) -> Result<Array, JsValue>;
     pub fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
     pub fn diff_versions(&self, id: String, from_version: u32, to_version: u32) -> Result<JsValue, JsValue>;

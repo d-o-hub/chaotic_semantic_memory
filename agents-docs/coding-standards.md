@@ -52,3 +52,19 @@ value.map(|s| s.to_string()).unwrap_or_else(|| default())
 - **Test exemption** (`.clippy.toml`): `allow-unwrap-in-tests = true`, `allow-expect-in-tests = true`, `allow-panic-in-tests = true`
 - **Production allows**: Use `#[allow(clippy::expect_used)]` with a justification comment for infallible operations (lock acquisition, static construction).
 - **CI enforcement**: `cargo clippy -- -D warnings` promotes all warnings to errors.
+
+## 5. cfg-Partitioned Module Graph
+`src/lib.rs` splits the framework by target: `#[cfg(not(target_arch = "wasm32"))]` on the
+file-I/O modules (`framework_ops`, `framework_ops_import` — they use `tokio::fs`) and
+`#[cfg(target_arch = "wasm32")]` on the bindings (`wasm`, `wasm_ext`, `wasm_graph_rag`).
+
+- A native build never sees `src/wasm.rs`; a WASM build never sees the file-I/O modules. Host
+  clippy, `cargo doc`, the test suite and the LOC gate therefore **cannot** detect a call from one
+  half into the other.
+- Shared logic goes in a module compiled for both targets (see `framework_import_apply.rs`: the
+  filesystem-free validate-then-install path). Do not fork a weaker second path per target — the
+  copies drift, and the drift is invisible on whichever target the tests do not run.
+- `#[cfg(target_arch = "wasm32")] use ...` is dead code on the host: clippy will not tell you.
+  Delete it when the copied call site is gone.
+- Gate: `cargo check --target wasm32-unknown-unknown -p csm-wasm` (last stage of
+  `scripts/validate.sh`, mirrored by the ci.yml `WASM` job).

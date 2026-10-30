@@ -91,7 +91,7 @@ Index JSONL file content into memory:
 
 ```bash
 # Index from JSONL file
-csm index-jsonl data.jsonl --database csm_memory.db
+csm index-jsonl --file data.jsonl --database csm_memory.db
 
 # Each line must be valid JSON with 'id' and optional 'text'/'metadata' fields
 ```
@@ -146,12 +146,52 @@ csm completions fish > ~/.config/fish/completions/csm.fish
 csm completions powershell > $HOME\.config\powershell\completions\csm.ps1
 ```
 
+## MCP Server
+
+The MCP server defaults to stdio for desktop clients. Streamable HTTP supports
+the current stateless `2026-07-28` protocol and keeps negotiated legacy sessions
+only for older clients:
+
+```bash
+# Desktop/client stdio
+csm mcp serve
+
+# Local Streamable HTTP
+csm --database memory.db mcp serve \
+  --transport streamable-http \
+  --bind 127.0.0.1:8765
+```
+
+Non-loopback binds fail unless `CSM_MCP_BEARER_TOKEN` is set. Configure the
+HTTP `Host` allowlist with repeatable `--allowed-host` values. Present browser
+`Origin` headers are rejected unless explicitly allowed with `--allowed-origin`.
+The token is read only from the environment, never a command-line argument, and
+is redacted from `McpConfig` debug output.
+
+The server speaks plain HTTP; direct network binds require a trusted TLS
+terminating proxy. Keep the process behind that proxy, restrict its network
+reachability, and require authentication at the proxy as well. Browser requests
+need an explicit origin allowlist.
+
+```bash
+export CSM_MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
+csm --database memory.db mcp serve \
+  --transport streamable-http \
+  --bind 192.0.2.10:8765 \
+  --allowed-host memory.example \
+  --allowed-origin https://app.example
+```
+
 ## Output Formats
 
 | Format | Flag | Description |
 |--------|------|-------------|
 | Table | `--output-format table` | Human-readable table (default) |
 | JSON | `--output-format json` | Machine-parseable JSON |
+| Quiet | `--output-format quiet` | IDs/results only, suitable for scripts |
+
+The `query` command also accepts `--compact` to trim long result text; it is a
+query flag, not an output-format value.
 
 ## Exit Codes
 

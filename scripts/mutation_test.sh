@@ -73,8 +73,8 @@ MSG
   exit 127
 fi
 
+OUT_DIR="${MUTATION_OUTPUT_DIR:-progress/mutation}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-OUT_DIR="progress/mutation"
 LOG_FILE="${OUT_DIR}/${PROFILE}-${TIMESTAMP}.log"
 REPORT_FILE="${OUT_DIR}/${PROFILE}-latest.md"
 mkdir -p "${OUT_DIR}"
@@ -107,25 +107,18 @@ if [[ "${PROFILE}" == "fast" ]]; then
         echo 'mutation fast: diff contains cfg(not(feature = "persistence")) — running with --no-default-features' >&2
       fi
     elif [[ "${CI_MODE}" == "true" ]]; then
-      # No bounded diff on a CI run — e.g. the Pre-Release Gate dispatched on main where
-      # HEAD == origin/main, so the three-dot diff is empty. A full-tree pass here is not
-      # viable: 1000+ mutants exceed the job's timeout-minutes and degrade into mass
-      # build-timeouts (job 90089540259: ~1288 mutants, ~390 min estimate vs 120 min budget).
-      # Mutation coverage is already enforced incrementally on every PR through the in-diff
-      # path above, so skip cleanly instead of running an unbounded full-tree pass. Mirrors
-      # the "no mutants in changed sources" skip below. Full-tree remains available via the
-      # non-CI (local/nightly) branch and the `full` profile.
-      echo "mutation fast: no diff against ${DIFF_TARGET} on a CI run; skipping full-tree fallback" >&2
+      # An unbounded main-branch run is intentionally disabled. This invocation
+      # produced no mutation evidence, so it must not succeed as a test result.
+      echo "error: no bounded diff against ${DIFF_TARGET}; mutation tests did not run" >&2
       {
         echo "# Unit-Target Mutation Test Report"
         echo
         echo "- Timestamp (UTC): ${TIMESTAMP}"
         echo "- Profile: ${PROFILE}"
         echo "- Mutants: 0"
-        echo "- Result: skip (no bounded diff on CI run; full-tree fallback disabled in CI)"
+        echo "- Result: not run (no bounded diff; not a passing mutation result)"
       } >"${REPORT_FILE}"
-      echo "unit-target mutation score: no bounded diff on CI run, full-tree fallback skipped"
-      exit 0
+      exit 2
     else
       echo "warning: no diff against ${DIFF_TARGET}; running full target set" >&2
       # Full-tree fallback (local/nightly only): escalate parallelism so the run finishes.
@@ -352,6 +345,57 @@ EXCLUDE_ARGS=(
   # AbsenceStore stub but never called by the unit test, so mutating it to
   # Ok(vec![]) is unobservable.
   --exclude-re "StubStore>::list_absences"
+  # Feature-cfg'd code is enumerated but never compiled under this profile, so its
+  # mutants are phantom: the mutation diff cannot change a binary that does not
+  # contain the code, every test run passes, and the mutant is reported "missed"
+  # while no test could ever kill it. Measured on 4180c6c8 (run 40855342249): 19 of
+  # the 73 missed mutants were this class. Proof, not inference — the error literal
+  # "OTLP batch sizes and timeouts must be positive" from
+  # src/observability/mod.rs:88 appears 0 times in
+  # target/debug/deps/chaotic_semantic_memory-*.d293 built with exactly the FAST_ARGS
+  # features below (control: "decay" appears 174 times in the same binary).
+  # src/observability/mod.rs:13 is
+  #   #![cfg(any(feature = "prometheus", feature = "otlp-json", feature = "otlp"))]
+  # and the fast profile enables `default = cli,persistence,parallel` + `mcp` only, so
+  # the whole module tree is out — including prom.rs (`#[cfg(feature = "prometheus")]`
+  # at mod.rs:22). Remove these two excludes when #952 makes generation cfg-aware or
+  # when the profile gains an observability feature; until then they are the only way
+  # the score reflects testable code.
+  --exclude "src/observability/*"
+  # Same class, one function: extract_trace_parent and its
+  # opentelemetry::propagation::Extractor impl (src/mcp/server.rs:348-360) sit behind
+  # #[cfg(all(feature = "otlp", not(target_arch = "wasm32")))]; `otlp` is opt-in and
+  # off here. Proven the same way — "traceparent was not applied to the request span"
+  # occurs 0 times in the built lib, while its ungated neighbour require_bearer's
+  # "Unauthorized" occurs 3 times, so server.rs itself is in the build and only these
+  # mutants are excluded. The trace-context wiring is covered by
+  # tests/mcp_streamable_http_integration.rs and src/mcp/server_tests.rs (which is a
+  # #[cfg(test)] module of the ungated half of server.rs), not by --lib mutation here.
+  --exclude-re "extract_trace_parent"
+  # Third-party of the same rule, wasm32 instead of a Cargo feature: the js_sys
+  # elapsed/duration shims sit under #[cfg(target_arch = "wasm32")] with the native
+  # std::time::Instant sibling on the line above, so on an x86_64 runner the `now -
+  # start` subtraction is not in the binary and `- -> +` / `- -> /` cannot be killed
+  # by any test. Named by operator so only these four mutants leave the denominator:
+  # each function keeps every other mutant it has. Re-checked against missed.txt on
+  # 4180c6c8: framework.rs:319:43 (x2, in associate) and
+  # framework_ttl_purge.rs:101:48 (x2, in purge_expired_inner).
+  --exclude-re "replace - with [+] in ChaoticSemanticFramework::associate"
+  --exclude-re "replace - with / in ChaoticSemanticFramework::associate"
+  --exclude-re "replace - with [+] in ChaoticSemanticFramework::purge_expired_inner"
+  --exclude-re "replace - with / in ChaoticSemanticFramework::purge_expired_inner"
+  # Fourth of the same rule. `hybrid_result_to_array` (src/wasm_ext.rs:34-35) is under
+  # #[cfg(target_arch = "wasm32")] like the two operators above, and its two
+  # `-> Result<Array, JsValue> with Ok(Default::default())` mutants were both MISSED on
+  # run 40855342249. Proof on the binary this profile actually builds (cargo test
+  # --no-run --lib -p chaotic_semantic_memory --features chaotic_semantic_memory/mcp,
+  # rustc as pinned): "failed to set JS property" (wasm_ext.rs:43, inside the gated fn)
+  # occurs 0 times, while "min_strength must be finite" (wasm_ext.rs:26, the ungated
+  # helper in the same file) occurs once — so the file is linked and only this fn is
+  # absent. Named by function, not by file, because src/wasm_ext.rs is not wholly gated;
+  # its only callers (wasm_ext.rs:195, :206) are WasmFramework methods that the
+  # pre-existing --exclude-re "WasmFramework::" already covers.
+  --exclude-re "hybrid_result_to_array"
 )
 
 # Preflight count (omit -j; listing does not need parallel workers).
@@ -360,18 +404,18 @@ if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
   MUTANT_COUNT="$(printf '%s\n' "${LIST_OUT}" | grep -cE '\.rs:' || true)"
   echo "mutation preflight: ${MUTANT_COUNT:-0} mutants to test (jobs=${JOBS})" >&2
   if [[ "${MUTANT_COUNT:-0}" -eq 0 ]]; then
-    echo "No mutants generated for changed files; writing empty report" | tee "${LOG_FILE}"
+    echo "No mutants generated for the bounded diff; no mutation evidence was produced" | tee "${LOG_FILE}"
     {
       echo "# Unit-Target Mutation Test Report"
       echo
       echo "- Timestamp (UTC): ${TIMESTAMP}"
       echo "- Profile: ${PROFILE}"
       echo "- Mutants: 0"
-      echo "- Result: skip (no mutants in diff)"
+      echo "- Result: not run (no mutants in diff)"
     } >"${REPORT_FILE}"
     if [[ "${CI_MODE}" == "true" ]]; then
-      echo "unit-target mutation score: no mutants in changed Rust sources, CI check skipped"
-      exit 0
+      echo "error: CI mutation check selected this Rust diff but generated no mutants" >&2
+      exit 1
     fi
     exit 0
   fi
@@ -383,10 +427,29 @@ RUN_CMD=(cargo mutants "${MUTANTS_ARGS[@]}" "${EXCLUDE_ARGS[@]}" "$@")
 if [[ ${#TEST_ARGS[@]} -gt 0 ]]; then
   RUN_CMD+=(-- "${TEST_ARGS[@]}")
 fi
+MARKER="$(mktemp)"
+trap 'rm -f "${MARKER}" "${DIFF_FILE:-}"' EXIT
 RUSTFLAGS="" RUST_BACKTRACE=0 "${RUN_CMD[@]}" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
 set -e
+
+# Ship cargo-mutants' own report with the CI artifact. The tee'd stdout only carries what
+# cargo-mutants chose to print — caught mutants are silent, so a run that finishes 31 of 224
+# before the ceiling shows 5 lines and looks stalled (that misread cost a wrong diagnosis
+# here) — and `mutants.out/outcomes.json` is the record that answers it: per-mutant Build/Test
+# phase durations, with `mutants.out/debug.log` carrying the timestamps that separate "this
+# mutant is slow" from "the gap between mutants is slow". Outcomes are written as the sweep
+# progresses, so a mid-run cancellation still leaves the partial data. The copy lands inside
+# OUT_DIR (uploaded as `path: progress/mutation`) rather than going through `--output`,
+# because scripts/mutation_inventory.py reads `mutants.out/outcomes.json` relative to the
+# workspace root; `mutants.out/` is gitignored at any depth, so this adds no untracked churn.
+# `-newer "${MARKER}"` distinguishes this run's report from a stale mutants.out in the tree.
+if [[ -f mutants.out/outcomes.json ]] && [[ -n "$(find mutants.out/outcomes.json -newer "${MARKER}" 2>/dev/null)" ]]; then
+  rm -rf "${OUT_DIR}/mutants.out"
+  cp -a mutants.out "${OUT_DIR}/mutants.out"
+  echo "mutation report copied to ${OUT_DIR}/mutants.out" >&2
+fi
 
 {
   echo "# Unit-Target Mutation Test Report"
@@ -442,8 +505,8 @@ if [[ "${CI_MODE}" == "true" ]]; then
     SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
   fi
 
-  # Timeout budget (ADR-0095): timeouts still count as "detected" for score, but
-  # a high timeout rate fails the job so hangs cannot look like strong coverage.
+  # Timeout mutants remain unresolved and are excluded from caught outcomes; the
+  # budget below prevents hangs from silently weakening the score.
   # Override: MUTATION_TIMEOUT_BUDGET (absolute), MUTATION_TIMEOUT_FRACTION (of viable).
   TIMEOUT_BUDGET="${MUTATION_TIMEOUT_BUDGET:-5}"
   TIMEOUT_FRACTION="${MUTATION_TIMEOUT_FRACTION:-0.10}"
@@ -465,13 +528,8 @@ if [[ "${CI_MODE}" == "true" ]]; then
   fi
 
   if [[ "${SCORE}" == "0" ]]; then
-    if grep -q -E 'No mutants generated|Diff changes no|No mutants to filter' "${LOG_FILE}" 2>/dev/null; then
-      echo "unit-target mutation score: no Rust source files changed, CI check skipped"
-      exit 0
-    else
-      echo "error: could not parse mutation score from ${LOG_FILE}" >&2
-      exit 1
-    fi
+    echo "error: mutation run generated no scoreable mutants; result is not a pass" >&2
+    exit 1
   elif awk -v s="${SCORE}" -v t="${THRESHOLD}" 'BEGIN { exit !(s >= t) }'; then
     echo "unit-target mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
     exit 0

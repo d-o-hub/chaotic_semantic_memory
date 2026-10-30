@@ -22,17 +22,23 @@ MODE="${1:-inventory}"
 inventory() {
   python3 - <<'PY'
 import collections
+import os
 import pathlib
 import re
 
 FN_RE = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*\(", re.M)
-ATTR_RE = re.compile(r"#\[(?:tokio::)?test\]")
+ATTR_RE = re.compile(r"#\[(?:tokio::)?test(?:\s*\([^]]*\))?\]")
+ROOT = pathlib.Path(os.environ.get("COVERAGE_INVENTORY_ROOT", "."))
 
 LAYERS = {
-    "tests/ (root integration)": sorted(pathlib.Path("tests").glob("*.rs")),
-    "src/ (root facade)": sorted(pathlib.Path("src").rglob("*.rs")),
-    "crates/*/src (owners)": sorted(p for p in pathlib.Path("crates").rglob("*.rs") if "src" in p.parts),
-    "crates/*/tests": sorted(p for p in pathlib.Path("crates").rglob("*.rs") if "tests" in p.parts),
+    "tests/ (root integration)": sorted((ROOT / "tests").glob("*.rs")),
+    "src/ (root facade)": sorted((ROOT / "src").rglob("*.rs")),
+    "crates/*/src (owners)": sorted(
+        p for p in (ROOT / "crates").rglob("*.rs") if "src" in p.parts
+    ),
+    "crates/*/tests": sorted(
+        p for p in (ROOT / "crates").rglob("*.rs") if "tests" in p.parts
+    ),
 }
 
 def tests_in(path: pathlib.Path) -> list[str]:

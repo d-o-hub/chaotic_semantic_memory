@@ -127,6 +127,50 @@ The `prepare` command automatically updates version references in:
 - **Artifact signing**: GitHub attestation on release artifacts
 - **Concurrency control**: Cancel-in-progress prevents race conditions
 
+## Current publication blocker chain (re-measured 2026-10-22 against `0f77c0d0`)
+
+**Decision:** the Pre-Release Gate is a publication blocker, not advisory evidence.
+CI completion on `main` triggers `pre-release-gate.yml`; its jobs check out the
+CI run's `head_sha`. `release.yml` is triggered by that same CI completion,
+resolves the CI run's `head_sha` as its target commit, and before tagging or
+publishing verifies that the `CI` run *and* the `pre-release-gate.yml` run for
+that exact SHA are both `completed/success`. A missing, running, failed, or
+mismatched run blocks publication; a manual dispatch — and `recover` with a
+`recovery_tag` — resolves its target SHA and runs the same verification.
+
+Amended 2026-10-22: the draft of this section had `release.yml` listen for the
+*gate's* completion rather than CI's, so the release could not even start until
+the blocker finished. `#932` landed the verify-inside-the-release-job shape
+instead, which costs one thing worth stating: because the gate itself starts only
+after CI, a gate run still in flight when CI completed makes the release refuse
+rather than wait, and the operator re-dispatches. The blocker semantics survived;
+the trigger did not.
+
+**The binding blocker is more mundane than any of that (measured 2026-10-22):** the
+`release.yml` that `#932` landed does not parse. Its job condition compares against
+double-quoted `"workflow_dispatch"`, `"push"` and `"success"`, and a build step compares
+`matrix.target == aarch64-unknown-linux-gnu` without quotes; GitHub expression string
+literals are single-quoted only. GitHub rejects the file before scheduling, so every run
+since has `conclusion: failure` with an **empty job list** — 39670046551, 39678113001,
+39683503746 and 39734351757 (the last on `0f77c0d0` itself). The last release run that
+executed anything is 39648046550 on `4a85fd47`, immediately before `#932`. Nothing about
+the packages, the gate, or the registry is implicated: no job ran, so nothing was published
+and no tag was created. Diagnosis for the operator: `gh run view <id> --json jobs` returning
+`[]` means the workflow file is invalid, and there is no step log to read. `scripts/check-actionlint.sh`
+(this wave, `c85984de`) is what found it; the four literals are quoted on the branch that
+carries this ADR.
+
+`dist.yml` is now dispatch-only: `#932` disabled its tag trigger, because a tag
+created inside `release.yml` carries `GITHUB_TOKEN` and Actions does not fire a
+tag-push workflow for a token from the same repo. Platform-specific CLI binaries
+and GitHub Release assets are built by a manual `gh workflow run dist.yml`.
+`release.yml` owns the version tag and crate/npm publication; `dist.yml` does not
+create a second tag or publish those packages.
+
+Mutation testing remains a PR-diff gate, not a main-release verdict: a main
+push has no bounded PR diff, so the pre-release summary states that mutation
+evidence was not run rather than reporting a green score.
+
 ---
 
 **Created:** 2026-02-20

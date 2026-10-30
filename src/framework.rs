@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tracing::instrument;
 
 use crate::concept_builder::ConceptBuilder;
@@ -11,14 +11,12 @@ use crate::framework_builder::{FrameworkBuilder, FrameworkConfig};
 use crate::framework_events::MemoryEvent;
 use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
 use crate::framework_metrics::FrameworkMetrics;
-use crate::graph_traversal::TraversalConfig;
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::singularity::{Singularity, unix_now_secs};
-use csm_core_lib::error::Result;
+use csm_core_lib::error::{MemoryError, Result};
 use csm_core_lib::hyperdim::HVec10240;
-use csm_core_lib::reservoir_chaotic::ChaoticReservoir;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 
@@ -26,6 +24,10 @@ use js_sys::Date;
 #[derive(Clone)]
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,
+    /// Serializes persistence-first mutations without holding state locks across I/O.
+    pub(crate) mutation_coordinator: Arc<Mutex<()>>,
+    /// Shared, revisioned BM25 indexes keyed by namespace and tokenizer mode.
+    pub(crate) text_index_cache: Arc<RwLock<crate::framework_text_search::TextIndexCache>>,
     #[cfg(feature = "persistence")]
     pub(crate) persistence: Option<Arc<Persistence>>,
     #[cfg(not(feature = "persistence"))]
@@ -188,24 +190,18 @@ impl ChaoticSemanticFramework {
         #[cfg(target_arch = "wasm32")]
         let start = Date::now();
 
-        // Acquire lock, get results, release immediately
-        let (results, expired_ids) = {
+        let filtered = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            let results = sing.find_similar(&ns, &query, top_k);
-
-            let now = crate::singularity::unix_now_secs();
-            let expired_ids: std::collections::HashSet<String> = results
-                .iter()
-                .filter_map(|(id, _)| {
-                    sing.get(&ns, id)
-                        .and_then(|c| c.expires_at.filter(|exp| *exp <= now))
-                        .map(|_| id.clone())
-                })
-                .collect();
-            let res = (results, expired_ids);
-            drop(sing);
-            res
+            sing.find_similar_active(
+                &ns,
+                &query,
+                top_k,
+                crate::singularity::unix_now_secs(),
+                None,
+            )
+            .as_ref()
+            .to_vec()
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -214,12 +210,6 @@ impl ChaoticSemanticFramework {
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = (Date::now() - start) as u64;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
-
-        // Filter expired concepts without lock
-        let filtered: Vec<(String, f32)> = results
-            .into_iter()
-            .filter(|(id, _)| !expired_ids.contains(id))
-            .collect();
 
         let mut events = Vec::new();
         for (id, similarity) in &filtered {
@@ -258,7 +248,13 @@ impl ChaoticSemanticFramework {
         let results = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            sing.find_similar_filtered(&ns, query, top_k, filter)
+            sing.find_similar_active(
+                &ns,
+                query,
+                top_k,
+                crate::singularity::unix_now_secs(),
+                Some(filter),
+            )
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -287,102 +283,32 @@ impl ChaoticSemanticFramework {
         Ok(results_vec)
     }
 
-    /// Traverse graph using breadth-first search.
-    #[instrument(err, skip(self, config))]
-    pub async fn traverse(
-        &self,
-        start: &str,
-        config: TraversalConfig,
-    ) -> Result<Vec<(String, u32)>> {
-        Self::validate_concept_id(start)?;
-        Self::validate_traversal_config(&config)?;
-        let sing = self.singularity.read().await;
-        let ns = self.namespace.read().await;
-        self.metrics.inc_traversals();
-        sing.bfs(&ns, start, &config)
-    }
-
-    /// Find shortest weighted path between two concepts.
-    #[instrument(err, skip(self))]
-    pub async fn shortest_path(&self, from: &str, to: &str) -> Result<Option<Vec<String>>> {
-        Self::validate_concept_id(from)?;
-        Self::validate_concept_id(to)?;
-        let sing = self.singularity.read().await;
-        let ns = self.namespace.read().await;
-        self.metrics.inc_shortest_path();
-        sing.shortest_path(&ns, from, to, &TraversalConfig::default())
-    }
-
-    /// Process temporal sequence through reservoir
-    // Reservoir lock needed for sequence processing
-    #[instrument(err, skip(self, sequence))]
-    pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
-        self.validate_sequence_length(sequence.len())?;
-
-        let mut events = Vec::new();
-        let mut reservoir_guard = self.reservoir.write().await;
-
-        if reservoir_guard.is_none() {
-            *reservoir_guard = Some(ChaoticReservoir::new_with_metrics(
-                self.config.reservoir_input_size,
-                self.config.reservoir_size,
-                self.config.chaos_strength,
-                Arc::clone(&self.metrics.reservoir_metrics),
-            )?);
-        }
-
-        let r = reservoir_guard
-            .as_mut()
-            .ok_or(csm_core_lib::error::MemoryError::reservoir(
-                "reservoir failed to initialize".to_string(),
-            ))?;
-        r.reset();
-
-        for (step_idx, input) in sequence.iter().enumerate() {
-            let out = r.step(input)?;
-            events.push(ChaoticEvent::EchoComputed {
-                input_dim: input.len(),
-                state_norm: out.state_norm,
-            });
-
-            // Convergence detection: if change_norm is very small, we've hit an attractor basin.
-            if out.change_norm < 1e-5 {
-                events.push(ChaoticEvent::AttractorFired {
-                    attractor_id: step_idx as u32,
-                    basin_energy: out.change_norm,
-                    reservoir_dim: self.config.reservoir_size,
-                });
-            }
-        }
-        let hv = r.to_hypervector()?;
-        drop(reservoir_guard);
-
-        for event in events {
-            self.emit_chaotic_event(event).await;
-        }
-
-        Ok(hv)
-    }
-
     /// Associate two concepts
     #[instrument(err, skip(self))]
     pub async fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()> {
         Self::validate_concept_id(from)?;
         Self::validate_concept_id(to)?;
         Self::validate_association_strength(strength)?;
+        let _mutation = self.mutation_coordinator.lock().await;
+        let ns = self.namespace().await;
         {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            sing.associate(&ns, from, to, strength)?;
+            let sing = self.singularity.read().await;
+            for id in [from, to] {
+                if sing.get(&ns, id).is_none() {
+                    return Err(MemoryError::NotFound {
+                        entity: "Concept".to_string(),
+                        id: id.to_string(),
+                    });
+                }
+            }
         }
 
-        if let Some(ref persistence) = self.persistence {
+        if let Some(persistence) = &self.persistence {
             #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
             #[cfg(target_arch = "wasm32")]
             let p_start = Date::now();
 
-            let ns = self.namespace().await;
             persistence
                 .save_association(&ns, from, to, strength)
                 .await?;
@@ -391,9 +317,27 @@ impl ChaoticSemanticFramework {
             let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
             #[cfg(target_arch = "wasm32")]
             let elapsed_ms = (Date::now() - p_start) as u64;
-
             self.metrics
                 .observe_persist_latency_ms(elapsed_ms, "save_association");
+        }
+
+        let apply_result = self
+            .singularity
+            .write()
+            .await
+            .associate(&ns, from, to, strength);
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit association failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit association failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
         }
         self.metrics.inc_associations_created(1);
         self.emit_event(MemoryEvent::Associated {
@@ -402,7 +346,6 @@ impl ChaoticSemanticFramework {
             strength,
         })
         .await;
-
         Ok(())
     }
 
@@ -457,9 +400,44 @@ impl ChaoticSemanticFramework {
     pub async fn reinforce_association(&self, from: &str, to: &str) -> Result<()> {
         Self::validate_concept_id(from)?;
         Self::validate_concept_id(to)?;
-        let mut sing = self.singularity.write().await;
-        let ns = self.namespace.read().await;
-        sing.reinforce_association(&ns, from, to)
+        let _mutation = self.mutation_coordinator.lock().await;
+        let ns = self.namespace().await;
+        {
+            let sing = self.singularity.read().await;
+            let exists = sing
+                .get_namespace(&ns)
+                .and_then(|state| state.associations.get(from))
+                .is_some_and(|neighbors| neighbors.contains_key(to));
+            drop(sing);
+            if !exists {
+                return Err(MemoryError::NotFound {
+                    entity: "Association".to_string(),
+                    id: format!("{from} -> {to}"),
+                });
+            }
+        }
+        if let Some(persistence) = &self.persistence {
+            persistence.reinforce_association(&ns, from, to).await?;
+        }
+        let apply_result = self
+            .singularity
+            .write()
+            .await
+            .reinforce_association(&ns, from, to);
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit association reinforcement failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit association reinforcement failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// Prune associations whose decayed strength falls below `threshold`.
@@ -469,9 +447,48 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self))]
     pub async fn prune_decayed_associations(&self, threshold: f32) -> Result<usize> {
         Self::validate_prune_threshold(threshold)?;
+        let _mutation = self.mutation_coordinator.lock().await;
+        let ns = self.namespace().await;
         let curve = self.config.ttl_config.association_decay;
-        let mut sing = self.singularity.write().await;
-        let ns = self.namespace.read().await;
-        sing.prune_decayed_associations(&ns, curve, threshold)
+        let now = unix_now_secs();
+        let mut to_remove = Vec::new();
+        {
+            let sing = self.singularity.read().await;
+            if let Some(state) = sing.get_namespace(&ns) {
+                for (from, neighbors) in &state.associations {
+                    for (to, (strength, created_at)) in neighbors {
+                        if curve.apply(*strength, now.saturating_sub(*created_at)) < threshold {
+                            to_remove.push((from.clone(), to.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        if to_remove.is_empty() {
+            return Ok(0);
+        }
+        if let Some(persistence) = &self.persistence {
+            persistence.delete_associations(&ns, &to_remove).await?;
+        }
+        let apply_result = {
+            let mut sing = self.singularity.write().await;
+            to_remove
+                .iter()
+                .try_for_each(|(from, to)| sing.disassociate(&ns, from, to))
+        };
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit association pruning failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit association pruning failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
+        }
+        Ok(to_remove.len())
     }
 }

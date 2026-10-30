@@ -1,0 +1,47 @@
+{
+  "skill_name": "pr-roast-triage",
+  "version": "1.0.0",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "A PR has a green badge, but the relevant check has not published annotations and no one inspected its log. Is it ready to merge?",
+      "expected_output": "No. Verify the actual check run and annotations/log, inspect the diff and its impact, then record a roast verdict before any merge.",
+      "assertions": [
+        "Does not treat a green badge as sufficient CI truth",
+        "Requires inspecting the actual check/log evidence",
+        "Requires a recorded roast verdict before merge"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "A bot PR is a zero-delta duplicate of a previously reviewed no-op. Should I reimplement its idea while closing it?",
+      "expected_output": "No. Record the no-op roast, close the duplicate, update progress/learnings, and do not quietly reimplement it without the demanded evidence.",
+      "assertions": [
+        "Identifies the zero-delta duplicate as no-op",
+        "Requires a roast record and progress/learnings update",
+        "Rejects silently reimplementing the closed idea"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "A Criterion report exists, but its inputs bypass the changed branch and the after-time is slower. The author proposes retitling `perf` to `refactor`. Can the claim pass, and what must the reviewer verify or reject?",
+      "expected_output": "No. Trace the benchmark's inputs and control flow to the changed path, check the measured sign and workload, and request valid evidence; do not retitle perf as refactor to bypass the gate.",
+      "assertions": [
+        "Requires benchmark reachability to changed code",
+        "Checks workload and measured result rather than presence alone",
+        "Rejects retitling to evade the performance gate"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Three independent PRs are green, and the first merge will move main. How do I clear the queue?",
+      "expected_output": "Review and roast all PRs, select a dependency order, then rebase/update and verify one PR at a time against the newest main; never batch or use --auto.",
+      "assertions": [
+        "Reviews and roasts each PR before merge",
+        "Merges one at a time",
+        "Revalidates each updated head",
+        "Rejects --auto and stale batched merges"
+      ]
+    }
+  ]
+}

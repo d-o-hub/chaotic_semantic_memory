@@ -1,0 +1,46 @@
+{
+  "skill_name": "rust-development",
+  "version": "1.0.0",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to rename a public Rust enum variant and remove the old name. What should I do before editing and how should I handle callers?",
+      "expected_output": "Read the target and neighboring files, query LSP references before changing the exported symbol, migrate every caller, and avoid a compatibility shim unless directly required.",
+      "assertions": [
+        "Reads the target and neighboring code before editing",
+        "Queries LSP references before changing an exported symbol",
+        "Migrates every caller",
+        "Does not retain an unrequested compatibility shim"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I changed logic in crates/csm-memory/src/search.rs and added only tests/integration_search.rs. Is that sufficient for the mutation gate?",
+      "expected_output": "No. The mutation profile runs library-target tests, so add behavior assertions in the crate's library unit tests as well as any needed integration test.",
+      "assertions": [
+        "Says integration-only coverage is insufficient for the mutation gate",
+        "Requires mutation-visible assertions in library unit tests"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "A Rust module is at 498 lines and I need to add 30 lines. Can I remove its rationale comments to stay below the limit?",
+      "expected_output": "No. Preserve rationale comments and extract a child module before exceeding the 500-LOC limit.",
+      "assertions": [
+        "Rejects stripping rationale comments",
+        "Requires child-module extraction",
+        "Keeps every Rust file at or below 500 LOC"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "A new Rust path uses Rayon. The crate also builds for wasm32. What source gate and validation are required?",
+      "expected_output": "Gate Rayon/threading with cfg(not(target_arch = \"wasm32\")), follow existing patterns, and run scripts/validate.sh plus scripts/harness-check.sh all.",
+      "assertions": [
+        "Gates Rayon or threading off wasm32",
+        "Requires scripts/validate.sh",
+        "Requires scripts/harness-check.sh all"
+      ]
+    }
+  ]
+}

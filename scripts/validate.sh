@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export CSM_VALIDATION_REQUIRED=true
 
 # Source lint caching library for faster repeated runs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,6 +28,18 @@ else
   echo "Error: scripts/check-test-attributes.sh missing or not executable"
   exit 1
 fi
+
+echo "==> Coverage inventory attribute fixture"
+"${SCRIPT_DIR}/test-coverage-report-inventory.sh"
+
+echo "==> Generated script catalog and fixture gate"
+"${SCRIPT_DIR}/check-script-catalog.sh"
+
+echo "==> Self-fix-loop safety fixtures"
+"${SCRIPT_DIR}/test-self-fix-loop-safety.sh"
+
+echo "==> GOAP orchestrator mutation safety fixtures"
+"${SCRIPT_DIR}/test-goap-orchestrator-safety.sh"
 
 # CI crate-matrix gate (issue #827): the `test-workspace-crates` matrix must be
 # derived from `cargo metadata`, every exclusion must have a dedicated job in
@@ -59,6 +72,16 @@ fi
 echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
 
+echo "==> cargo deny --locked check"
+# cargo-deny fetches the RustSec advisory-db by spawning the host `git` CLI, and
+# the CI lint job reaches this script through its LD_LIBRARY_PATH wrapper, so the
+# host git-remote-https resolves libdl/libpthread against nix-store glibc-2.44 and
+# dies on GLIBC_ABI_DT_X86_64_PLT (lint job 122979314258). The standalone Cargo
+# Deny job runs the identical command on the identical devShell without that
+# export and passes — the A/B that localises the failure to the environment
+# rather than the runner image.
+env -u LD_LIBRARY_PATH cargo deny --locked check
+
 # `GitHub Pages` runs `cargo doc --no-deps --all-features` with
 # CARGO_BUILD_WARNINGS=deny exported by actions-rust-lang/setup-rust-toolchain, so
 # a rustdoc warning fails nothing a PR can see and instead silently stops the docs
@@ -86,7 +109,7 @@ echo "==> cargo test --all-targets --all-features"
 cargo test --all-targets --all-features
 
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
-for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
+while IFS= read -r -d '' file; do
   loc="$(wc -l < "${file}")"
   if [[ "${loc}" -gt "${MAX_SRC_LOC}" ]]; then
     echo "LOC gate failed: ${file} has ${loc} lines"
@@ -99,7 +122,7 @@ for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
     fi
   fi
   echo "ok: ${file} (${loc} LOC)"
-done
+done < <(find src crates -type f -name '*.rs' -not -path '*/target/*' -print0)
 
 if rustup target list --installed | grep -q "^${WASM_TARGET}\$"; then
   # -p csm-wasm, not a bare `--features wasm`: the root manifest's default-members
@@ -186,23 +209,11 @@ else
   echo "skip: npm not found, skipping CLI pack smoke test"
 fi
 
-# ShellCheck for all shell scripts (optional - only if installed)
-# Note: Disabled due to shellcheck crash on scripts with path references
-# Shellcheck bug: https://github.com/koalaman/shellcheck/issues/XXXX
-# Re-enable when shellcheck is fixed or when we have a workaround
-if command -v shellcheck >/dev/null 2>&1 && [[ "${CSM_ENABLE_SHELLCHECK:-}" == "true" ]]; then
-  echo "==> ShellCheck (severity=error)"
-  SHELL_SCRIPTS=$(find scripts -name '*.sh' -type f)
-  if [[ -n "${SHELL_SCRIPTS}" ]]; then
-    shellcheck --severity=error "${SHELL_SCRIPTS}"
-    echo "ok: all shell scripts pass shellcheck"
-  else
-    echo "skip: no shell scripts found"
-  fi
-else
-  echo "skip: shellcheck disabled (crashes on path references)"
-  echo "      To enable: export CSM_ENABLE_SHELLCHECK=true"
-fi
+mapfile -t SHELL_SCRIPTS < <(find "${SCRIPT_DIR}" -name '*.sh' -type f -print)
+echo "==> Optional ShellCheck diagnostic"
+"${SCRIPT_DIR}/run-shellcheck-optional.sh" "${SHELL_SCRIPTS[@]}"
+echo "==> ShellCheck dependency fixture"
+"${SCRIPT_DIR}/test-run-shellcheck-optional.sh"
 
 # Markdownlint for all markdown files (optional - only if installed)
 # Supports both markdownlint-cli (npm) and mdl (ruby)
@@ -312,42 +323,36 @@ echo "==> LLM context drift gate (docs/architecture/context.yaml)"
 _CSM_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 if python3 -c 'import yaml' 2>/dev/null; then
   python3 "${_CSM_REPO_ROOT}/tests/validate_llm_context.py" --repo-root "${_CSM_REPO_ROOT}"
+elif [[ "${CSM_VALIDATION_REQUIRED}" == "true" ]]; then
+  echo "ERROR: PyYAML is required by the validation gate; install python3-yaml." >&2
+  exit 1
 else
   echo "SKIPPED — NOT A PASS: python3 has no PyYAML (apt: python3-yaml); context.yaml went unchecked"
 fi
 echo "==> LLM context drift gate fixture"
 "${SCRIPT_DIR}/test-validate-llm-context.sh"
 
-# ADR Registry consistency check (ADR-0076)
+# ADR Registry consistency check (ADR-0076).  Keep one implementation of the
+# registry↔disk policy; the standalone checker is also required by AGENTS.md.
 echo "==> ADR Registry consistency check"
-ADR_REGISTRY="plans/ADR_REGISTRY.md"
-ADR_DIR="plans/adr"
-if [[ -f "${ADR_REGISTRY}" ]]; then
-  # Extract ADR numbers from registry table
-  REGISTRY_ADRS=$(grep -oE '\| [0-9]{4} \|' "${ADR_REGISTRY}" | sed 's/|//g' | tr -d ' ' | sort -u | grep -E '^[0-9]{4}$')
-  # Check for missing files
-  MISSING_COUNT=0
-  for adr_num in $REGISTRY_ADRS; do
-    # Skip superseded ADR-0003
-    if [[ "$adr_num" == "0003" ]]; then
-      continue
-    fi
-    # Find matching file (allow any suffix after number)
-    ADR_FILE=$(find "${ADR_DIR}" -name "${adr_num}-*.md" -type f 2>/dev/null | head -1)
-    if [[ -z "${ADR_FILE}" ]]; then
-      echo "Missing ADR file: ${adr_num}"
-      MISSING_COUNT=$((MISSING_COUNT + 1))
-    fi
-  done
-  if [[ $MISSING_COUNT -gt 0 ]]; then
-    echo "Error: ${MISSING_COUNT} ADR files missing from ${ADR_DIR}"
-    exit 1
-  fi
-  # Count ADR files and report
-  ADR_FILE_COUNT=$(find "${ADR_DIR}" -name '*.md' -type f | wc -l)
-  echo "ok: ${ADR_FILE_COUNT} ADR files in ${ADR_DIR}"
+if [[ -x "${SCRIPT_DIR}/check-adr-parity.sh" ]]; then
+  "${SCRIPT_DIR}/check-adr-parity.sh"
+  echo "==> ADR parity gate fixture"
+  "${SCRIPT_DIR}/test-check-adr-parity.sh"
 else
-  echo "skip: ${ADR_REGISTRY} not found"
+  echo "Error: scripts/check-adr-parity.sh missing or not executable" >&2
+  exit 1
+fi
+
+# GOAP status is a read-only operator view, but it is still a gate input for
+# agents.  Keep inline comments and historical prose from changing the action
+# counts reported by the orchestrator.
+if [[ -x "${SCRIPT_DIR}/test-goap-orchestrator-status.sh" ]]; then
+  echo "==> GOAP status parser fixture"
+  "${SCRIPT_DIR}/test-goap-orchestrator-status.sh"
+else
+  echo "Error: scripts/test-goap-orchestrator-status.sh missing or not executable" >&2
+  exit 1
 fi
 
 # Plan archive manifest completeness (issue #831). plans/ARCHIVE_MANIFEST.md is the
@@ -364,6 +369,10 @@ else
   exit 1
 fi
 
+echo "==> GitHub Actions workflow semantic validation"
+"${SCRIPT_DIR}/check-actionlint.sh"
+echo "==> actionlint dependency fixture"
+"${SCRIPT_DIR}/test-check-actionlint.sh"
 # GitHub Actions workflow YAML validation (issue #841). Fail-closed on the
 # script's presence, and the fixture runs right after it: the gate separates
 # parse failures from error-level lint findings from advisories, and that

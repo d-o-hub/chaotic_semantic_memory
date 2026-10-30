@@ -5,7 +5,7 @@
 //! split out to stay under the 500-line gate. These three methods —
 //! `initialize`, `list_tools`, `list_resources` — are reachable only through a
 //! request, so no amount of direct-call testing can pin them; this is the
-//! lib-target counterpart of `tests/mcp_sse_integration.rs` and it runs inside
+//! lib-target counterpart of `tests/mcp_streamable_http_integration.rs` and it runs inside
 //! `--lib`, which is the profile the mutation gate uses.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -17,8 +17,8 @@ use serde_json::{Value, json};
 /// only a request can reach — `initialize`, `list_tools`, `list_resources` —
 /// are asserted on what a client actually receives.
 ///
-/// This is the lib-target counterpart of `tests/mcp_sse_integration.rs`: no
-/// port, no HTTP, no sleep, and it runs inside `--lib`.
+/// This is the lib-target counterpart of `tests/mcp_streamable_http_integration.rs`:
+/// no port, no HTTP, no sleep, and it runs inside `--lib`.
 #[tokio::test]
 async fn wire_handshake_lists_every_tool_and_resource() {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -72,17 +72,35 @@ async fn wire_handshake_lists_every_tool_and_resource() {
     let client = tokio::spawn(async move {
         let mut client_write = client_write;
         let mut client_read = client_read;
-        let initialize = request(
+        let discover = request(
             &mut client_write,
             &mut client_read,
             json!({
                 "jsonrpc": "2.0",
                 "id": 1,
+                "method": "server/discover",
+                // SEP-2567: discovery has no session yet, so rmcp requires the
+                // lifecycle inline in `_meta`.
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                        "io.modelcontextprotocol/clientCapabilities": {}
+                    }
+                },
+            }),
+        )
+        .await;
+        let initialize = request(
+            &mut client_write,
+            &mut client_read,
+            json!({
+                "jsonrpc": "2.0",
+                "id": 2,
                 "method": "initialize",
                 "params": {
-                    "protocolVersion": "2025-11-25",
+                    "protocolVersion": "2026-07-28",
                     "capabilities": {},
-                    "clientInfo": {"name": "mutation-probe", "version": "0.0.0"},
+                    "clientInfo": {"name": "wire-test", "version": "0.0.0"},
                 },
             }),
         )
@@ -93,6 +111,16 @@ async fn wire_handshake_lists_every_tool_and_resource() {
             "the handshake must report the crate identity: {initialize}"
         );
         assert_eq!(server_info["version"], env!("CARGO_PKG_VERSION"));
+        // A client may ask for 2026-07-28 over `initialize`, but that revision
+        // has no initialize lifecycle: SEP-2567 moved it into per-request
+        // `_meta`, so the server answers the legacy handshake with the newest
+        // version that still negotiates this way. The stateless 2026-07-28 path
+        // is exercised by the streamable-HTTP integration suite, and the
+        // advertisement of both revisions is asserted below.
+        assert_eq!(
+            initialize["result"]["protocolVersion"], "2025-11-25",
+            "a request for a revision without an initialize lifecycle must negotiate down: {initialize}"
+        );
         assert_eq!(
             initialize["result"]["capabilities"]["tools"]["listChanged"], true,
             "tools must be advertised as a list-changing capability: {initialize}"
@@ -111,27 +139,52 @@ async fn wire_handshake_lists_every_tool_and_resource() {
         let tools = request(
             &mut client_write,
             &mut client_read,
-            json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+            json!({"jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": {}}),
         )
         .await;
         let resources = request(
             &mut client_write,
             &mut client_read,
-            json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list", "params": {}}),
+            json!({"jsonrpc": "2.0", "id": 4, "method": "resources/list", "params": {}}),
         )
         .await;
-        (tools, resources)
+        let repeated_tools = request(
+            &mut client_write,
+            &mut client_read,
+            json!({"jsonrpc": "2.0", "id": 5, "method": "tools/list", "params": {}}),
+        )
+        .await;
+        (discover, tools, resources, repeated_tools)
     });
 
     let running = rmcp::serve_server(handler, (server_read, server_write))
         .await
         .expect("the server must accept a duplex transport");
 
-    let (tools, resources) = tokio::time::timeout(std::time::Duration::from_secs(30), client)
-        .await
-        .expect("the wire exchange must not hang")
-        .expect("the client task must not panic");
+    let (discover, tools, resources, repeated_tools) =
+        tokio::time::timeout(std::time::Duration::from_secs(30), client)
+            .await
+            .expect("the wire exchange must not hang")
+            .expect("the client task must not panic");
 
+    let versions: Vec<&str> = discover["result"]["supportedVersions"]
+        .as_array()
+        .unwrap_or_else(|| panic!("server/discover must return protocol versions: {discover}"))
+        .iter()
+        .map(|version| version.as_str().unwrap())
+        .collect();
+    assert!(
+        versions.contains(&"2026-07-28"),
+        "missing current protocol: {versions:?}"
+    );
+    assert!(
+        versions.contains(&"2025-11-25"),
+        "missing fallback protocol: {versions:?}"
+    );
+    assert_eq!(
+        discover["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
+        "chaotic_semantic_memory"
+    );
     let names: Vec<&str> = tools["result"]["tools"]
         .as_array()
         .unwrap_or_else(|| panic!("tools/list must return an array: {tools}"))
@@ -162,6 +215,10 @@ async fn wire_handshake_lists_every_tool_and_resource() {
     assert_eq!(
         tools["result"]["tools"][0]["inputSchema"]["type"], "object",
         "each tool must carry its own JSON schema: {tools}"
+    );
+    assert_eq!(
+        tools["result"]["tools"], repeated_tools["result"]["tools"],
+        "tools/list must preserve its deterministic order across requests"
     );
 
     let uris: Vec<&str> = resources["result"]["resources"]

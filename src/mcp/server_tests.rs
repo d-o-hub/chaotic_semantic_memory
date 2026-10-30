@@ -6,7 +6,7 @@
 //! These are crate-internal on purpose: the ADR-0099 guarantee is a field of the
 //! framework the handler owns, so observing it needs `pub(crate)` access. The
 //! public exit path itself is asserted end-to-end in
-//! `tests/mcp_sse_integration.rs`.
+//! `tests/mcp_streamable_http_integration.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use super::*;
@@ -43,8 +43,8 @@ async fn handler_with_live_reaper() -> Arc<McpHandler> {
     handler
 }
 
-/// The SSE transport must resolve when its shutdown signal does, and the exit
-/// path must then stop the shared TTL cleanup task (ADR-0099).
+/// The Streamable HTTP transport must resolve when its shutdown signal does,
+/// and the exit path must then stop the shared TTL cleanup task (ADR-0099).
 ///
 /// This asserts the effect, not the config echo:
 ///
@@ -55,12 +55,11 @@ async fn handler_with_live_reaper() -> Arc<McpHandler> {
 ///   Ctrl+C through [`serve_with_shutdown`] — production and test go through one
 ///   function, [`serve_with_handler`];
 /// - the transport future is *awaited*: there is no `abort()` anywhere, which is
-///   precisely how `tests/mcp_sse_integration.rs` used to hide the fact that
-///   `serve` never returned on this transport;
+///   precisely how an unobserved serve failure used to hide a shutdown leak;
 /// - the final assertion reads the cleanup task's handle slot, which only
 ///   `McpHandler::shutdown` can empty.
 #[tokio::test]
-async fn sse_exit_stops_the_ttl_cleanup_task() {
+async fn streamable_http_exit_stops_the_ttl_cleanup_task() {
     let handler = handler_with_live_reaper().await;
     let framework = handler
         .framework
@@ -79,9 +78,16 @@ async fn sse_exit_stops_the_ttl_cleanup_task() {
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let server_handler = handler.clone();
     let running = tokio::spawn(async move {
-        serve_with_handler(server_handler, Transport::Sse { bind }, async move {
-            let _ = shutdown_rx.await;
-        })
+        serve_with_handler(
+            server_handler,
+            Transport::StreamableHttp { bind },
+            None,
+            None,
+            Vec::new(),
+            async move {
+                let _ = shutdown_rx.await;
+            },
+        )
         .await
     });
 
@@ -95,7 +101,7 @@ async fn sse_exit_stops_the_ttl_cleanup_task() {
         }
         if running.is_finished() {
             let outcome = running.await.expect("the server task must not panic");
-            panic!("the SSE server stopped before it was listening: {outcome:?}");
+            panic!("the Streamable HTTP server stopped before it was listening: {outcome:?}");
         }
         tokio::task::yield_now().await;
     }
@@ -112,23 +118,23 @@ async fn sse_exit_stops_the_ttl_cleanup_task() {
 
     assert!(
         task.handle.lock().await.is_none(),
-        "the SSE exit path must cancel and await the shared TTL cleanup task (ADR-0099)"
+        "the Streamable HTTP exit path must cancel and await the shared TTL cleanup task (ADR-0099)"
     );
 }
 
-/// An SSE server that never served a request has no framework, so the exit path
-/// must return `Ok(())` rather than build one just to stop it. Pairs with
-/// `test_handler_shutdown_is_a_noop_without_a_framework` in `tools_tests.rs`,
-/// which covers the callee; this covers the caller now that the caller actually
-/// runs on this transport.
+/// An HTTP server that never served a request has no framework, so the exit
+/// path must return `Ok(())` rather than build one just to stop it.
 #[tokio::test]
-async fn sse_exit_is_ok_without_a_request() {
+async fn streamable_http_exit_is_ok_without_a_request() {
     let bind = reserve_ephemeral_port().await;
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let running = tokio::spawn(async move {
         serve_with_handler(
             Arc::new(McpHandler::new(None)),
-            Transport::Sse { bind },
+            Transport::StreamableHttp { bind },
+            None,
+            None,
+            Vec::new(),
             async move {
                 let _ = shutdown_rx.await;
             },
@@ -142,7 +148,7 @@ async fn sse_exit_is_ok_without_a_request() {
     running
         .await
         .expect("the server task must not panic")
-        .expect("an idle SSE server must still exit cleanly");
+        .expect("an idle Streamable HTTP server must still exit cleanly");
 }
 
 /// The public entry point must not invent a framework either: `serve` is
@@ -151,17 +157,21 @@ async fn sse_exit_is_ok_without_a_request() {
 /// wiring so `serve` cannot silently drop the shutdown hop.
 ///
 /// Readiness is asserted before the signal is sent, exactly as in
-/// [`sse_exit_stops_the_ttl_cleanup_task`]: without it a `serve_with_shutdown`
-/// body that returned `Ok(())` immediately would satisfy this test, because the
-/// signal would merely resolve a future nothing ever waited on.
+/// [`streamable_http_exit_stops_the_ttl_cleanup_task`]: without it a
+/// `serve_with_shutdown` body that returned `Ok(())` immediately would satisfy
+/// this test, because the signal would merely resolve a future nothing ever
+/// waited on.
 #[tokio::test]
 async fn serve_with_shutdown_returns_when_the_signal_resolves() {
     let bind = reserve_ephemeral_port().await;
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let config = McpConfig {
-        transport: Transport::Sse { bind },
+        transport: Transport::StreamableHttp { bind },
         bind: Some(bind.to_string()),
         database: None,
+        auth_token: None,
+        allowed_hosts: None,
+        allowed_origins: Vec::new(),
         ttl_cleanup_interval: 0,
     };
     let running = tokio::spawn(async move {
@@ -189,4 +199,143 @@ async fn serve_with_shutdown_returns_when_the_signal_resolves() {
         .await
         .expect("the server task must not panic")
         .expect("serve_with_shutdown must return Ok(()) once the signal resolves");
+}
+
+#[tokio::test]
+async fn non_loopback_bind_requires_authentication() {
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let result = serve_with_shutdown(
+        McpConfig {
+            transport: Transport::StreamableHttp {
+                bind: "0.0.0.0:0".parse().expect("valid socket address"),
+            },
+            auth_token: None,
+            ..McpConfig::default()
+        },
+        async move {
+            let _ = shutdown_rx.await;
+        },
+    )
+    .await;
+    drop(shutdown_tx);
+    assert!(
+        result.is_err(),
+        "unauthenticated public binds must be rejected"
+    );
+}
+
+#[test]
+fn debug_output_redacts_bearer_token() {
+    let config = McpConfig {
+        auth_token: Some("secret-token".into()),
+        ..McpConfig::default()
+    };
+    let rendered = format!("{config:?}");
+    assert!(!rendered.contains("secret-token"));
+    assert!(rendered.contains("[REDACTED]"));
+}
+
+#[cfg(feature = "otlp")]
+#[test]
+fn http_traceparent_is_extracted_as_a_remote_parent() {
+    use opentelemetry::trace::TraceContextExt as _;
+
+    opentelemetry::global::set_text_map_propagator(
+        opentelemetry_sdk::propagation::TraceContextPropagator::new(),
+    );
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert(
+        "traceparent",
+        axum::http::HeaderValue::from_static(
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        ),
+    );
+    let parent = extract_trace_parent(&headers).span().span_context().clone();
+    assert!(parent.is_valid());
+    assert_eq!(
+        parent.trace_id().to_string(),
+        "4bf92f3577b34da6a3ce929d0e0e4736"
+    );
+    assert_eq!(parent.span_id().to_string(), "00f067aa0ba902b7");
+    assert_eq!(parent.trace_flags().to_u8(), 1);
+
+    headers.insert(
+        "traceparent",
+        axum::http::HeaderValue::from_static("invalid"),
+    );
+    assert!(
+        !extract_trace_parent(&headers)
+            .span()
+            .span_context()
+            .is_valid()
+    );
+}
+
+#[tokio::test]
+async fn bearer_and_trace_middleware_pass_a_valid_request_through_and_reject_the_rest() {
+    // Both middlewares were only ever exercised by a live server, which the --lib
+    // mutation profile does not run. Driving the router with tower::ServiceExt::oneshot
+    // costs no port, no task, and no deadline: `require_bearer` returning a default
+    // Response (200, no WWW-Authenticate) and `trace_context` returning one instead of
+    // calling `next` are both visible in the status and the body.
+    use axum::Router;
+    use axum::body::{Body, to_bytes};
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt as _;
+
+    let expected: Arc<str> = Arc::from("secret-token");
+    let app = Router::new()
+        .route("/", axum::routing::post(|| async { "ok" }))
+        .layer(axum::middleware::from_fn(trace_context))
+        .route_layer(axum::middleware::from_fn_with_state(
+            expected,
+            require_bearer,
+        ));
+
+    let request = |authorization: Option<&'static str>, traceparent: Option<&'static str>| {
+        let mut builder = Request::builder().method("POST").uri("/");
+        if let Some(value) = authorization {
+            builder = builder.header(axum::http::header::AUTHORIZATION, value);
+        }
+        if let Some(value) = traceparent {
+            builder = builder.header("traceparent", value);
+        }
+        builder.body(Body::empty()).unwrap()
+    };
+
+    let accepted = app
+        .clone()
+        .oneshot(request(
+            Some("Bearer secret-token"),
+            Some("00-0af7651916cd43dd8448eb211980319c-b7ad6b7169203331-01"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(accepted.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(accepted.into_body(), 1024).await.unwrap(),
+        "ok",
+        "trace_context must forward to the handler, not answer the request itself"
+    );
+
+    for unauthenticated in [None, Some("Bearer wrong-token"), Some("not-a-bearer")] {
+        let rejected = app
+            .clone()
+            .oneshot(request(unauthenticated, None))
+            .await
+            .unwrap();
+        assert_eq!(
+            rejected.status(),
+            StatusCode::UNAUTHORIZED,
+            "{unauthenticated:?} must not reach the handler"
+        );
+        assert_eq!(
+            rejected
+                .headers()
+                .get(axum::http::header::WWW_AUTHENTICATE)
+                .and_then(|value| value.to_str().ok()),
+            Some("Bearer"),
+            "a 401 from this middleware must carry the Bearer challenge"
+        );
+    }
 }

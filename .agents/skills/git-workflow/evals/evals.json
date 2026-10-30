@@ -1,0 +1,49 @@
+{
+  "skill_name": "git-workflow",
+  "version": "1.0.0",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I am on main with several user-created untracked files and need to commit one source fix. What is the safe Git sequence?",
+      "expected_output": "Create or switch to a task branch, preserve unrelated files, stage only the intended paths, and never use git add -A.",
+      "assertions": [
+        "Refuses committing directly on main",
+        "Requires a task branch",
+        "Stages only intended paths",
+        "Never uses git add -A"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Before committing, I ran cargo test but skipped the repository gates. Cargo.lock also changed. List every remaining required check, including dependency-gated checks and commit-message range validation.",
+      "expected_output": "Run scripts/validate.sh and scripts/harness-check.sh all, run cargo deny --locked check because Cargo.lock changed, and validate the full commit range with commitlint.",
+      "assertions": [
+        "Requires scripts/validate.sh",
+        "Requires scripts/harness-check.sh all",
+        "Requires cargo deny --locked check for Cargo.lock changes",
+        "Requires full-range commitlint"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "The user asked me to create a PR but did not ask me to merge. The branch has a green badge. What should I do?",
+      "expected_output": "Roast and record the diff, verify checks belong to the exact head SHA, create the PR, and do not merge without a direct request.",
+      "assertions": [
+        "Requires a recorded PR roast",
+        "Verifies CI on the exact head SHA rather than trusting a badge",
+        "Allows PR creation because it was requested",
+        "Does not merge without explicit instruction"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "All checks are green on a PR head that is behind main. May I merge it with --auto?",
+      "expected_output": "No. Update or rebase onto the latest main, rerun CI on the new head, verify mergeability, and never use --auto.",
+      "assertions": [
+        "Rejects merging a stale head",
+        "Requires CI against the updated head",
+        "Rejects --auto merge"
+      ]
+    }
+  ]
+}

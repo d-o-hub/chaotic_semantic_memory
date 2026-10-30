@@ -56,10 +56,17 @@ cargo clean
 6. Create GitHub release: `gh release create vX.Y.Z`
 
 ## Validation Gates
-Run before commit (see `git-workflow` skill for details):
+
+Run both required gates before commit (see `git-workflow` skill for details):
+
 ```bash
 scripts/validate.sh
+scripts/harness-check.sh all
 ```
+
+For machines that cannot complete workspace links under normal memory limits,
+`scripts/validate-low-memory.sh` runs bounded-job Cargo checks and per-package
+tests. It is a Cargo-only development path, not a substitute for either gate.
 
 ## CI Gate Semantics
 

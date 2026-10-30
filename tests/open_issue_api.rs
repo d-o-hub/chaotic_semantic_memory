@@ -97,8 +97,9 @@ async fn framework_subscribe_emits_events() {
 #[cfg(feature = "persistence")]
 #[tokio::test]
 async fn builder_with_version_retention_limits_saved_versions() {
-    let db_path = format!("/tmp/csm_version_retention_{}.db", std::process::id());
-    let _ = tokio::fs::remove_file(&db_path).await;
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("csm_version_retention.db");
+    let db_path = db_path.to_str().unwrap().to_string();
 
     let framework = ChaoticSemanticFramework::builder()
         .with_local_db(db_path.clone())
@@ -134,5 +135,4 @@ async fn builder_with_version_retention_limits_saved_versions() {
     assert_eq!(count, 1);
 
     drop(framework);
-    let _ = tokio::fs::remove_file(&db_path).await;
 }

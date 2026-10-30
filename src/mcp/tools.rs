@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 
 use super::handler::McpHandler;
-use crate::retrieval::hybrid::HybridResult;
+use crate::retrieval::hybrid::{HybridMode, HybridResult};
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use csm_traits::AbsenceStore;
 
@@ -53,10 +53,16 @@ impl McpHandler {
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("Missing query"))?;
                 let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
-                let result = fw.probe_text(query, top_k).await?;
+                let mode = match args["mode"].as_str().unwrap_or("auto") {
+                    "auto" => HybridMode::Auto,
+                    "semantic_only" => HybridMode::SemanticOnly,
+                    "keyword_only" => HybridMode::KeywordOnly,
+                    value => return Err(anyhow::anyhow!("Unknown text retrieval mode: {value}")),
+                };
+                let result = fw.probe_text_with_mode(query, top_k, mode).await?;
                 match result {
                     HybridResult::Success(results) => {
-                        Ok(json!({"status": "ok", "results": results}))
+                        Ok(json!({"status": "ok", "results": concept_results(results)}))
                     }
                     HybridResult::Abstained(abstention) => Ok(json!({
                         "status": "abstained",
@@ -81,7 +87,7 @@ impl McpHandler {
                 let result = fw.probe_text_filtered(text, top_k, &filter).await?;
                 match result {
                     HybridResult::Success(results) => {
-                        Ok(json!({"status": "ok", "results": results}))
+                        Ok(json!({"status": "ok", "results": concept_results(results)}))
                     }
                     HybridResult::Abstained(abstention) => Ok(json!({
                         "status": "abstained",
@@ -210,6 +216,12 @@ impl McpHandler {
     }
 }
 
+fn concept_results(results: Vec<(String, f32)>) -> Vec<Value> {
+    results
+        .into_iter()
+        .map(|(concept_id, score)| json!({"concept_id": concept_id, "score": score}))
+        .collect()
+}
 /// Parse an MCP wire hypervector.
 ///
 /// Primary format (ADR-0094): base64 string of 1280 little-endian bytes

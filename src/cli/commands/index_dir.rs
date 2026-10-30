@@ -213,6 +213,11 @@ pub async fn run_index_dir(
                 "content_preview".to_string(),
                 serde_json::Value::String(truncate_preview(&chunk.content, 200)),
             );
+            // BM25 scores this field; content_preview is display-only and truncated.
+            metadata.insert(
+                "searchable_text".to_string(),
+                serde_json::Value::String(chunk.content.clone()),
+            );
             metadata.insert(
                 "fingerprint".to_string(),
                 serde_json::Value::String(chunk.fingerprint.clone()),
@@ -363,14 +368,15 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
         let heading_match = parse_heading(line);
 
         if let Some((level, heading_text)) = heading_match {
-            if let Some(level) = current_level {
-                if level >= min_level && !current_content.trim().is_empty() {
-                    chunks.push(MarkdownChunk {
-                        heading: current_heading.clone().unwrap_or_default(),
-                        level,
-                        content: current_content.trim().to_string(),
-                    });
-                }
+            if let Some(level) = current_level
+                && level >= min_level
+                && !current_content.trim().is_empty()
+            {
+                chunks.push(MarkdownChunk {
+                    heading: current_heading.clone().unwrap_or_default(),
+                    level,
+                    content: current_content.trim().to_string(),
+                });
             }
 
             current_heading = Some(heading_text);
@@ -382,14 +388,15 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
         }
     }
 
-    if let Some(level) = current_level {
-        if level >= min_level && !current_content.trim().is_empty() {
-            chunks.push(MarkdownChunk {
-                heading: current_heading.unwrap_or_default(),
-                level,
-                content: current_content.trim().to_string(),
-            });
-        }
+    if let Some(level) = current_level
+        && level >= min_level
+        && !current_content.trim().is_empty()
+    {
+        chunks.push(MarkdownChunk {
+            heading: current_heading.unwrap_or_default(),
+            level,
+            content: current_content.trim().to_string(),
+        });
     }
 
     chunks
