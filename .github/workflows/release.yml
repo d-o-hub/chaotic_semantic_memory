@@ -89,11 +89,32 @@ jobs:
         fi
 
         # Verify Pre-Release Gate
-        GATE_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
-        GATE_STATUS=$(echo "$GATE_RUN" | jq -r '.status // "missing"')
-        GATE_CONCLUSION=$(echo "$GATE_RUN" | jq -r '.conclusion // "none"')
-        echo "Pre-Release Gate on ${SHA}: status=${GATE_STATUS} conclusion=${GATE_CONCLUSION}"
-        if [ "$GATE_STATUS" != "completed" ] || [ "$GATE_CONCLUSION" != "success" ]; then
+        #
+        # Both this workflow and pre-release-gate.yml are triggered by the same `CI` completion, so the
+        # gate is still running when this step executes: the slowest measured gate pass was 5m38s (run
+        # 40708535880, 14:42:05 -> 14:47:43, 7 jobs); `validate` reaches this line ~1 min in. The
+        # previous one-shot read therefore always saw in_progress and refused a release that was in fact
+        # gated (#953) — a publication blocker unsatisfiable by construction for the tree it checked.
+        # Wait for a verdict instead, bounded. Fail-closed is preserved: anything but completed/success
+        # still blocks, and a gate that never starts costs the deadline rather than failing instantly,
+        # because sibling run creation is not ordered. `validate` declares no timeout-minutes, so the
+        # 360-min default covers this 30-min wait (~5x the slowest pass) plus the rest of the job.
+        GATE_DEADLINE=$(( $(date +%s) + 1800 ))
+        while :; do
+          GATE_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
+          GATE_STATUS=$(echo "$GATE_RUN" | jq -r '.status // "missing"')
+          GATE_CONCLUSION=$(echo "$GATE_RUN" | jq -r '.conclusion // "none"')
+          echo "Pre-Release Gate on ${SHA}: status=${GATE_STATUS} conclusion=${GATE_CONCLUSION}"
+          if [ "$GATE_STATUS" = "completed" ]; then
+            break
+          fi
+          if [ "$(date +%s)" -ge "$GATE_DEADLINE" ]; then
+            echo "::error::Refusing release: Pre-Release Gate on ${SHA} had no verdict within 30m (last seen ${GATE_STATUS}/${GATE_CONCLUSION})."
+            return 1 2>/dev/null || exit 1
+          fi
+          sleep 60
+        done
+        if [ "$GATE_CONCLUSION" != "success" ]; then
           echo "::error::Refusing release: Pre-Release Gate on ${SHA} is ${GATE_STATUS}/${GATE_CONCLUSION}, expected completed/success."
           return 1 2>/dev/null || exit 1
         fi
