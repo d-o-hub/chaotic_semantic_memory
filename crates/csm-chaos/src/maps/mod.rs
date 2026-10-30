@@ -6,3 +6,5 @@ pub mod hyperchaotic_3d_ils;
 pub mod hyperchaotic_chebyshev;
 #[cfg(feature = "experimental-neural-circuit")]
 pub mod neural_circuit;
+#[cfg(feature = "experimental-svsc-4d")]
+pub mod svsc_4d;
