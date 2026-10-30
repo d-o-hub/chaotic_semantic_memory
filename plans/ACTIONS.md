@@ -31,14 +31,21 @@
     cost: 2
     status: queued
 
-  - name: require_attested_npm_publish
+  - name: verify_npm_attestations_in_the_release_report
     github_issue: 955
     preconditions:
       verify_release_collects_all_verdicts: true
     effects:
-      npm_publish_never_falls_back_unattested: true
+      npm_attestations_verified_and_retry_dropped: true
     cost: 2
     status: queued
+    # Premise corrected 2026-10-30: this was queued as "0 of 11 npm versions have provenance", which
+    # the registry refutes — 19 of 21 DO (15/16 and 4/5; only chaotic_semantic_memory@0.1.0 and
+    # csm@0.3.4 lack it). The probe that produced the zero read `versions[*].attestations` instead of
+    # `versions[*].dist.attestations`. Surviving work: assert `.dist.attestations.provenance` in
+    # verify-release (positive-controlled against the known-attested 0.3.8 and the known-unattested
+    # 0.3.4) and drop the `|| npm publish` retry. Do not implement the original options — "accept
+    # token publishing, drop --provenance" would delete attestations that exist today.
 
   - name: gate_the_member_to_root_version_pins
     github_issue: 964
