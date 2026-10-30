@@ -18,6 +18,21 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
    re-checks every message, so the bad line stays red: backup branch, `git reset --hard <parent>`,
    `git cherry-pick --no-commit <bad>` + `git commit -F <msg>`, cherry-pick the rest, then
    `git push --force-with-lease`.
+   This is a **per-push** gate, not a per-PR one: re-run it after every amend and after each of the
+   two rewrites, never only on the first push (measured 2026-10-30 — a 101-char body line reached an
+   open PR because the lint was run on commit 1 and not on commit 4, and its own PR body then asserted
+   rc 0). Nothing in CI's visible surface warns you in the meantime: `Tooling Guard` had already passed
+   while the job that owns `commitlint` sat `queued` for 25 min, so the failing check was invisible, and
+   a re-push cancelled it before it could speak. Measure the exit status directly: piping to `tail`
+   and then reading `$?` reports the pipe's status, not the linter's.
+   **The linted string and the committed string differ after a squash.** GitHub builds the subject as
+   `<PR title> (#<NNN>)`, so the budget is `100 - len(" (#<NNN>)")` (7 for 3-digit, 8 for 4-digit), and
+   branch-commit linting can never see it (issue #965). Measured 2026-10-30: #947's title was 97 —
+   legal — and its squash subject `…bounded OTLP (#947)` was **104**, failing `header-max-length` on
+   `main` (run 41059071360, job `commitlint`, check-run 124073904392). Check before merging:
+   `printf '%s (#%s)' "$(gh pr view $N --json title -q .title)" "$N" | wc -c`. The red self-heals only on
+   the *next* merge (the push range then starts at the bad commit and drops it), so main can sit red and
+   refuse every dependent `workflow_run` — release and pre-release gate included.
 4. Validate GitHub checks with `references/gh-ci-truth.md`.
 5. If checks fail, report failing job and log URL; map failure class via
    `references/ci-pitfalls-pr-triage.md` (commitlint scope, mutation surface,
@@ -35,6 +50,11 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
 - **CLI async entry points** (`run_query -> Ok(())`) are usually unkillable under
   `--lib`-only mutation CI; prefer exclude in `scripts/mutation_test.sh` with a
   one-line rationale, not path-excluding whole production modules.
+- **A low score can be a denominator artifact, not a test gap**: cfg-blind **phantom mutants**
+  (`#[cfg(target_arch = "wasm32")]` or an off feature) are lines the profile never compiles, so no
+  test can kill them. Count them out with evidence before believing the number — #947 moved
+  **62% → 94.0476%** when 19 wasm32 phantoms left the set. Never chase one with a test.
+  `references/ci-pitfalls-pr-triage.md`.
 
 ## Pre-merge re-check (multi-PR or bot PRs)
 
@@ -85,3 +105,32 @@ represent a non-success upstream run as **no verdict**; do not infer a failed ve
 dependent jobs. When Cargo Audit and Cargo Deny consume separate RustSec policy files, gate ignore-ID
 parity with a fail-closed checker. Sources: `.github/workflows/pre-release-gate.yml`,
 `scripts/pre-release-gate-summary.sh`, and `scripts/check-audit-ignore-parity.sh`.
+
+### Two workflows on one event cannot read each other's verdicts (2026-10-30, #953/#962)
+
+`release.yml` and `pre-release-gate.yml` both trigger on CI completion, so a *one-shot* gate read inside
+release `validate` samples a sibling that is ~1 min into a ~4½-min run (`validate` measured 62 s, slowest
+gate pass 4m37s). Bound a wait and fail loudly rather than reading once — and prefer loudness over the
+event-driven re-key when the silent alternative is "no run at all": 69 consecutive release runs had
+**zero jobs** (GitHub rejecting double-quoted literals in `if:`) for eight days with nothing surfacing it.
+`total_count == 0` on `…/runs/<id>/jobs` is the tell; `scripts/check-actionlint.sh` is the gate.
+
+Before settling any such design objection, grep `progress/LEARNINGS.md` and `plans/PR_ROAST_*.md` for the
+**rule**, not just the symbol: `Polling a gate is a ceiling you will raise forever; migrate to the event`
+was recorded on 2026-09-30, and #962 re-derived the same tension in isolation and answered it without ever
+citing it. A change that departs from a standing rule says so in the code comment and the PR body, with the
+measured reason and the condition that would overturn it.
+
+## A green `cargo deny` says nothing about a GHSA that has no RustSec id (2026-10-30, #966)
+
+`cargo deny`/`cargo audit` read **RustSec**; Dependabot reads the **GitHub advisory database**. The sets
+overlap but neither contains the other, so a *critical* Dependabot alert can coexist with every security gate
+green and with a correct `deny.toml` — there is simply no id to ignore or to fail on. Measured case:
+`GHSA-m665-v7pm-7grj`/CVE-2026-115905 (zip `<= 9.0.4`, patched 9.0.5, published 2026-10-28) against a lock at
+`zip 6.0.0`, while the three RustSec-visible zip advisories (`RUSTSEC-2026-0367/0368/0369`) were already
+ignored on a verified mechanism claim. Consequences for triage: (1) treat the push-time
+"GitHub found N vulnerabilities" banner as a signal to query `…/dependabot/alerts?state=open`, not as a
+duplicate of the gate; (2) never argue safety from `Cargo.lock` — it cannot express dependency **kind**, so
+build-vs-runtime reachability comes from the sparse index (`"kind":"build"`) or the vendored manifest; (3) when
+an ignore's reason is a feature flag, make the flag a checked assumption, because the ignore is only as durable
+as a `Cargo.toml` line nothing reads.

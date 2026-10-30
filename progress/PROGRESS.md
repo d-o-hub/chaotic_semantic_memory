@@ -1,5 +1,53 @@
 # PROGRESS
 
+## 2026-10-30: drained the queue by roasting, and roasted my own PR before merging it
+
+`main` at `3953e818` (#947, the audit-follow-up wave, squash-merged 12:55:38Z). Full verdicts in
+`plans/PR_ROAST_2026_10_30.md`.
+
+**The drain (#956/#957/#958) closed the queue to zero without a single label.** The owner's instruction
+was explicit: do not label other people's PRs to route around `pr-drain-check`; roast each and let the
+gate pass on its own. All three were closed with measured verdicts (comments
+`6522738677`/`6522739077`/`6522739477`, 4,268/6,636/5,894 chars) and `gh pr list --state open` went
+4 → 1 → 0. #956 was the only one carrying a real defect: `ChaoticLsh::new`/`VoronoiLsh::new` take an
+unbounded `input_dim` and both hot paths return an **all-zero hypervector** on a length mismatch
+(`crates/csm-chaos/src/hashing/chaotic_lsh.rs:44-46,88-90`, `voronoi_lsh.rs:46-47,78`), so the
+`.min(MAX_INPUT_DIM)` clamp the PR proposed would convert a loud panic into silent wrong retrieval
+embeddings. It is preserved as issue **#961** with the five requirements a re-created fix must carry —
+reject, do not clamp; one validation point per constructor; the mismatch arms tested; a bucket test like
+its sibling maps already have; and the 500-LOC child-module split done by extraction rather than by
+deleting prose. #957 (`Svsc4d`) was the *second* filing of `experimental-svsc-4d` after #900 closed the
+same idea on the same two blockers, so rule 17 applied and it inherited the verdict. #958 was the most
+technically correct of the three and still closed: its SIMD `xor` adds no test for `xor` at all — `grep -n '^+.*[.]xor()' ` on the PR diff reads 0, and on `main` the same grep over `tests/` and `crates/*/tests/` is empty too, the cited `#define XOR_PSHUFFLE 1`
+lines belong to Intel's ISA-L sample directory rather than to the shipped path, and — the honest half —
+its 10 “deleted” tests are not deleted: they moved to `crates/csm-core-lib/src/hyperdim_simd_tests.rs`
+behind `lib.rs:48-51` `include!`, which is this repo's prescribed answer to the 500-LOC cap. Three of my
+own framing claims about #958 did not survive reading the diff.
+
+**#947 itself was roasted before it merged** (it is the biggest PR of the year: 159 files). The evidence
+gate that mattered was mutation, and it was measured, not asserted: **94.0476 %** on that head against a
+62 % initial reading — the difference being 19 cfg-blind `wasm32` phantom mutants in the denominator.
+The exclusions were audited rather than trusted: the surviving 7 mutants and one over-broad
+observability glob are recorded as residuals, not as a green score.
+
+**Then #962 fixed the last publication blocker** (`#953`: `release.yml` and `pre-release-gate.yml` are
+siblings on one `workflow_run`, so `validate`'s one-shot gate read samples a verdict that cannot exist
+yet — `validate` runs 62 s, the slowest gate pass is 4m37s). Two things about that PR are the point of
+the round, not the fix: it is the first PR this session that got roasted *against itself* hard enough to
+change. Four separate overstatements in my own writing were caught by re-deriving state — a failed gate
+run quoted as the slowest pass, a “refused a release” failure that has never happened (the workflow was
+unparsable, so nothing reached the step), a diffstat read off a stale commit, and an invented full SHA
+that returned an empty run list. And the design objection I thought I had found independently — *why
+poll when you can trigger on the event* — turned out to be standing repo policy since 2026-09-30
+(`progress/LEARNINGS.md:85`), which my first verdict had re-derived and then ignored. The merged form
+discloses the departure and its measured justification (69 consecutive jobless release runs from
+`0f77c0d0` to #947: silence is the failure mode this repo has actually lived through), instead of
+arguing it in a private note.
+
+GOAP: 9 queued actions (#960 #954 #955 #961 #948 #949 #951 #952 #959), `action_last_completed:
+repair_the_release_gate_race`, `release_pipeline_validated: false` until the tag and both npm channels
+and crates.io verify. `CSM_GOAP_QUEUE_REQUIRED=true scripts/check-goap-queue-issues.sh` → 9/9/9, rc 0.
+
 ## 2026-10-19: a reorder claim that no benchmark in the repo could see
 
 Six open PRs, empty GOAP queue, 0 issues, `main` at `0ab86f4d`. The round's work was the mandatory
@@ -1743,3 +1791,79 @@ wasm32 check, size gate and `wasm-pack build` pass; ADR parity, GOAP queue (0 ac
 test-attribute scan, script catalog, LLM-context drift, workflow semantic validation, actionlint and RUSTSEC
 parity all rc=0. `origin/main` is still `0f77c0d0`; nothing has been pushed. Open issues 0; the only open PR
 is #933 (not this wave's work).
+
+## 2026-10-30 (afternoon) — #962 in flight, v0.3.9 static half closed, queue at 11 actions
+
+**#962 (the #953 gate-race repair) — roasted, self-corrected twice, waiting on a runner jam.** Head moved
+`9b395d94 → 73d02f87` for a message-only reason: the fourth commit carried a 101-char body line that
+`footer-max-line-length` rejects, so CI's `commitlint` job would have failed a PR whose own body asserted
+`commitlint → rc 0`. Proof the tree did not change: `git diff 9b395d94 73d02f87 --stat` empty,
+`git diff --numstat origin/main...HEAD` still `42 5 .github/workflows/release.yml`, range lint rc 0.
+The load-bearing assumption behind the fix is now measured rather than asserted: `gh run list
+--workflow=pre-release-gate.yml --commit "$SHA"` **does** see a `workflow_run`-triggered gate run
+(`ae117fb987c6…` → `{"conclusion":"failure","status":"completed"}`) and returns `{}` with rc 0 for a SHA
+that has none (`3953e818f407…`), which is the arm that must keep polling. Without that test the change
+would have converted an instant refusal into a 30-minute one — worse, and green CI could not tell.
+
+**Context, measured:** hosted runners are congested org-wide — main's push CI for the current head
+`3953e818f407` (run 41059071360) was created 12:55:41Z and was still `queued` at 13:42Z, and no
+`pre-release-gate` run exists for any main head after `ae117fb9` (2026-10-28T14:42Z) because the four
+most recent gate runs all concluded `failure` on `pr-drain-check` while #956/#957/#958 were open. When
+that queued main run finally completes it will fire `release.yml` from **main's** copy of the workflow —
+the pre-#962 one-shot code — so one more `validate` refusal on `3953e818` is expected and harmless: the
+gate check (`:76`) precedes tag creation (`:175`), so a refused run leaves no tag and publishes nothing.
+
+**Release static half closed** (`/tmp/release-validation-2026-10-30.md`): 11 of 11 manifests at 0.3.9;
+`wasm/package.json` + `cli-npm/package.json` + `VERSION` at 0.3.9; exactly one dated CHANGELOG header and
+one `[0.3.9]:` link row; `./scripts/verify-version-sync.sh` rc 0 (the npm-registry mismatch is a warning —
+0.3.8 is live, 0.3.9 is not yet published); `cargo package --list --allow-dirty` rc 0 over 603 files; no
+local `v0.3.9` tag. Publish set re-measured end to end: **9 crates.io** (7 in the `:352` loop + root at
+`:379` + `csm-duckdb` at `:392`, which waits for the root version in the sparse index because it
+dev-depends on it) **+ 2 npm** = 11 registry artifacts, and `verify-release` (`:626`) probes 3 of them.
+
+**Queue is at 10 actions, all with a numeric `github_issue:`, checker rc 0** (`10 action(s), 10 tracked
+issue(s), 10 effect key(s), one gh call`). Two new tracker items from this pass, both filed with the
+measurement in the issue rather than in a comment afterwards: **#954 gained the 3-of-11 coverage table and
+the `bash -e {0}` abort mechanism** (confirming the title's premise and adding a dimension the title did
+not carry), and **#964** is the member→root version-pin blind spot in `sync-version.sh` /
+`verify-version-sync.sh`, deliberately *not* folded into the release PRs because opening a PR now fails
+`pr-drain-check` and delays the publication the owner asked for.
+- 14:35Z **#962 merged** (squash, `--delete-branch`) as `4ac8422d` on `main`: the `release.yml`
+  gate-wait repair, 1 file, 42+/5-. Pre-merge truth re-derived, not inherited — head `73d02f87` is a
+  descendant of `origin/main`, 25 pass / 0 fail / 9 legit `skipping`, `MERGEABLE`/`CLEAN`, squash
+  subject 80 chars.
+- 14:13–14:22Z **`main` was red and I found the cause, not the symptom**: `commitlint` job
+  (check-run 124073904392) in main run 41059071360 failed `header-max-length` at **104** chars on the
+  #947 squash subject. Recorded in `plans/PR_ROAST_2026_10_30.md` + `progress/LEARNINGS.md`; the red
+  self-heals with this merge (range is now `--from 4ac8422d` for the next push, and `3953e818` leaves
+  the linted set). Jobless release run 41070030431 reclassified as a *consequence* of that red CI.
+- 14:4xZ filed **#965** (nothing lints the post-squash subject) + queued action
+  `gate_the_effective_squash_subject_length`; queue now **11 actions**, `queued_actions_count: 11`.
+  Rule distilled into `github-ci-guardrails` step 3 (114 → 122 lines).
+- 17:0xZ **audited all 11 open issues against `main` `4ac8422d` — 10 still live, one substantially
+  addressed.** Every "still live" is a tree measurement, not a re-read of the issue body: `grep -n fuzz
+  scripts/validate.sh` empty (#948); one `LD_LIBRARY_PATH` guard against six wrapped call sites (#949);
+  `mutation-test` single job, `timeout-minutes: 300` (#951); `verify-release` has no `defaults:` and 3
+  probes of 11 artifacts (#954); `|| npm publish` intact (#955); `ci.yml:580` draft-conditional threshold
+  with no `types:` (#959); refusals print aggregate status only (#960); `chaotic_lsh.rs:18` unbounded
+  allocation with all-zero clamp (#961); two manifests still pinning root `0.3.8` (#964). #952 is the
+  exception: option 3 + acceptance criterion 3 landed inside #947, criterion 2 and option 1 did not — so
+  the finding went to the **issue** as a status audit
+  ([comment 6528684458](https://github.com/d-o-hub/chaotic_semantic_memory/issues/952#issuecomment-6528684458)),
+  the issue stays open for the owner to close-or-retitle, and the queued action was **renamed** to the
+  surviving half (`detect_new_cfg_disabled_mutants`, with `#959`'s precondition retargeted to the new
+  effect key) because its old name described work `main` already does.
+- 17:16Z **a *critical* Dependabot alert that no gate of ours can see, filed as #966 and queued in the same
+  breath.** The `git push` above printed "7 vulnerabilities on the default branch (1 critical, 2 high, …)";
+  alert #40 is `GHSA-m665-v7pm-7grj`/CVE-2026-115905 (`zip <= 9.0.4`, patched **9.0.5**, published
+  2026-10-28T21:09:50Z) against `Cargo.lock:7083`'s `zip 6.0.0`. `cargo deny` cannot report it because RustSec
+  has **no id for it yet**, so there is nothing to fail and nothing to ignore — the two advisory sources are
+  disjoint. Exposure measured to zero: `zip` is a *build*-dependency of `libduckdb-sys` (sparse index
+  `"kind":"build"`, `req":"^6`), reachable only from `csm-duckdb`, and `libduckdb-sys/build.rs:144` gates the
+  whole download/extract module under `#[cfg(not(feature = "bundled"))]` while `:371-374` is the
+  `archive.extract()` call `RUSTSEC-2026-0369` names — i.e. `deny.toml`'s existing ignore reason for
+  0367/0368/0369 is **true**, verified rather than inherited, but it rests on one `Cargo.toml` line
+  (`crates/csm-duckdb/Cargo.toml:22`) that no sensor reads. Queue **11 → 12 actions**
+  (`record_and_gate_the_zip_bundled_assumption`, `queued_actions_count: 12`), lesson distilled into
+  `github-ci-guardrails` (122 → 136 lines, format-validated), no new PR and no labels — issues do not fail
+  `pr-drain-check`, so the v0.3.9 path is unchanged.

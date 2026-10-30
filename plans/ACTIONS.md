@@ -11,6 +11,151 @@
 > `action_last_completed` in `GOAP_STATE.md` (exactly once), and let the next
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
+
+```yaml
+  - name: name_the_failing_job_in_the_release_refusal
+    github_issue: 960
+    preconditions:
+      release_gate_race_repaired: true
+    effects:
+      release_refusal_names_the_failing_gate_job: true
+    cost: 1
+    status: queued
+
+  - name: make_verify_release_report_every_artifact
+    github_issue: 954
+    preconditions:
+      release_refusal_names_the_failing_gate_job: true
+    effects:
+      verify_release_collects_all_verdicts: true
+    cost: 2
+    status: queued
+
+  - name: verify_npm_attestations_in_the_release_report
+    github_issue: 955
+    preconditions:
+      verify_release_collects_all_verdicts: true
+    effects:
+      npm_attestations_verified_and_retry_dropped: true
+    cost: 2
+    status: queued
+    # Premise corrected 2026-10-30: this was queued as "0 of 11 npm versions have provenance", which
+    # the registry refutes — 19 of 21 DO (15/16 and 4/5; only chaotic_semantic_memory@0.1.0 and
+    # csm@0.3.4 lack it). The probe that produced the zero read `versions[*].attestations` instead of
+    # `versions[*].dist.attestations`. Surviving work: assert `.dist.attestations.provenance` in
+    # verify-release (positive-controlled against the known-attested 0.3.8 and the known-unattested
+    # 0.3.4) and drop the `|| npm publish` retry. Do not implement the original options — "accept
+    # token publishing, drop --provenance" would delete attestations that exist today.
+
+  - name: gate_the_member_to_root_version_pins
+    github_issue: 964
+    preconditions: []
+    effects:
+      version_pin_edges_checked_by_gate: true
+    cost: 2
+    status: queued
+    # Independent of the #960 -> #954 -> #955 release-chain trio; runnable any time.
+    # Measured 2026-10-30: three member manifests pin `chaotic_semantic_memory = { path = …,
+    # version = "0.3.8" }` while every package version is 0.3.9, and
+    # `scripts/verify-version-sync.sh` exits 0 over it. Not a v0.3.9 blocker (^0.3.8 accepts
+    # 0.3.9, and only csm-duckdb of the three goes to crates.io).
+
+  - name: gate_the_effective_squash_subject_length
+    github_issue: 965
+    preconditions: []
+    effects:
+      squash_subject_length_checked_before_merge: true
+    cost: 2
+    status: queued
+    # Measured 2026-10-30: #947's PR title was 97 chars (legal) but its squash subject
+    # `…bounded OTLP (#947)` was 104, failing `header-max-length` on main (CI run 41059071360,
+    # `commitlint` job, check-run 124073904392). PR-side commitlint lints branch commits, so no
+    # existing gate sees the string main receives. The red self-heals only on the next merge and
+    # refuses every dependent workflow_run (release, pre-release gate) while it lasts.
+    # Fix: check `printf '%s (#%s)' "$title" "$N" | wc -c` <= 100 before merge, ideally as
+    # `scripts/check-squash-subject-length.sh` wired into CI.
+
+  - name: record_and_gate_the_zip_bundled_assumption
+    github_issue: 966
+    preconditions: []
+    effects:
+      zip_bundled_assumption_gated: true
+    cost: 2
+    status: queued
+    # Measured 2026-10-30: Dependabot alert #40 is `GHSA-m665-v7pm-7grj` / CVE-2026-115905, **critical**,
+    # published 2026-10-28T21:09:50Z, `zip <= 9.0.4` patched only in 9.0.5 while `Cargo.lock:7083` holds
+    # 6.0.0 as a **build**-dependency of `libduckdb-sys` (sparse index `"kind":"build"`, `req":"^6"` — a
+    # classification `Cargo.lock` itself cannot express). Harmless today because
+    # `libduckdb-sys/build.rs:144` gates the download/extract module under `#[cfg(not(feature = "bundled"))]`
+    # and `:371-374` is the `archive.extract()` call RUSTSEC-2026-0369 names, while
+    # `crates/csm-duckdb/Cargo.toml:22` enables `bundled`. The gate blindness is the finding: no RUSTSEC id
+    # exists, so `cargo deny`/`cargo audit` cannot report it and `deny.toml` has nothing to ignore.
+    # Fix: record the decision beside the existing "No RUSTSEC ID" prose entries, and fail a gate when
+    # `bundled` disappears from csm-duckdb while RUSTSEC-2026-0367/0368/0369 stay ignored, so those three
+    # ignore reasons cannot expire silently.
+
+  - name: bound_chaotic_lsh_and_voronoi_lsh_input_dim
+    github_issue: 961
+    preconditions: []
+    effects:
+      chaos_input_dim_rejected_not_clamped: true
+    cost: 3
+    status: queued
+
+  - name: check_fuzz_lock_in_validate
+    github_issue: 948
+    preconditions: []
+    effects:
+      fuzz_lock_checked_locally: true
+    cost: 1
+    status: queued
+
+  - name: stop_leaking_nix_ld_library_path
+    github_issue: 949
+    preconditions: []
+    effects:
+      host_subprocesses_isolated_from_nix_env: true
+    cost: 3
+    status: queued
+
+  - name: shard_the_mutation_test_context
+    github_issue: 951
+    preconditions:
+      host_subprocesses_isolated_from_nix_env: true
+    effects:
+      mutation_test_sharded_behind_one_context: true
+    cost: 5
+    status: queued
+
+  - name: detect_new_cfg_disabled_mutants
+    github_issue: 952
+    preconditions:
+      mutation_test_sharded_behind_one_context: true
+    effects:
+      new_cfg_disabled_mutants_detected_by_inventory: true
+    cost: 3
+    status: queued
+
+  - name: make_mutation_threshold_draft_invariant
+    github_issue: 959
+    preconditions:
+      new_cfg_disabled_mutants_detected_by_inventory: true
+    effects:
+      mutation_threshold_independent_of_draft_flag: true
+    cost: 2
+    status: queued
+```
+
+Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the
+release chain (a refusal that cannot name the failing gate job, a verifier that stops at the
+first missing artifact, an attestation that silently degrades). #948 and #949 and #961 are
+independent of everything. #951/#952/#959 are **strictly sequential**: all three edit
+`.github/workflows/ci.yml` and `scripts/mutation_test.sh` in the same regions (job
+`mutation-test`, the `--exclude` block, `MUTATION_THRESHOLD`), and parallel PRs there
+guarantee a conflict and a bot resolution that reverts one of them (`AGENTS.md` Rule 10).
+`repair_the_release_gate_race` (#953) is not queued — it landed as PR #962 and is recorded as
+`action_last_completed`.
+
 >
 > Last completed (verified 2026-10-22):
 > `repair_the_merged_tree` — the `origin/main` merge into the audit-follow-up wave

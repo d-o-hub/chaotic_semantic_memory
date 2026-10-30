@@ -91,38 +91,37 @@ verdict. Close it citing the recorded numbers; do not re-litigate. Rule 17: a
 resubmission must bring the evidence the earlier roast demanded, not restate the
 claim — and check the claim's *mechanism* sentence against the code, since both
 PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
-A predecessor closed **without** a valid measurement passes on the *demand*, not a verdict.
-- **An empty branch is a resubmission to catch by content (2026-10-09, #860).** `gh pr diff` +
-  `changed_files: 0` + empty `git diff <merge-base>..<head> --stat` = the PR merges nothing.
+A predecessor closed **without** a valid measurement passes on the *demand*, not a verdict — and a predecessor closed **with** one still does not export its *framing*: #956 inherited #900's `csm-chaos is invisible to CI` headline long after `ci.yml` grew a `cargo test -p csm-chaos` job. Re-measure every environment claim before reusing it (grep the workflow, the profile, the default-members).
+- **An empty branch is a resubmission to catch by content (2026-10-09, #860).** `gh pr diff` + `changed_files: 0` + empty `git diff <merge-base>..<head> --stat` = the PR merges nothing.
 
 ## Step 4 — Roast rubric (every keeper PR)
 
 - **Atomicity**: one logical change. Mega-PRs (>5 files across concerns) must split.
-- **Title honesty**: title must describe the diff (`re-export` hiding a BFS cap = reject/retitle).
+- **Title honesty**: the title must describe the diff (`re-export` hiding a BFS cap = reject/retitle), and a body or rationale comment must describe a *measured* one: a prediction reads as a prediction (#953's race has never refused a release — nothing reached the step), and every quoted number is re-measured (my first "slowest gate pass 5m38s" was a *failure* run).
 - **commitlint scope**: must exist in `commitlint.config.cjs` `scope-enum`
   (`perf(hyperdim)` fails; only listed scopes pass).
 - **Rationale comments**: never deleted to "shorten" (`Never delete rationale comments`). Under 500 LOC gate pressure, bot PRs may attempt to strip docstrings/comments to make room for new code. Reject/roast this behavior; require extracting child submodules (e.g. `hyperdim_binary_serde.rs`) instead.
   - Detail, with the #767 `grep -c ADR-0094` 3→3 verification, the surviving-tag
     rule, restore-for-symmetry, flipped test expectations, `const fn` → `fn`, and
     #816's dedup-deletes-prose case: `references/rationale-comments.md`.
-- **"Not breaking" is a semver claim, not a compile claim** (2026-10-03, #816
-  self-roast): a workspace that still builds says nothing about a removed public
-  derive or impl. Use the repo's `**Breaking (scope)**` changelog label (count
-  `!`-header precedent in `git log --format=%s` first), and re-measure every
-  count an implementer agent reports — its summary is a lead, not evidence.
-- **`unsafe` bounds in generic code (PR #769, 2026-09-25)**: a `get_unchecked`
-  SAFETY comment that hardcodes a dimension while the fn is generic over a
-  trait constant is a **future out-of-bounds read**, not a perf tradeoff — all
-  current impls matching proves nothing about the next one. Verify the
-  invariant, then require the bound be type-enforced (`H::DIMENSION`) or the
-  trait document it. Also check the *other* shift in the same loop: `hash_bits`
-  is capped at 64 upstream precisely so `1u64 << i` cannot overflow.
-- **Self-contradicting evidence tables (PR #768, 2026-09-25)**: a "measured"
-  table with a headline number beside rows marked "Not measured" is a close.
-  Also reject research scaffolding committed to the repo root (arXiv/Crossref
-  search helpers, ad-hoc runners) and self-marked `[FALLBACK]` citations on a
-  new public API. Close **as submitted, not as rejected** — name the clean
-  diff that would be reviewable.
+- **"Not breaking" is a semver claim, not a compile claim** (2026-10-03, #816 self-roast): a workspace
+  that still builds says nothing about a removed public derive or impl. Use the repo's
+  `**Breaking (scope)**` changelog label (count `!`-header precedent in `git log --format=%s` first), and
+  re-measure every count an implementer agent reports — its summary is a lead, not evidence.
+  **Positive-control a probe before believing a zero**: one path segment short returns 0 for every input,
+  and the zero agrees with the story the title already told (#955 read `versions[*].attestations` instead
+  of `versions[*].dist.attestations` and "proved" 0 of 11 npm versions unattested; the registry says 19
+  of 21 were attested). Run the query on one input that must be non-zero before trusting its verdict.
+- **`unsafe` bounds in generic code (PR #769, 2026-09-25)**: a `get_unchecked` SAFETY comment that
+  hardcodes a dimension while the fn is generic over a trait constant is a **future out-of-bounds read**,
+  not a perf tradeoff — all current impls matching proves nothing about the next one. Verify the
+  invariant, then require the bound be type-enforced (`H::DIMENSION`) or the trait document it. Also check
+  the *other* shift in the same loop: `hash_bits` is capped at 64 upstream precisely so `1u64 << i` cannot
+  overflow.
+- **Self-contradicting evidence tables (PR #768, 2026-09-25)**: a "measured" table with a headline number
+  beside rows marked "Not measured" is a close. Also reject research scaffolding committed to the repo root
+  (arXiv/Crossref search helpers, ad-hoc runners) and self-marked `[FALLBACK]` citations on a new public
+  API. Close **as submitted, not as rejected** — name the clean diff that would be reviewable.
 - **deny.toml**: must only ADD ignores with advisory ID + reason. Deleting or
   commenting out existing ignores re-breaks `cargo deny` — reject.
 - **Perf claims**: no `criterion` output or flamegraph = not review-ready.
@@ -209,9 +208,11 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.
   Zero human comments = no hidden requirements, but also no approval.
-- **GitHub CLI GraphQL deprecation**: `gh pr edit` and `gh issue view` fail if querying
-  deprecated `projectCards`. Query specific `--json` fields for reads, or use
-  `gh api -X PATCH repos/<owner>/<repo>/pulls/<id> -f title="..."` for editing PR titles.
+- **GitHub CLI shapes that fail quietly**: `gh pr edit`/`gh issue view` break on deprecated
+  `projectCards` — query specific `--json` fields, or `gh api -X PATCH …/pulls/<id> -f title=…`. This
+  build's `gh pr close` has **no `--comment-file`** and `--comment "$(cat f)"` command-substitutes the
+  backticks a roast body is full of: `gh pr comment <n> --body-file f`, then close, then re-read `gh pr
+  list --state open` — three "successful" closes here left three PRs open.
 - **Multi-issue parent linkage**: a parent PR implementing several child issues declares each
   (`Fixes #A`, `Fixes #B`) in the body, so all issues close cleanly on merge.
 

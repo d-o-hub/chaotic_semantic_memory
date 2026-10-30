@@ -149,11 +149,26 @@ world_state:
   yaml_gate_severity_classified_and_gated: true  # 2026-10-05 (#841, PR #854, main 2984d3e): validate-workflows.sh classifies yamllint output on `-f parsable` into syntax error / error-level / warning-level instead of calling every finding "YAML syntax error", .yamllint gives it a profile (relaxed; line-length 200 warning, priced from ci.yml:516 at 166 cols and benchmark-ci.yml:61 at 207), an unavailable parser prints SKIPPED — NOT A PASS instead of a silent pass, and the 12-case fixture runs from validate.sh:297-303 with yamllint apt-installed in the lint job (pip hits PEP 668 on ubuntu-24.04).
 
   # ── Active wave ───────────────────────────────────────────────
+  release_pipeline_validated: false  # 2026-10-30: v0.3.9 is prepared (Cargo.toml 0.3.9, one dated
+                               #   CHANGELOG header, link row) and unpublished — crates.io and both npm
+                               #   channels sit at 0.3.8 and no v0.3.9 tag exists. Flip true only when the
+                               #   tag, 9 crates, both npm packages and the release assets all verify.
+  audit_followup_wave_merged: true   # 2026-10-30: PR #947 squashed into main as 3953e818 (12:55:38Z);
+                               #   roasted before merge in plans/PR_ROAST_2026_10_30.md, mutation gate
+                               #   measured at 94.0476% on that head.
+  release_gate_race_repaired: true   # 2026-10-30: PR #962 replaced release.yml's one-shot pre-release
+                               #   gate read with a bounded 30m wait (#953). Not yet exercised — no
+                               #   jobful Release run has happened since #947 restored parsability.
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 0        # 2026-10-15: removed the completed
+  queued_actions_count: 12       # 2026-10-30: eight ci/release follow-ups + #961, #964, #965, #966 (gates)
+                               #   (#960 #954 #955 #948 #949 #951 #952 #959) plus #961, the one genuine
+                               #   defect the #956/#957/#958 drain surfaced. Rule 11 order: issue first,
+                               #   then the dependency-ordered action. Gate: `grep -c '^  - name:
+                               #   plans/ACTIONS.md` reads 9, which is what the checker compares.
+                               # 2026-10-15: removed the completed
                                #   `mutation_baseline_the_feature_gated_mcp_module` (#833) — its effect is
                                #   now recorded as `mcp_module_mutation_baselined` below, with the evidence in
                                #   `plans/evidence/mutation_mcp_2026_10_15/` (60 mutants: 34 missed / 18 caught
@@ -388,7 +403,18 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_the_merged_tree  # 2026-10-22 — `origin/main` merged
+  action_last_completed: repair_the_release_gate_race  # 2026-10-30 — PR #962 squashed
+                               #   `release.yml`'s one-shot `Verify CI and Pre-Release Gate` read with a
+                               #   bounded poll. `release.yml` and `pre-release-gate.yml` both trigger on
+                               #   the same CI completion, so `validate` (62 s measured on run 39648046550)
+                               #   always read the gate before its verdict existed (slowest measured pass
+                               #   4m37s, run 39060608423). #953 is a code-read prediction, not a recorded
+                               #   refusal: the workflow was unparsable from 0f77c0d0 until #947, so no run
+                               #   ever reached the step — the PR body and the code comment both say so.
+                               #   Gates: check-actionlint.sh rc 0, validate-workflows.sh --check rc 0
+                               #   (10 files, 0 errors), commitlint rc 0. Previous action:
+                               #   `repair_the_merged_tree` (2026-10-22), whose evidence stays in
+                               #   `plans/PR_ROAST_2026_10_21.md` and in the git history of #947.
                                #   into the audit-follow-up wave produces a tree neither parent tested.
                                #   The name drops `and_land_the_wave`: the wave is committed locally on
                                #   a branch re-created off `0f77c0d0`, and no push, PR or merge has
