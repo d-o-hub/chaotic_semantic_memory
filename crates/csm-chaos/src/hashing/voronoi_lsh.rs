@@ -10,6 +10,9 @@
 use crate::maps::hyperchaotic::Slhm2d;
 use alloc::vec::Vec;
 
+/// Maximum allowed input dimension to prevent resource exhaustion (CWE-770).
+pub const MAX_INPUT_DIM: usize = 16_384;
+
 /// Voronoi Diagram Encoded LSH projector using chaotic centroids.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct VoronoiLsh {
@@ -24,6 +27,7 @@ impl VoronoiLsh {
     /// Create a new `VoronoiLsh` with chaotic generation for its Voronoi partitions.
     /// Each bit requires two centroids; the bit is set if the input is closer to centroid A than centroid B.
     pub fn new(x: f64, y: f64, a: f64, input_dim: usize) -> Self {
+        let input_dim = input_dim.min(MAX_INPUT_DIM);
         let mut map = Slhm2d::new(x, y, a);
         // 10240 bits * 2 centroids per bit * input_dim
         let total_floats = 10240 * 2 * input_dim;
@@ -286,6 +290,12 @@ mod tests {
         let scalar = lsh.project_scalar(&input);
         let result = lsh.project(&input);
         assert_eq!(scalar, result);
+    }
+
+    #[test]
+    fn test_voronoi_lsh_max_input_dim_clamping() {
+        let lsh = VoronoiLsh::new(0.5, 0.7, 0.95, 100_000);
+        assert_eq!(lsh.input_dim, MAX_INPUT_DIM);
     }
 }
 

@@ -6,6 +6,9 @@
 use crate::maps::hyperchaotic::Slhm2d;
 use alloc::vec::Vec;
 
+/// Maximum allowed input dimension to prevent resource exhaustion (CWE-770).
+pub const MAX_INPUT_DIM: usize = 16_384;
+
 /// Chaotic LSH projector using 2D-SLHM.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ChaoticLsh {
@@ -16,6 +19,7 @@ pub struct ChaoticLsh {
 impl ChaoticLsh {
     /// Create a new ChaoticLsh with given seed values and input dimension.
     pub fn new(x: f64, y: f64, a: f64, input_dim: usize) -> Self {
+        let input_dim = input_dim.min(MAX_INPUT_DIM);
         let mut map = Slhm2d::new(x, y, a);
         let mut projection_matrix = Vec::with_capacity(10240 * input_dim);
 
@@ -433,5 +437,11 @@ mod tests {
         let scalar = lsh.project_scalar(&input);
         let result = lsh.project(&input);
         assert_eq!(scalar, result);
+    }
+
+    #[test]
+    fn test_chaotic_lsh_max_input_dim_clamping() {
+        let lsh = ChaoticLsh::new(0.5, 0.7, 0.95, 100_000);
+        assert_eq!(lsh.input_dim, MAX_INPUT_DIM);
     }
 }
