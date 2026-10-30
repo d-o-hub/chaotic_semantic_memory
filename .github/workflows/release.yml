@@ -93,14 +93,16 @@ jobs:
         # Both this workflow and pre-release-gate.yml are triggered by the same `CI` completion, so the
         # gate is still running when this step executes: its `gate-summary` fans in on six jobs
         # (pre-release-gate.yml:184) and the slowest measured pass ran 4m37s (run 39060608423, 277s,
-        # 2026-10-17T19:00:58Z -> 19:05:35Z), while `validate` reaches this line inside a minute. The
-        # previous one-shot read therefore saw in_progress/none and refused a release that was in fact
-        # gated (#953) — a publication blocker unsatisfiable by construction for the tree it checked.
-        # Wait for a verdict instead, bounded. Fail-closed is preserved: anything but completed/success
-        # still blocks, and a gate that never starts costs the deadline rather than failing instantly,
-        # because sibling run creation is not ordered. `validate` declares no timeout-minutes, so the
-        # 360-min default covers this 30-min wait (~6.5x the slowest measured pass) plus the rest of
-        # the job.
+        # 2026-10-17T19:00:58Z -> 19:05:35Z). `validate` gets here inside a minute — measured on run
+        # 39648046550, where the job ran 17:55:13 -> 17:56:15 (62s) while that SHA's gate run
+        # 39648046307 was open 17:55:10 -> 17:59:17. The one-shot read therefore saw in_progress/none
+        # (#953). It has never fired in anger: `release.yml` was unparsable from 0f77c0d0 until #947,
+        # so no run reached this step. This is the race #953 predicts will block the first real release,
+        # not a recorded refusal. Wait for a verdict instead, bounded. Fail-closed is preserved: anything
+        # but completed/success still blocks, and a gate that never starts costs the deadline rather than
+        # failing instantly, because sibling run creation is not ordered. `validate` declares no
+        # timeout-minutes, so the 360-min default covers this 30-min wait (~6.5x the slowest measured
+        # pass) plus the rest of the job.
         GATE_DEADLINE=$(( $(date +%s) + 1800 ))
         while :; do
           GATE_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
