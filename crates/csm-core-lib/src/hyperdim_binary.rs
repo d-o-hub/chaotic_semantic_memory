@@ -160,11 +160,9 @@ impl BHVec10240 {
 
     /// XOR binding
     pub fn xor(&self, other: &Self) -> Self {
-        let mut result = [0u64; 160];
-        for i in 0..160 {
-            result[i] = self.bits[i] ^ other.bits[i];
+        Self {
+            bits: crate::hyperdim_simd::xor_simd_u64(&self.bits, &other.bits),
         }
-        Self { bits: result }
     }
 
     /// Hamming distance (popcount of XOR).

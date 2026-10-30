@@ -26,6 +26,86 @@ pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> 
     d0 + d1 + d2 + d3
 }
 
+/// 10240-bit XOR binding over packed `[u64; 160]` words.
+///
+/// Dispatches to AVX2 (x86_64) or NEON (aarch64) kernels, or unrolled scalar
+/// loop elsewhere, using `MaybeUninit` to eliminate 1,280-byte zero initialization.
+#[inline]
+pub(crate) fn xor_simd_u64(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    if std::is_x86_feature_detected!("avx2") {
+        // SAFETY: AVX2 support is detected; lhs and rhs each provide 1280 readable bytes.
+        return unsafe { xor_simd_u64_avx2(lhs, rhs) };
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        // SAFETY: NEON support is detected; lhs and rhs each provide 1280 readable bytes.
+        return unsafe { xor_simd_u64_neon(lhs, rhs) };
+    }
+
+    xor_simd_u64_scalar(lhs, rhs)
+}
+
+pub(crate) fn xor_simd_u64_scalar(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    use std::mem::MaybeUninit;
+    let mut res_uninit: [MaybeUninit<u64>; 160] = [const { MaybeUninit::<u64>::uninit() }; 160];
+    for i in 0..160 {
+        res_uninit[i].write(lhs[i] ^ rhs[i]);
+    }
+    // SAFETY: all 160 elements have been initialized.
+    unsafe { res_uninit.as_ptr().cast::<[u64; 160]>().read() }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
+#[target_feature(enable = "avx2")]
+/// # SAFETY
+/// Caller must ensure AVX2 is supported.
+pub(crate) unsafe fn xor_simd_u64_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    use std::mem::MaybeUninit;
+    let mut res_uninit: [MaybeUninit<u64>; 160] = [const { MaybeUninit::<u64>::uninit() }; 160];
+    let ptr = res_uninit.as_mut_ptr().cast::<u8>();
+
+    for i in (0..160).step_by(4) {
+        // SAFETY: 160 u64 is 1280 bytes. i goes up to 156, so i + 4 is 160 (1280 bytes). Pointers are within bounds.
+        unsafe {
+            let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
+            let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
+            let res = _mm256_xor_si256(l, r);
+            _mm256_storeu_si256(ptr.add(i * 8).cast(), res);
+        }
+    }
+
+    // SAFETY: All 160 elements were initialized via 40 x 256-bit stores.
+    unsafe { res_uninit.as_ptr().cast::<[u64; 160]>().read() }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+#[inline]
+#[target_feature(enable = "neon")]
+/// # SAFETY
+/// Caller must ensure NEON is supported.
+pub(crate) unsafe fn xor_simd_u64_neon(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    use std::arch::aarch64::{veorq_u8, vld1q_u8, vst1q_u8};
+    use std::mem::MaybeUninit;
+    let mut res_uninit: [MaybeUninit<u64>; 160] = [const { MaybeUninit::<u64>::uninit() }; 160];
+    let ptr = res_uninit.as_mut_ptr().cast::<u8>();
+
+    for i in (0..160).step_by(2) {
+        // SAFETY: 160 u64 is 1280 bytes. i goes up to 158, so i + 2 is 160 (1280 bytes). Pointers are within bounds.
+        unsafe {
+            let l = vld1q_u8(lhs.as_ptr().add(i).cast());
+            let r = vld1q_u8(rhs.as_ptr().add(i).cast());
+            let res = veorq_u8(l, r);
+            vst1q_u8(ptr.add(i * 8).cast(), res);
+        }
+    }
+
+    // SAFETY: All 160 elements were initialized via 80 x 128-bit stores.
+    unsafe { res_uninit.as_ptr().cast::<[u64; 160]>().read() }
+}
+
 /// Hamming distance over packed `[u64; 160]` words (the `BHVec10240` layout).
 ///
 /// Dispatches to the AVX2 (x86_64) or NEON (aarch64) kernels over the raw
