@@ -103,6 +103,18 @@ jobs:
         # failing instantly, because sibling run creation is not ordered. `validate` declares no
         # timeout-minutes, so the 360-min default covers this 30-min wait (~6.5x the slowest measured
         # pass) plus the rest of the job.
+        #
+        # This deliberately keeps a poll, against the standing rule in progress/LEARNINGS.md
+        # ("Polling a gate is a ceiling you will raise forever; migrate to the event", 2026-09-30). The
+        # rule came from `wait-for-ci`, which polled a run that might never be *scheduled* — an
+        # unbounded quantity, so the ceiling had to be raised twice. What is polled here is bounded by
+        # the gate's own job timeouts. Re-keying the trigger to `workflows: ['Pre-Release Gate']` was
+        # option 2 in #953 and is rejected on one measured ground: it turns "the gate never ran" into
+        # *no release run at all*, and this repo spent eight days in exactly that silent state
+        # (0f77c0d0, 2026-10-22T06:30Z, to #947 on 2026-10-30): 69 consecutive release runs, every one
+        # with zero jobs, no notification, and nothing publishing. Revisit the poll if this deadline is
+        # ever hit while a gate run was actually in flight — that would mean the 30m bound is wrong, not
+        # that the design is.
         GATE_DEADLINE=$(( $(date +%s) + 1800 ))
         while :; do
           GATE_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
