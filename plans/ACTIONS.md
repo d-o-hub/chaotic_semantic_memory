@@ -11,6 +11,97 @@
 > `action_last_completed` in `GOAP_STATE.md` (exactly once), and let the next
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
+
+```yaml
+  - name: name_the_failing_job_in_the_release_refusal
+    github_issue: 960
+    preconditions:
+      release_gate_race_repaired: true
+    effects:
+      release_refusal_names_the_failing_gate_job: true
+    cost: 1
+    status: queued
+
+  - name: make_verify_release_report_every_artifact
+    github_issue: 954
+    preconditions:
+      release_refusal_names_the_failing_gate_job: true
+    effects:
+      verify_release_collects_all_verdicts: true
+    cost: 2
+    status: queued
+
+  - name: require_attested_npm_publish
+    github_issue: 955
+    preconditions:
+      verify_release_collects_all_verdicts: true
+    effects:
+      npm_publish_never_falls_back_unattested: true
+    cost: 2
+    status: queued
+
+  - name: bound_chaotic_lsh_and_voronoi_lsh_input_dim
+    github_issue: 961
+    preconditions: []
+    effects:
+      chaos_input_dim_rejected_not_clamped: true
+    cost: 3
+    status: queued
+
+  - name: check_fuzz_lock_in_validate
+    github_issue: 948
+    preconditions: []
+    effects:
+      fuzz_lock_checked_locally: true
+    cost: 1
+    status: queued
+
+  - name: stop_leaking_nix_ld_library_path
+    github_issue: 949
+    preconditions: []
+    effects:
+      host_subprocesses_isolated_from_nix_env: true
+    cost: 3
+    status: queued
+
+  - name: shard_the_mutation_test_context
+    github_issue: 951
+    preconditions:
+      host_subprocesses_isolated_from_nix_env: true
+    effects:
+      mutation_test_sharded_behind_one_context: true
+    cost: 5
+    status: queued
+
+  - name: exclude_cfg_wasm32_phantom_mutants
+    github_issue: 952
+    preconditions:
+      mutation_test_sharded_behind_one_context: true
+    effects:
+      wasm_cfg_mutants_out_of_native_denominator: true
+    cost: 3
+    status: queued
+
+  - name: make_mutation_threshold_draft_invariant
+    github_issue: 959
+    preconditions:
+      wasm_cfg_mutants_out_of_native_denominator: true
+    effects:
+      mutation_threshold_independent_of_draft_flag: true
+    cost: 2
+    status: queued
+```
+
+Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the
+release chain (a refusal that cannot name the failing gate job, a verifier that stops at the
+first missing artifact, an attestation that silently degrades). #948 and #949 and #961 are
+independent of everything. #951/#952/#959 are **strictly sequential**: all three edit
+`.github/workflows/ci.yml` and `scripts/mutation_test.sh` in the same regions (job
+`mutation-test`, the `--exclude` block, `MUTATION_THRESHOLD`), and parallel PRs there
+guarantee a conflict and a bot resolution that reverts one of them (`AGENTS.md` Rule 10).
+`repair_the_release_gate_race` (#953) is not queued — it landed as PR #962 and is recorded as
+`action_last_completed`.
+
 >
 > Last completed (verified 2026-10-22):
 > `repair_the_merged_tree` — the `origin/main` merge into the audit-follow-up wave

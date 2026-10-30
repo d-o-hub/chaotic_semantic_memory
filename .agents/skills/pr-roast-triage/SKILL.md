@@ -91,14 +91,13 @@ verdict. Close it citing the recorded numbers; do not re-litigate. Rule 17: a
 resubmission must bring the evidence the earlier roast demanded, not restate the
 claim — and check the claim's *mechanism* sentence against the code, since both
 PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
-A predecessor closed **without** a valid measurement passes on the *demand*, not a verdict.
-- **An empty branch is a resubmission to catch by content (2026-10-09, #860).** `gh pr diff` +
-  `changed_files: 0` + empty `git diff <merge-base>..<head> --stat` = the PR merges nothing.
+A predecessor closed **without** a valid measurement passes on the *demand*, not a verdict — and a predecessor closed **with** one still does not export its *framing*: #956 inherited #900's `csm-chaos is invisible to CI` headline long after `ci.yml` grew a `cargo test -p csm-chaos` job. Re-measure every environment claim before reusing it (grep the workflow, the profile, the default-members).
+- **An empty branch is a resubmission to catch by content (2026-10-09, #860).** `gh pr diff` + `changed_files: 0` + empty `git diff <merge-base>..<head> --stat` = the PR merges nothing.
 
 ## Step 4 — Roast rubric (every keeper PR)
 
 - **Atomicity**: one logical change. Mega-PRs (>5 files across concerns) must split.
-- **Title honesty**: title must describe the diff (`re-export` hiding a BFS cap = reject/retitle).
+- **Title honesty**: the title must describe the diff (`re-export` hiding a BFS cap = reject/retitle), and a body or rationale comment must describe a *measured* one: a prediction reads as a prediction (#953's race has never refused a release — nothing reached the step), and every quoted number is re-measured (my first "slowest gate pass 5m38s" was a *failure* run).
 - **commitlint scope**: must exist in `commitlint.config.cjs` `scope-enum`
   (`perf(hyperdim)` fails; only listed scopes pass).
 - **Rationale comments**: never deleted to "shorten" (`Never delete rationale comments`). Under 500 LOC gate pressure, bot PRs may attempt to strip docstrings/comments to make room for new code. Reject/roast this behavior; require extracting child submodules (e.g. `hyperdim_binary_serde.rs`) instead.
@@ -209,9 +208,11 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.
   Zero human comments = no hidden requirements, but also no approval.
-- **GitHub CLI GraphQL deprecation**: `gh pr edit` and `gh issue view` fail if querying
-  deprecated `projectCards`. Query specific `--json` fields for reads, or use
-  `gh api -X PATCH repos/<owner>/<repo>/pulls/<id> -f title="..."` for editing PR titles.
+- **GitHub CLI shapes that fail quietly**: `gh pr edit`/`gh issue view` break on deprecated
+  `projectCards` — query specific `--json` fields, or `gh api -X PATCH …/pulls/<id> -f title=…`. This
+  build's `gh pr close` has **no `--comment-file`** and `--comment "$(cat f)"` command-substitutes the
+  backticks a roast body is full of: `gh pr comment <n> --body-file f`, then close, then re-read `gh pr
+  list --state open` — three "successful" closes here left three PRs open.
 - **Multi-issue parent linkage**: a parent PR implementing several child issues declares each
   (`Fixes #A`, `Fixes #B`) in the body, so all issues close cleanly on merge.
 

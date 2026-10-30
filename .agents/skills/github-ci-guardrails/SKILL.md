@@ -35,6 +35,11 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
 - **CLI async entry points** (`run_query -> Ok(())`) are usually unkillable under
   `--lib`-only mutation CI; prefer exclude in `scripts/mutation_test.sh` with a
   one-line rationale, not path-excluding whole production modules.
+- **A low score can be a denominator artifact, not a test gap**: cfg-blind **phantom mutants**
+  (`#[cfg(target_arch = "wasm32")]` or an off feature) are lines the profile never compiles, so no
+  test can kill them. Count them out with evidence before believing the number — #947 moved
+  **62% → 94.0476%** when 19 wasm32 phantoms left the set. Never chase one with a test.
+  `references/ci-pitfalls-pr-triage.md`.
 
 ## Pre-merge re-check (multi-PR or bot PRs)
 
@@ -85,3 +90,18 @@ represent a non-success upstream run as **no verdict**; do not infer a failed ve
 dependent jobs. When Cargo Audit and Cargo Deny consume separate RustSec policy files, gate ignore-ID
 parity with a fail-closed checker. Sources: `.github/workflows/pre-release-gate.yml`,
 `scripts/pre-release-gate-summary.sh`, and `scripts/check-audit-ignore-parity.sh`.
+
+### Two workflows on one event cannot read each other's verdicts (2026-10-30, #953/#962)
+
+`release.yml` and `pre-release-gate.yml` both trigger on CI completion, so a *one-shot* gate read inside
+release `validate` samples a sibling that is ~1 min into a ~4½-min run (`validate` measured 62 s, slowest
+gate pass 4m37s). Bound a wait and fail loudly rather than reading once — and prefer loudness over the
+event-driven re-key when the silent alternative is "no run at all": 69 consecutive release runs had
+**zero jobs** (GitHub rejecting double-quoted literals in `if:`) for eight days with nothing surfacing it.
+`total_count == 0` on `…/runs/<id>/jobs` is the tell; `scripts/check-actionlint.sh` is the gate.
+
+Before settling any such design objection, grep `progress/LEARNINGS.md` and `plans/PR_ROAST_*.md` for the
+**rule**, not just the symbol: `Polling a gate is a ceiling you will raise forever; migrate to the event`
+was recorded on 2026-09-30, and #962 re-derived the same tension in isolation and answered it without ever
+citing it. A change that departs from a standing rule says so in the code comment and the PR body, with the
+measured reason and the condition that would overturn it.

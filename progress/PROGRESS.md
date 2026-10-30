@@ -1,5 +1,53 @@
 # PROGRESS
 
+## 2026-10-30: drained the queue by roasting, and roasted my own PR before merging it
+
+`main` at `3953e818` (#947, the audit-follow-up wave, squash-merged 12:55:38Z). Full verdicts in
+`plans/PR_ROAST_2026_10_30.md`.
+
+**The drain (#956/#957/#958) closed the queue to zero without a single label.** The owner's instruction
+was explicit: do not label other people's PRs to route around `pr-drain-check`; roast each and let the
+gate pass on its own. All three were closed with measured verdicts (comments
+`6522738677`/`6522739077`/`6522739477`, 4,268/6,636/5,894 chars) and `gh pr list --state open` went
+4 → 1 → 0. #956 was the only one carrying a real defect: `ChaoticLsh::new`/`VoronoiLsh::new` take an
+unbounded `input_dim` and both hot paths return an **all-zero hypervector** on a length mismatch
+(`crates/csm-chaos/src/hashing/chaotic_lsh.rs:44-46,88-90`, `voronoi_lsh.rs:46-47,78`), so the
+`.min(MAX_INPUT_DIM)` clamp the PR proposed would convert a loud panic into silent wrong retrieval
+embeddings. It is preserved as issue **#961** with the five requirements a re-created fix must carry —
+reject, do not clamp; one validation point per constructor; the mismatch arms tested; a bucket test like
+its sibling maps already have; and the 500-LOC child-module split done by extraction rather than by
+deleting prose. #957 (`Svsc4d`) was the *second* filing of `experimental-svsc-4d` after #900 closed the
+same idea on the same two blockers, so rule 17 applied and it inherited the verdict. #958 was the most
+technically correct of the three and still closed: its SIMD `xor` adds no test for `xor` at all — `grep -n '^+.*[.]xor()' ` on the PR diff reads 0, and on `main` the same grep over `tests/` and `crates/*/tests/` is empty too, the cited `#define XOR_PSHUFFLE 1`
+lines belong to Intel's ISA-L sample directory rather than to the shipped path, and — the honest half —
+its 10 “deleted” tests are not deleted: they moved to `crates/csm-core-lib/src/hyperdim_simd_tests.rs`
+behind `lib.rs:48-51` `include!`, which is this repo's prescribed answer to the 500-LOC cap. Three of my
+own framing claims about #958 did not survive reading the diff.
+
+**#947 itself was roasted before it merged** (it is the biggest PR of the year: 159 files). The evidence
+gate that mattered was mutation, and it was measured, not asserted: **94.0476 %** on that head against a
+62 % initial reading — the difference being 19 cfg-blind `wasm32` phantom mutants in the denominator.
+The exclusions were audited rather than trusted: the surviving 7 mutants and one over-broad
+observability glob are recorded as residuals, not as a green score.
+
+**Then #962 fixed the last publication blocker** (`#953`: `release.yml` and `pre-release-gate.yml` are
+siblings on one `workflow_run`, so `validate`'s one-shot gate read samples a verdict that cannot exist
+yet — `validate` runs 62 s, the slowest gate pass is 4m37s). Two things about that PR are the point of
+the round, not the fix: it is the first PR this session that got roasted *against itself* hard enough to
+change. Four separate overstatements in my own writing were caught by re-deriving state — a failed gate
+run quoted as the slowest pass, a “refused a release” failure that has never happened (the workflow was
+unparsable, so nothing reached the step), a diffstat read off a stale commit, and an invented full SHA
+that returned an empty run list. And the design objection I thought I had found independently — *why
+poll when you can trigger on the event* — turned out to be standing repo policy since 2026-09-30
+(`progress/LEARNINGS.md:85`), which my first verdict had re-derived and then ignored. The merged form
+discloses the departure and its measured justification (69 consecutive jobless release runs from
+`0f77c0d0` to #947: silence is the failure mode this repo has actually lived through), instead of
+arguing it in a private note.
+
+GOAP: 9 queued actions (#960 #954 #955 #961 #948 #949 #951 #952 #959), `action_last_completed:
+repair_the_release_gate_race`, `release_pipeline_validated: false` until the tag and both npm channels
+and crates.io verify. `CSM_GOAP_QUEUE_REQUIRED=true scripts/check-goap-queue-issues.sh` → 9/9/9, rc 0.
+
 ## 2026-10-19: a reorder claim that no benchmark in the repo could see
 
 Six open PRs, empty GOAP queue, 0 issues, `main` at `0ab86f4d`. The round's work was the mandatory
