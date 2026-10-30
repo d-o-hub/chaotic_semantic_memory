@@ -3056,6 +3056,8 @@ impl ChaoticSemanticFramework {
 
 ## src/framework_persistence_import_tests.rs
 
+## src/framework_persistence_reconcile_tests.rs
+
 ## src/framework_persistence_tests.rs
 
 ## src/framework_rerank.rs
@@ -3105,6 +3107,8 @@ impl ChaoticSemanticFramework {
     pub fn shortest_path(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
 }
 ```
+
+## src/framework_traversal_tests.rs
 
 ## src/framework_ttl.rs
 
@@ -3190,6 +3194,8 @@ impl ChaoticSemanticFramework {
 ```
 
 ## src/framework_ttl_purge_tests.rs
+
+## src/framework_ttl_tests.rs
 
 ## src/framework_validation.rs
 

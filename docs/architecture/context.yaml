@@ -305,7 +305,7 @@ current_status:
   swarm_groups: 5
   total_tests: 1152
   tests_passing: 1152
-  modules_under_loc_limit: 117/117
+  modules_under_loc_limit: 118/118
   performance_gates: 4/4 passing
   
 guardrails:

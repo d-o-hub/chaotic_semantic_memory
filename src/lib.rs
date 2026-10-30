@@ -331,6 +331,8 @@ mod framework_decay_guard_tests;
 #[cfg(test)]
 mod framework_ops_tests;
 #[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
+mod framework_persistence_reconcile_tests;
+#[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
 mod framework_persistence_tests;
 #[cfg(test)]
 mod framework_rerank_tests;
