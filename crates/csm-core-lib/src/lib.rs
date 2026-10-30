@@ -45,6 +45,10 @@ mod tests {
         use super::*;
         include!("hyperdim_binary_tests.rs");
     }
+    mod hyperdim_simd_tests {
+        use super::*;
+        include!("hyperdim_simd_tests.rs");
+    }
     mod reservoir_tests {
         use super::*;
         include!("reservoir_tests.rs");
