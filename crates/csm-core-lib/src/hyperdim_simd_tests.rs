@@ -1,5 +1,5 @@
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-use super::*;
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+use crate::hyperdim_simd::*;
 
 #[test]
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]

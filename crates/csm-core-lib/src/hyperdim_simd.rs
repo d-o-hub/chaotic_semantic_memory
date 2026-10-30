@@ -419,4 +419,3 @@ pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 8
     // input provides exactly 1,280 readable bytes as required by the kernel.
     unsafe { hamming_distance_1280_neon(lhs.as_ptr().cast(), rhs.as_ptr().cast()) }
 }
-
