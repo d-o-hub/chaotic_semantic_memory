@@ -163,7 +163,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 10       # 2026-10-30: eight ci/release follow-ups + #961 + #964 (version-pin gate)
+  queued_actions_count: 11       # 2026-10-30: eight ci/release follow-ups + #961, #964, #965 (gates)
                                #   (#960 #954 #955 #948 #949 #951 #952 #959) plus #961, the one genuine
                                #   defect the #956/#957/#958 drain surfaced. Rule 11 order: issue first,
                                #   then the dependency-ordered action. Gate: `grep -c '^  - name:

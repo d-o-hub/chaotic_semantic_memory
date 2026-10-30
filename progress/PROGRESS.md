@@ -1792,7 +1792,7 @@ test-attribute scan, script catalog, LLM-context drift, workflow semantic valida
 parity all rc=0. `origin/main` is still `0f77c0d0`; nothing has been pushed. Open issues 0; the only open PR
 is #933 (not this wave's work).
 
-## 2026-10-30 (afternoon) — #962 in flight, v0.3.9 static half closed, queue at 10 actions
+## 2026-10-30 (afternoon) — #962 in flight, v0.3.9 static half closed, queue at 11 actions
 
 **#962 (the #953 gate-race repair) — roasted, self-corrected twice, waiting on a runner jam.** Head moved
 `9b395d94 → 73d02f87` for a message-only reason: the fourth commit carried a 101-char body line that
@@ -1828,3 +1828,15 @@ the `bash -e {0}` abort mechanism** (confirming the title's premise and adding a
 not carry), and **#964** is the member→root version-pin blind spot in `sync-version.sh` /
 `verify-version-sync.sh`, deliberately *not* folded into the release PRs because opening a PR now fails
 `pr-drain-check` and delays the publication the owner asked for.
+- 14:35Z **#962 merged** (squash, `--delete-branch`) as `4ac8422d` on `main`: the `release.yml`
+  gate-wait repair, 1 file, 42+/5-. Pre-merge truth re-derived, not inherited — head `73d02f87` is a
+  descendant of `origin/main`, 25 pass / 0 fail / 9 legit `skipping`, `MERGEABLE`/`CLEAN`, squash
+  subject 80 chars.
+- 14:13–14:22Z **`main` was red and I found the cause, not the symptom**: `commitlint` job
+  (check-run 124073904392) in main run 41059071360 failed `header-max-length` at **104** chars on the
+  #947 squash subject. Recorded in `plans/PR_ROAST_2026_10_30.md` + `progress/LEARNINGS.md`; the red
+  self-heals with this merge (range is now `--from 4ac8422d` for the next push, and `3953e818` leaves
+  the linted set). Jobless release run 41070030431 reclassified as a *consequence* of that red CI.
+- 14:4xZ filed **#965** (nothing lints the post-squash subject) + queued action
+  `gate_the_effective_squash_subject_length`; queue now **11 actions**, `queued_actions_count: 11`.
+  Rule distilled into `github-ci-guardrails` step 3 (114 → 122 lines).

@@ -25,6 +25,14 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
    while the job that owns `commitlint` sat `queued` for 25 min, so the failing check was invisible, and
    a re-push cancelled it before it could speak. Measure the exit status directly: piping to `tail`
    and then reading `$?` reports the pipe's status, not the linter's.
+   **The linted string and the committed string differ after a squash.** GitHub builds the subject as
+   `<PR title> (#<NNN>)`, so the budget is `100 - len(" (#<NNN>)")` (7 for 3-digit, 8 for 4-digit), and
+   branch-commit linting can never see it (issue #965). Measured 2026-10-30: #947's title was 97 —
+   legal — and its squash subject `…bounded OTLP (#947)` was **104**, failing `header-max-length` on
+   `main` (run 41059071360, job `commitlint`, check-run 124073904392). Check before merging:
+   `printf '%s (#%s)' "$(gh pr view $N --json title -q .title)" "$N" | wc -c`. The red self-heals only on
+   the *next* merge (the push range then starts at the bad commit and drops it), so main can sit red and
+   refuse every dependent `workflow_run` — release and pre-release gate included.
 4. Validate GitHub checks with `references/gh-ci-truth.md`.
 5. If checks fail, report failing job and log URL; map failure class via
    `references/ci-pitfalls-pr-triage.md` (commitlint scope, mutation surface,
