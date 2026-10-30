@@ -3,7 +3,11 @@
 Standing runbook for the v0.3.9 publication: what was proven before the wave merged, what only the
 `main` pipeline can prove, and the two claims in my own working notes that measurement reversed.
 Static half measured on the wave head `e766a4d1` and re-checked on `main` at `4ac8422d`; every
-registry number below was read live on 2026-10-30, not carried from a PR body.
+registry number below was read live on 2026-10-30, not carried from a PR body. **Every `release.yml`
+line number here is `git show 4ac8422d:…`** — #962 is net +37 lines (42 insertions, 5 deletions) with
+the insertion above the publish steps, so the same landmarks were `:307`/`:342`/`:355`/`:584` on
+`3953e818` and are `:344`/`:379`/`:392`/`:621` now (measured on both heads; three of my earlier npm
+citations matched neither tree and are corrected below).
 
 **Scope split.** Everything in §1–§5 is provable from a checkout and a registry query. §6 is the part
 that cannot be: tag creation, the 11 publishes, asset download, install-from-registry.
@@ -28,17 +32,24 @@ and no manual `git tag` (per `release-management`: the workflow owns the tag).
 ## 2. crates.io channel — content verified from a clean tree, publish graph sound
 
 Package manifest built from `git archive HEAD` extracted to `/tmp/csm-pkgtest` (a dirty working tree is
-not evidence — my own tree added 152 ignored files), plus `cargo package --list` → rc 0, 603 files.
+not evidence — my own tree added 152 ignored files), plus `cargo package --list` re-measured on this
+head: **root 255 files** (254 on `e766a4d1`, the +1 being this file), `csm-duckdb` 31, `csm-cli` 5,
+`csm-wasm` 5, `--workspace` total **452**. My working notes carried a "603 files" figure that does not
+reproduce under any of those invocations — it is deleted rather than explained, because the likeliest
+source is a `--allow-dirty` run against a tree that still had its untracked residue, which is the same
+reason the clean `git archive` extraction exists.
 
-- **254 files** in the root tarball: 118 `src`, 74 `tests`, 35 `examples`, 9 `benches`, plus
-  `Cargo.toml(.orig)`, `Cargo.lock`, `README.md`, `LICENSE`, `CHANGELOG.md`.
-- `[package] include` is honored. The 8 non-source extras (`plans/**/README.md`,
-  `progress/mutation/README.md`, `docs/architecture/README.md`, `cli-npm/{README,LICENSE}`,
-  `wasm/README.md`) are cargo's unconditional README/LICENSE inclusion and are **already in the
-  published 0.3.8** — verified by downloading `chaotic_semantic_memory-0.3.8.crate` (215 files) and
-  diffing the non-source prefix lists. This wave adds 5 more (`plans/evidence/*`), all measurement
-  write-ups, no credentials (grepped `token|secret|api_key|password|ghp_` — only prose about the
-  encoder's *token* fast path).
+- **255 files in the root package** (118 `src`, 74 `tests`, 35 `examples`, 9 `benches`, 19 non-source),
+  re-measured against the **published 0.3.8 crate downloaded from `static.crates.io` — 215 files**, whose
+  14 non-source entries are cargo's 7 scaffolding files (`Cargo.lock`, `Cargo.toml`, `Cargo.toml.orig`,
+  `.cargo_vcs_info.json`, `README.md`, `LICENSE`, `CHANGELOG.md`) plus **7** nested README/LICENSE files
+  (`plans/README.md`, `plans/handoffs/README.md`, `progress/mutation/README.md`,
+  `docs/architecture/README.md`, `cli-npm/{README,LICENSE}`, `wasm/README.md`) that cargo includes
+  unconditionally once `[package] include` reaches those directories. This wave adds **5** more, all
+  `plans/evidence/*/README.md` measurement write-ups and no credentials (grepped
+  `token|secret|api_key|password|ghp_` — only prose about the encoder's *token* fast path). My notes had
+  said "8 extras, verified by diffing prefix lists"; the extras count was one high and the diff was never
+  run, so both numbers above come from `tar tzf` on the downloaded artifact.
 - **`VERSION` is absent from the tarball and that is safe**: `include` omits it and no `.rs` under
   `src/`, `tests/`, `examples/`, `benches/`, `crates/` opens it (the only Rust hit for `VERSION` is
   `src/cli/commands/history.rs:75`, a table column header). It exists for the shell release scripts,
@@ -82,9 +93,9 @@ not evidence — my own tree added 152 ignored files), plus `cargo package --lis
   version returned empty and the instrument could *only* print zero. Measured at the same endpoint with
   the right path: **19 of 21 versions are attested** — `@d-o-hub/chaotic_semantic_memory` 15/16 (only
   0.1.0 is not), `@d-o-hub/csm` 4/5 (only 0.3.4 is not), both `latest` tags included.
-- **What survives the correction**, and it is smaller: (a) `verify-release` (`:626`) never reads
+- **What survives the correction**, and it is smaller: (a) `verify-release` (`:621`) never reads
   `.dist.attestations` at all — it checks `npm view … version` — so nothing verifies provenance after
-  publishing; and (b) the `npm publish --provenance … || npm publish …` fallback at `:544`/`:613` buries
+  publishing; and (b) the `npm publish --provenance … || npm publish …` fallback at `:548`/`:617` buries
   the first error, though it is harmless today because `publishConfig.provenance = true` in both
   manifests applies to the retry too. The proposed "accept token publishing, drop `--provenance`" would
   have **removed attestation that exists**. Filed and rescoped as #955.
@@ -144,7 +155,7 @@ refuses every dependent `workflow_run`. Measured safe here: #962 80, #963 92. Fi
      `npm audit signatures` for attestation (positive control: 0.3.8 is attested, `csm@0.3.4` is not).
    - Download every `v0.3.9` release asset and run `--version` on at least the linux-x64 CLI binary.
    - `https://docs.rs/crate/chaotic_semantic_memory/latest` builds.
-   - Note that `verify-release` (`:626`) reports on only **3 of the 11** artifacts, and its job carries
+   - Note that `verify-release` (`:621`) reports on only **3 of the 11** artifacts, and its job carries
      no `shell:` override, so under Actions' default `bash -e {0}` the first miss aborts the step and
      its `::error::Partial release detected!` summary is unreachable. A green `verify-release` is
      therefore weak evidence about the other 8 — that gap is #954.
