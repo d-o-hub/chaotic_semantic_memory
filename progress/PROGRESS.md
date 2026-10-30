@@ -1840,3 +1840,16 @@ not carry), and **#964** is the member→root version-pin blind spot in `sync-ve
 - 14:4xZ filed **#965** (nothing lints the post-squash subject) + queued action
   `gate_the_effective_squash_subject_length`; queue now **11 actions**, `queued_actions_count: 11`.
   Rule distilled into `github-ci-guardrails` step 3 (114 → 122 lines).
+- 17:0xZ **audited all 11 open issues against `main` `4ac8422d` — 10 still live, one substantially
+  addressed.** Every "still live" is a tree measurement, not a re-read of the issue body: `grep -n fuzz
+  scripts/validate.sh` empty (#948); one `LD_LIBRARY_PATH` guard against six wrapped call sites (#949);
+  `mutation-test` single job, `timeout-minutes: 300` (#951); `verify-release` has no `defaults:` and 3
+  probes of 11 artifacts (#954); `|| npm publish` intact (#955); `ci.yml:580` draft-conditional threshold
+  with no `types:` (#959); refusals print aggregate status only (#960); `chaotic_lsh.rs:18` unbounded
+  allocation with all-zero clamp (#961); two manifests still pinning root `0.3.8` (#964). #952 is the
+  exception: option 3 + acceptance criterion 3 landed inside #947, criterion 2 and option 1 did not — so
+  the finding went to the **issue** as a status audit
+  ([comment 6528684458](https://github.com/d-o-hub/chaotic_semantic_memory/issues/952#issuecomment-6528684458)),
+  the issue stays open for the owner to close-or-retitle, and the queued action was **renamed** to the
+  surviving half (`detect_new_cfg_disabled_mutants`, with `#959`'s precondition retargeted to the new
+  effect key) because its old name described work `main` already does.
