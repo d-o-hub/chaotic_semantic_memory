@@ -11,7 +11,7 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: because `pre-release-gate.yml` itself starts only after CI, a gate run still in flight when CI finished is a hard stop rather than a wait — re-dispatch once it lands. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check.
+3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: `pre-release-gate.yml` starts only after CI, so `validate` **waits** for a verdict rather than reading once — `GATE_DEADLINE = now + 1800`, `sleep 60`, break on `status == completed`, then still require `conclusion == success` (`release.yml:118-134`). It is fail-closed on timeout and on any non-success, so a red gate never publishes; do not re-dispatch while a verdict is pending. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check.
 4. **A failed release run with no jobs is a bad workflow file, not a bad release:** `gh run view <id> --json jobs` returning `[]` means GitHub rejected the file before scheduling (since 2026-10-22 this is how `release.yml` failed: double-quoted / unquoted string literals in `if:` expressions — expressions take single quotes only). There is no step log, so read the YAML and run `scripts/check-actionlint.sh`; nothing published and no tag was created.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
@@ -166,6 +166,33 @@ Rollback / partial failure recovery (yank, delete tag, recreate) is documented i
 ```
 
 Also: `cargo deny check` before release when deps changed.
+
+## Post-publish verification (the half the workflow cannot prove)
+
+`release.yml`'s own `verify-release` job probes **3** artifacts (root crate, two npm dist-tags, the release
+object). The full set is 12 — 9 crates.io + 2 npm + the GitHub release — so a green tick there is weak
+evidence about the other 8, and it accumulates errors under a default `bash -e {0}` shell that aborts at the
+first miss. Count the artifacts from the **owning job** (every `run:` block of `publish-crates`, not the
+`CRATES=` list: the root and `csm-duckdb` publish in later steps, `csm-duckdb` last because it dev-depends
+on the root and polls the index for it).
+
+Rules that came out of validating the 0.3.9 scripts against the *previous* release:
+
+- **Run the control, don't hope for it.** A verifier is trusted only after one input that must pass **and**
+  one that must fail produce those outputs. Most verifier bugs do not crash — they print a confident
+  sentence about a different fact ("release missing" for a **lightweight** tag whose `.object.url` contains
+  `commits/`, never `tags/`; "published without provenance" for a version that was never published).
+- **Probe a tag with `GET /repos/{o}/{r}/git/matching-refs/tags/{t}`** and match `.ref`; `git/ref/{t}` +
+  `.object.url` only answers for annotated tags.
+- **Make the scratch dir disposable.** `gh release download` refuses to overwrite, so a re-run of an otherwise
+  correct script fails its own asset check; `rm -rf "$WORK"` at the top, not EEXIST handling per call.
+- **Pin the repository, not the cwd.** `gh …`/`git ls-remote` resolve from the current directory's remote; run
+  from outside a checkout they emit a git error into the slot reserved for a verdict. Pass `--repo`/`git -C`
+  and give the error branch its own label (`FAIL`, not `MISS`).
+- Before a release, confirm the publish environments cannot stall: `protection_rules: []` means no wait timer
+  and no required reviewer; mid-run use `…/actions/runs/{id}/pending_deployments`.
+- If anything after the tag exists fails, recover with `workflow_dispatch` `recover=true` + `recovery_tag=v*`
+  — never delete or re-create the tag.
 
 ## SemVer (from conventional commits)
 

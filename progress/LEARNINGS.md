@@ -386,6 +386,30 @@
   the trigger for that query rather than as a duplicate of the gate. Rule now in `github-ci-guardrails`
   ("A green `cargo deny` says nothing about a GHSA that has no RustSec id").
 
+- **A verifier that reports the *wrong accusation* is worse than one that crashes (2026-10-30, the two v0.3.9 release validators)**:
+  I wrote `/tmp/verify-039.sh` (registry reads only) and `/tmp/post-039.sh` (the dynamic half: tag, release asset,
+  `cargo add` from the index, npm attestation) and only trusted them after pushing the *previous* release `0.3.8`
+  through them as a positive control. Four defects surfaced, and not one of them made a script fail — each printed a
+  confident sentence about a **different fact** than the check was about:
+  (1) the tag probe keyed on `.object.url` containing `tags/`, but **`v0.3.8` is a lightweight tag** — measured
+  `object.type = commit`, `…/git/commits/d86b15fd…`, `contains("tags/")` → **false** — so that assertion could only
+  ever print MISS, i.e. a permanently-red check that reads as "the release is missing". `GET /repos/{o}/{r}/git/matching-refs/tags/{t}`
+  and matching `.ref` answers for annotated *and* lightweight tags.
+  (2) `gh release download` **refuses to overwrite**, so the second run failed its own asset check for a reason that
+  had nothing to do with the artifact; a non-idempotent tool turns a re-run into a false negative. Fix the container,
+  not the call: `rm -rf "$WORK"` at the top.
+  (3) `npm view pkg@X --json` on an unpublished version does not reliably print nothing, so "not in the registry"
+  fell through to the next branch and was reported as *"published with NO provenance"* — a supply-chain accusation
+  against a version that does not exist. Key on the returned `.version`, print what npm actually said, and `continue`
+  before asserting anything about attestation.
+  (4) `gh release view` and `git ls-remote` resolve the repository from the **current directory's** remote, so run
+  from `/tmp` they emitted a git error that the script printed in the slot reserved for a verdict. Every call in a
+  script that may run from anywhere takes `--repo "$REPO"` / `git -C "$REPO"`, and its error branch must be
+  distinguishable from an answer.
+  Rule: a control is not a value you hope for, it is a case you *run* — validate an instrument on one input that must
+  pass **and one that must fail**, then make the failure legible (name the accusation you are actually making). Same
+  family as "an instrument that can only print zero" and the jobless-run tell: correctness most of the time is not
+  the property, *reachable outputs being only the ones you mean* is.
 - **A diagnostic for an event you cannot reproduce is only as good as the real payload it is replayed
   against (2026-10-30, #960).** The release-refusal path cannot be triggered on demand, so "it prints the
   job names" was unverifiable by construction — until the parsing moved out of the workflow `run:` block
