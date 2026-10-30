@@ -22,7 +22,8 @@ fn bench_svsc_4d(c: &mut Criterion) {
             let mut map = Slhm2d::new(0.1, 0.2, 0.99);
             let mut sum = 0.0;
             for _ in 0..10_240 {
-                map.next(); let x = map.x;
+                map.next();
+                let x = map.x;
                 sum += x;
             }
             black_box(sum)

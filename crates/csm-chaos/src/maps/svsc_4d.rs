@@ -46,6 +46,7 @@ impl Svsc4d {
     /// This implementation uses a simplified multiplier-free approximation for hyperchaotic mixing
     /// using bitwise operations on the f64 representation to simulate highly nonlinear mixing.
     #[inline]
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> (f64, f64, f64, f64) {
         // Multiplier-free chaotic mixing using bit representations and shifts
         let mut u1 = self.x1.to_bits();
