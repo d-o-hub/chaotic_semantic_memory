@@ -345,6 +345,45 @@ EXCLUDE_ARGS=(
   # AbsenceStore stub but never called by the unit test, so mutating it to
   # Ok(vec![]) is unobservable.
   --exclude-re "StubStore>::list_absences"
+  # Feature-cfg'd code is enumerated but never compiled under this profile, so its
+  # mutants are phantom: the mutation diff cannot change a binary that does not
+  # contain the code, every test run passes, and the mutant is reported "missed"
+  # while no test could ever kill it. Measured on 4180c6c8 (run 40855342249): 19 of
+  # the 73 missed mutants were this class. Proof, not inference — the error literal
+  # "OTLP batch sizes and timeouts must be positive" from
+  # src/observability/mod.rs:88 appears 0 times in
+  # target/debug/deps/chaotic_semantic_memory-*.d293 built with exactly the FAST_ARGS
+  # features below (control: "decay" appears 174 times in the same binary).
+  # src/observability/mod.rs:13 is
+  #   #![cfg(any(feature = "prometheus", feature = "otlp-json", feature = "otlp"))]
+  # and the fast profile enables `default = cli,persistence,parallel` + `mcp` only, so
+  # the whole module tree is out — including prom.rs (`#[cfg(feature = "prometheus")]`
+  # at mod.rs:22). Remove these two excludes when #952 makes generation cfg-aware or
+  # when the profile gains an observability feature; until then they are the only way
+  # the score reflects testable code.
+  --exclude "src/observability/*"
+  # Same class, one function: extract_trace_parent and its
+  # opentelemetry::propagation::Extractor impl (src/mcp/server.rs:348-360) sit behind
+  # #[cfg(all(feature = "otlp", not(target_arch = "wasm32")))]; `otlp` is opt-in and
+  # off here. Proven the same way — "traceparent was not applied to the request span"
+  # occurs 0 times in the built lib, while its ungated neighbour require_bearer's
+  # "Unauthorized" occurs 3 times, so server.rs itself is in the build and only these
+  # mutants are excluded. The trace-context wiring is covered by
+  # tests/mcp_streamable_http_integration.rs and src/mcp/server_tests.rs (which is a
+  # #[cfg(test)] module of the ungated half of server.rs), not by --lib mutation here.
+  --exclude-re "extract_trace_parent"
+  # Third-party of the same rule, wasm32 instead of a Cargo feature: the js_sys
+  # elapsed/duration shims sit under #[cfg(target_arch = "wasm32")] with the native
+  # std::time::Instant sibling on the line above, so on an x86_64 runner the `now -
+  # start` subtraction is not in the binary and `- -> +` / `- -> /` cannot be killed
+  # by any test. Named by operator so only these four mutants leave the denominator:
+  # each function keeps every other mutant it has. Re-checked against missed.txt on
+  # 4180c6c8: framework.rs:319:43 (x2, in associate) and
+  # framework_ttl_purge.rs:101:48 (x2, in purge_expired_inner).
+  --exclude-re "replace - with [+] in ChaoticSemanticFramework::associate"
+  --exclude-re "replace - with / in ChaoticSemanticFramework::associate"
+  --exclude-re "replace - with [+] in ChaoticSemanticFramework::purge_expired_inner"
+  --exclude-re "replace - with / in ChaoticSemanticFramework::purge_expired_inner"
 )
 
 # Preflight count (omit -j; listing does not need parallel workers).
