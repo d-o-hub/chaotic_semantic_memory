@@ -121,7 +121,35 @@ read saw `in_progress/none` and refused. The merged fix waits for a verdict, bou
 `GATE_DEADLINE=$(( $(date +%s) + 1800 ))`, `sleep 60`, break on `status == completed`, then still
 require `conclusion == success` — fail-closed is preserved, and anything else still blocks. Both arms
 were exercised against real runs before merging (the failure mode that made proof mandatory: an
-unproven wait turns an instant refusal into a 30-minute one).
+unproven wait turns an instant refusal into a 30-minute one). It has since run in production — the next
+paragraph is that refusal, which proves the loop works and supersedes the `in_progress/none` signature
+this paragraph was written to explain.
+
+**The wait fired in anger once, at 15:14Z, and behaved as designed.** Main CI completed on `4ac8422d`
+and fired both workflows; release run **41078875362** `validate` (job 124142337953) refused with the
+annotation
+
+```
+Refusing release: Pre-Release Gate on 4ac8422dbd82… is completed/failure, expected completed/success.
+```
+
+`completed/failure` — not `in_progress/none`, which is the #953 signature it replaced. So the bounded
+wait resolved the sibling race on a real run, and fail-closed still held. The gate run
+**41078875116** it waited on is also the pre-flight evidence for the next attempt, because only one of
+its jobs is red and that one is the queue:
+
+| Gate job | Conclusion on `4ac8422d` |
+|---|---|
+| `pr-drain-check` | **failure** — the queue policy: `gh pr list --state open` found #963, unlabelled by owner decision |
+| `version-triad` | success (0.3.9 across cargo / changelog / wasm) |
+| `security-audit` | success |
+| `wasm-smoke-build` | success |
+| `planning-state-check` | success (ADR-0042 `Accepted`) |
+| `benchmark-gate` | success |
+| `gate-summary` | failure (fans in on the above, `needs:` the drain check) |
+
+Nothing else stands between `main` and the `v0.3.9` tag: when #963 merges the drain check sees zero open
+PRs, the gate concludes success on that new head, and `release.yml` publishes.
 
 **The drain gate — resolved by draining, not by labeling (owner decision).** `pr-drain-check`
 (`pre-release-gate.yml:25`) calls `gh pr list --state open` and fails if any PR lacks
