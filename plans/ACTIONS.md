@@ -13,15 +13,6 @@
 > entries to this file.
 
 ```yaml
-  - name: make_verify_release_report_every_artifact
-    github_issue: 954
-    preconditions:
-      release_refusal_names_the_failing_gate_job: true
-    effects:
-      verify_release_collects_all_verdicts: true
-    cost: 2
-    status: queued
-
   - name: verify_npm_attestations_in_the_release_report
     github_issue: 955
     preconditions:

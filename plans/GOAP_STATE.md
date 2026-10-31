@@ -152,7 +152,10 @@ world_state:
   release_pipeline_validated: false  # 2026-10-31, re-measured after run 41110522627: the v0.3.9 tag is
                                #   live (→ 642238f0, lightweight), npm is 2/2 at 0.3.9 with
                                #   attestations=provenance,url, and the GitHub release carries 7 assets
-                               #   (SHA256SUMS + 6 platform tarballs). crates.io is 0/9 — every upload
+                               #   (`gh api releases/tags/v0.3.9`, re-read 2026-10-31: SHA256SUMS + 5 CLI
+                               #   tarballs, one per build-cli-matrix target, + 1 wasm bundle — the earlier
+                               #   "6 platform tarballs" mis-counted the wasm bundle as a sixth platform).
+                               #   crates.io is 0/9 — every upload
                                #   403s on `authentication failed`, an owner-only credential rotation
                                #   (#967), not a pipeline defect. Stays false until 9/9 land; recovery is
                                #   `recover=true recovery_tag=v0.3.9`, which is idempotent and re-uses
@@ -173,16 +176,48 @@ world_state:
                                #   (refusal → "2 of 7 gate jobs failed: pr-drain-check, gate-summary",
                                #   rc 1; success → rc 0). Fixture: scripts/test-gate-failure-detail.sh
                                #   (8 cases / 22 checks) wired into scripts/validate.sh.
+  verify_release_collects_all_verdicts: true  # 2026-10-31 (#954, PR #973): release.yml's verify step called
+                               #   `check_with_retry` as a bare statement under GitHub's default
+                               #   `bash -eo pipefail`, so the first missing artifact aborted the step —
+                               #   `ERRORS` and the `::error::Partial release detected!` line were
+                               #   unreachable, and a partial release was reported as whatever the first
+                               #   probe said. Each probe is now a named function invoked as
+                               #   `if ! check_with_retry …; then :; fi` (condition context is what
+                               #   suppresses `-e`, not the `:`). Production evidence, not a prediction:
+                               #   job 124260081872 ran 245.99 s = exactly one 5/10/15/20/30/45/60/60
+                               #   backoff, which is only possible if the loop returned inside the first
+                               #   cycle and nothing after it executed.
+  crates_io_index_checks_match_the_index: true  # 2026-10-31 (#971, PR #973): all five crates.io probes in
+                               #   release.yml (`:372`, `:406`, `:419`, `:425`, `:674` on bfa15d49) spliced
+                               #   `""vers":"$VERSION""`, which bash concatenates to `vers:0.3.9` while the
+                               #   sparse index stores `"vers":"0.3.9"` — a pattern that can never match, so
+                               #   every published crate read as unpublished. They now `grep -qF
+                               #   "\"vers\":\"$VERSION\""`. This gated #954: fixing `-e` alone would have
+                               #   made the wrong verdict loud rather than wrong-and-silent, and every
+                               #   future release would have printed `Missing:` on a clean publish.
+  verify_release_retries_re_query: true  # 2026-10-31 (#972, PR #973): the two npm probes were written inside
+                               #   a double-quoted argument, so `$(npm view …)` was substituted once by the
+                               #   caller and each of the 8 `eval`s re-tested a frozen comparison. Measured
+                               #   16 `npm view` calls against the 2 the design implies; the probes are now
+                               #   functions, so an attempt really does re-query the registry and the
+                               #   backoff can observe propagation.
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 11       # 2026-10-30: eight ci/release follow-ups + #961, #964, #965, #966 (gates)
+  queued_actions_count: 10       # 2026-10-31: `make_verify_release_report_every_artifact` (#954) left the
+                               #   queue with PR #973, which also implemented #971 and #972 — both filed
+                               #   and landed inside that one branch, so neither was ever a queued block
+                               #   here and the count moves 11 → 10, not 13 → 10. #974 (verify-release
+                               #   certifies 3 of 18 artifacts) is filed but deliberately not queued:
+                               #   its precondition is `verify_release_collects_all_verdicts`, satisfied
+                               #   today, and it waits behind #955 in the release-chain order.
+                               # 2026-10-30: eight ci/release follow-ups + #961, #964, #965, #966 (gates)
                                #   (#954 #955 #948 #949 #951 #952 #959) plus #961, the one genuine
                                #   defect the #956/#957/#958 drain surfaced. #960 left the queue when
                                #   its refusal-detail landed. Rule 11 order: issue first,
                                #   then the dependency-ordered action. Gate: `grep -c '^  - name:
-                               #   plans/ACTIONS.md` reads 11, which is what the checker compares.
+                               #   plans/ACTIONS.md` reads 10, which is what the checker compares.
                                # 2026-10-15: removed the completed
                                #   `mutation_baseline_the_feature_gated_mcp_module` (#833) — its effect is
                                #   now recorded as `mcp_module_mutation_baselined` below, with the evidence in
@@ -418,7 +453,21 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: name_the_failing_job_in_the_release_refusal  # 2026-10-30 (#960) — scripts/gate-failure-detail.sh
+  action_last_completed: make_verify_release_report_every_artifact  # 2026-10-31 (#954, PR #973): release.yml's
+                               #   verify step calls each probe as `if ! check_with_retry …; then :; fi`
+                               #   so every artifact gets a row and the `::error::Missing:` aggregate is
+                               #   reachable, the crates.io index patterns match what the index stores
+                               #   (#971), and the retry re-queries instead of re-testing a frozen
+                               #   substitution (#972). Evidence is the 33-case fixture
+                               #   scripts/test-verify-release-step.sh — it extracts the live step bodies
+                               #   out of the YAML rather than transcribing them, replays them under
+                               #   `bash -e -o pipefail` against stubbed curl/npm/gh/cargo, and is
+                               #   neuter-tested: un-fixing the bare calls fails 8, the spliced pattern
+                               #   fails 8, the frozen substitution fails 2. It also produced the
+                               #   production reading that turned #954's premise from prediction into
+                               #   observation (job 124260081872, 245.99 s = one backoff).
+                               #   Previous action: `name_the_failing_job_in_the_release_refusal` — 2026-10-30
+                               #   (#960) scripts/gate-failure-detail.sh
                                #   renders a gate run's per-job conclusions plus a SUMMARY naming the
                                #   blocking job(s), and release.yml's verify step puts that SUMMARY in the
                                #   ::error:: annotation. The 8-case / 22-check fixture
