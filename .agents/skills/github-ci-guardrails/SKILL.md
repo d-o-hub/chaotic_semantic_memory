@@ -91,6 +91,20 @@ its non-status rules are invisible to `gh pr checks` — this repo's ruleset als
 handshake timeout; exit 1 = client error, not a verdict) — snapshot with `--json name,bucket` or the
 check-runs API in a bounded loop. Recipes and the measured state: `references/gh-ci-truth.md`.
 
+## An open PR blocks the *release*, not just the merge (2026-10-31)
+
+`pre-release-gate.yml`'s `pr-drain-check` job (`:37-50`) runs `gh pr list --state open` and `exit 1` unless
+**every** open PR carries `hold-for-next` or `deferred`. Since `release.yml` refuses any main head whose gate
+run is not `completed/success`, one open PR blocks every release — a `recover=true` dispatch included.
+Measured: run 41188203137 (`bfa15d49`) refused with `2 of 7 gate jobs failed: pr-drain-check, gate-summary`
+and created no tag. So draining or labelling the queue is a **step of the release dispatch**, not
+housekeeping, and a release that never started is not evidence of a quality failure.
+Label *existence* is a measurement, not an assumption: `gh api repos/<o>/<r>/labels` paginates at 30 of this
+repo's 53, so `hold-for-next` read as absent until re-queried with `?per_page=100`. Additive labelling is
+`gh api -X POST repos/<o>/<r>/issues/<n>/labels -f labels[]=hold-for-next` (`PUT` replaces the set;
+`gh pr edit --add-label` hits the known `projectCards` failure). Annotation-fetch shape + the drain sequence:
+`references/gh-ci-truth.md`.
+
 ## Event payloads are point-in-time
 
 `pull_request` runs fire on open/synchronize/reopen: editing the title or body triggers **no** run, and

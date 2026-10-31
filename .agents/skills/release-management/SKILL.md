@@ -11,7 +11,7 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: `pre-release-gate.yml` starts only after CI, so `validate` **waits** for a verdict rather than reading once — `GATE_DEADLINE = now + 1800`, `sleep 60`, break on `status == completed`, then still require `conclusion == success` (`release.yml:119-160`). It is fail-closed on timeout and on any non-success, so a red gate never publishes; do not re-dispatch while a verdict is pending. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check. The refusal **names the blocking job**: `scripts/gate-failure-detail.sh` turns the gate run's per-job conclusions into one `SUMMARY:` line inside the `::error::` annotation (`2 of 7 gate jobs failed: pr-drain-check, gate-summary`), which is how you tell a queue-policy block from a quality failure without leaving the release log — and a **jobless** gate run says so, because that is a rejected workflow file (rule 4), not a red check.
+3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: `pre-release-gate.yml` starts only after CI, so `validate` **waits** for a verdict rather than reading once — `GATE_DEADLINE = now + 1800`, `sleep 60`, break on `status == completed`, then still require `conclusion == success` (`release.yml:119-160`). It is fail-closed on timeout and on any non-success, so a red gate never publishes; do not re-dispatch while a verdict is pending. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check. The refusal **names the blocking job**: `scripts/gate-failure-detail.sh` turns the gate run's per-job conclusions into one `SUMMARY:` line inside the `::error::` annotation (`2 of 7 gate jobs failed: pr-drain-check, gate-summary`), which is how you tell a queue-policy block from a quality failure without leaving the release log — and a **jobless** gate run says so, because that is a rejected workflow file (rule 4), not a red check. `pr-drain-check` is queue policy, not quality: it fails while **any** open PR lacks a `hold-for-next`/`deferred` label, so draining or labelling the queue is a step of dispatching a release — `recover=true` included (measured 2026-10-31: run 41188203137 refused `bfa15d49` with `2 of 7 gate jobs failed: pr-drain-check, gate-summary`, no tag). Sequence: `github-ci-guardrails`.
 4. **A failed release run with no jobs is a bad workflow file, not a bad release:** `gh run view <id> --json jobs` returning `[]` means GitHub rejected the file before scheduling (since 2026-10-22 this is how `release.yml` failed: double-quoted / unquoted string literals in `if:` expressions — expressions take single quotes only). There is no step log, so read the YAML and run `scripts/check-actionlint.sh`; nothing published and no tag was created.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
@@ -126,16 +126,17 @@ If a name is taken by an unrelated project (e.g., `csm-core` was taken by Sesame
 
 ## GitHub environment configuration
 
-The `crates.io` environment may have protection rules that block automatic publishing:
+**Measure the environments instead of trusting prose.** This section used to assert a "default 15 min wait
+timer" on `crates.io`; measured 2026-10-31, `crates.io`, `npm` and `npm-cli` all report
+`protection_rules: []` (no wait timer, no required reviewer) and only `github-pages` carries a rule — a
+`branch_policy`. So a stalled or failed publish is *not* an environment approval:
 
-- **Wait timer**: Default 15 minutes. Remove in GitHub Settings → Environments → crates.io if not needed.
-- **Required reviewers**: Must be configured if manual approval is needed.
-- **Deployment branches**: Restrict to `main` only.
-
-Check pending deployments before re-running failed releases:
 ```bash
-gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
+gh api repos/{owner}/{repo}/environments --jq '.environments[] | "\(.name) \([.protection_rules[].type])"'
 ```
+
+If a rule ever is added, `gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments` names the
+deployment still waiting — run it to confirm a wait exists, not to explain a failure with another cause.
 
 ## Tag ownership (single owner)
 

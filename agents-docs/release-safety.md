@@ -14,7 +14,10 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
 3. **Check existing releases**: `gh release list --limit 5`
 4. **Validate changelog entry exists**: `grep -q "^## \[${VERSION}\]" CHANGELOG.md`
 5. **Verify crates.io availability (first publish)**: check workspace names via `cargo search`
-6. **Check crates.io wait timer**: `gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments`
+6. **Drain the PR queue**: the gate's `pr-drain-check` job fails while **any** open PR lacks a
+   `hold-for-next`/`deferred` label, which refuses the release for that head (`gh pr list --state open
+   --json number,title,labels`). Label a PR you intend to keep open rather than merging it to unblock a
+   release. Recipe: `github-ci-guardrails` → "The queue gate".
 
 ## Version Bump Workflow
 1. Update `Cargo.toml` version
@@ -31,5 +34,14 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
 
 ## Common Deployment Failures & Recovery
 1. **crates.io name conflicts**: Workspace crate names may be taken. Rename before first publish (e.g., `csm-core` -> `csm-core-lib`).
-2. **Environment wait timer**: Default 15 min wait timer on crates.io environment. Remove timer in GitHub repo settings if unneeded.
-3. **Recovery dispatch**: `gh workflow run release.yml -f recover=true` retries failed releases for existing tags idempotently.
+2. **Environment protection — measure, don't assume.** This doc long claimed a "default 15 min wait timer
+   on the crates.io environment"; measured 2026-10-31, `crates.io`, `npm` and `npm-cli` all have
+   `protection_rules: []` here (only `github-pages` has a rule), so a pending deployment was never the cause
+   of a stuck publish. Verify before diagnosing:
+   `gh api repos/{owner}/{repo}/environments --jq '.environments[] | "\(.name) \(.protection_rules)"'`, then
+   `gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments` — the second only answers when a
+   rule can actually hold the job.
+3. **Recovery dispatch**: `gh workflow run release.yml -f recover=true -f recovery_tag=v0.3.9` retries missing
+   artifacts for an existing tag idempotently. `recovery_tag` is a separate input and is required whenever
+   `recover=true` (`release.yml` `workflow_dispatch.inputs`); a recovery run resolves a main SHA and passes the
+   **same** CI + pre-release gate, so the queue must be drained for that head too.

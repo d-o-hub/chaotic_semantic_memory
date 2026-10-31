@@ -1957,3 +1957,32 @@ filed and landed inside one branch — so the count moves by one, not three. `re
 stays **false**: crates.io is 0/9 at 0.3.9 and the token rotation (#967) is owner-only. Next in the
 release chain is #955 (npm attestations + drop the `|| npm publish` retry), whose precondition
 `verify_release_collects_all_verdicts` this branch just satisfied.
+
+## 2026-10-31 — the queue gate became a rule, and the wait-timer claim died
+
+Docs-only follow-up to the release-refusal diagnosis (`docs/pr-drain-release-block`, off `4ea6a8e6`). Two
+findings from the #953/#960 work had no home in the doc set, and one doc set was actively wrong.
+
+**The open-PR block is now operational law.** `pre-release-gate.yml:37-50` `pr-drain-check` `exit 1`s while
+any open PR lacks `hold-for-next`/`deferred`, and run 41188203137 refused `bfa15d49` on exactly that
+(`2 of 7 gate jobs failed: pr-drain-check, gate-summary`, no tag). Encoded in three places sized to their
+budget: a new `github-ci-guardrails/SKILL.md` section ("An open PR blocks the *release*, not just the merge",
+150/250 LOC), the full fetch-and-drain recipe in `references/gh-ci-truth.md`, and one sentence appended to
+`release-management` hard rule 3. Consequence recorded for the owner: the v0.3.9 recovery dispatch (#967)
+must run with the queue drained, and this PR carries `hold-for-next` so it cannot be the thing that blocks
+that dispatch.
+
+**A false claim that survived because it lived in four files.** "Default 15 min wait timer on the crates.io
+environment" — measured `protection_rules: []` for `crates.io`, `npm` and `npm-cli` (only `github-pages` has
+a rule, a `branch_policy`), and `…/pending_deployments` answering a bare `[]`. Repaired in
+`agents-docs/release-safety.md` checklist item 6 + failure item 2, in `release-management/SKILL.md`'s
+environment section, and in `references/release-workflow.md`'s "Environment wait timer" section and recovery
+prerequisite — where `release-management/SKILL.md:197` had already contradicted it. Recovery item 3 also
+gained `recovery_tag`, which `release.yml:53-56` hard-requires when `recover=true`: every doc line that
+omitted it described a dispatch that cannot run.
+
+**Queue comments corrected against the tree, not memory.** #964's block said "three member manifests";
+re-measured on `4ea6a8e6` it is **16** stale pins across **9** manifests (root's 8 `path = "crates/…"` pins
+are all current, so only member → root and member → sibling edges drift) — matching the issue body I
+re-published the same day. #955's block gained the measured endpoint fact: `.dist.attestations` is served
+only by the abbreviated packument, and `npm view <pkg> dist --json` omits it.

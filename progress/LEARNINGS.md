@@ -486,3 +486,30 @@
   bundle had been counted as a sixth platform. Same for path rules: `1/a`→200 vs `1/a/a`→404, `2/io`→200,
   `3/s/syn`→200 vs the helper's `sy/n/syn`→404 prove `p1="${1:0:2}" p2="${1:2:2}"` is correct only for
   names ≥ 4 characters.
+- **A false operational claim is a grep, not an edit (2026-10-31, the crates.io "wait timer").**
+  `agents-docs/release-safety.md` checklist item 6 told the operator to check a wait timer that does not exist
+  on this repo. The same claim lived in three other places (`release-management/SKILL.md` environment section,
+  its `references/release-workflow.md` "Environment wait timer" section + recovery prerequisite), and one of
+  them — `release-management/SKILL.md:197`, "`protection_rules: []` means no wait timer" — already *refuted*
+  it. The doc set carried both halves of a contradiction, and I had only been asked to fix the one file. So:
+  when a claim proves false, grep its **words** (`wait timer`, `15 min`, `pending_deployments`) across
+  `agents-docs/`, `.agents/skills/**/SKILL.md`, `**/references/*.md` and `plans/`, and repair every hit.
+  Measured while doing it: `crates.io`, `npm`, `npm-cli` all report `protection_rules: []`; only
+  `github-pages` carries a rule (`branch_policy`); and `…/actions/runs/<id>/pending_deployments` answers a
+  bare top-level `[]` — not `{"workflows": […]}` — so a reader who expects the second shape mis-parses an
+  empty answer as an error. Same discipline for any command a doc prints: `recover=true` without
+  `recovery_tag` hard-errors at `release.yml:53-56`, so the two doc lines that omitted it described a
+  dispatch that cannot run.
+- **One open PR blocks every release, and no doc said so (2026-10-31, run 41188203137).** `release.yml`
+  refused `bfa15d49` with `2 of 7 gate jobs failed: pr-drain-check, gate-summary` and created no tag. The
+  cause was queue state, not code: `pre-release-gate.yml:37-50` runs `gh pr list --state open` and `exit 1`
+  unless every open PR carries `hold-for-next` or `deferred`, and `release.yml` requires the *gate* run to be
+  `completed/success` — so an open PR blocks `workflow_run` releases and `recover=true` dispatches alike. Three
+  traps found on the way to that reading: (a) the escape-hatch labels *exist* and `gh api repos/<o>/<r>/labels`
+  paginates at 30 of 53, so my first grep "proved" `hold-for-next` was missing — always pass `?per_page=100`
+  before concluding an absence; (b) the additive REST route is `POST …/issues/<n>/labels` (`PUT` replaces the
+  whole set, and `gh pr edit --add-label` dies on the known `projectCards` failure); (c) annotations are on
+  `check-runs/<job_id>/annotations` — `actions/jobs/<id>/annotations` is 404 — and `level` came back `null`
+  while `message` held both the `::error::` text and GitHub's generic "Process completed with exit code 1.", so
+  filtering on `level == "error"` returns nothing on a run that failed loudly. Queue state is now a documented
+  pre-release step, not folklore.

@@ -82,6 +82,35 @@ fix's own run — the pinned `ubuntu-24.04` job failed the byte-identical line. 
    main's `validate.sh` had no `cargo deny` stage at all until this branch unified the gate. When
    a PR moves a gate into a different toolchain, price the timeout from a run of *that* shape.
 
+## The queue gate: read the refusal, then drain (measured 2026-10-31, run 41188203137)
+
+`release.yml` can refuse a perfectly green `main` because `pre-release-gate.yml`'s `pr-drain-check`
+(`:37-50`) fails on **any** open PR lacking `hold-for-next`/`deferred`. The release log already names the
+job — read it before looking for a quality regression:
+
+```bash
+gh run view <release-run> --json jobs -q '.jobs[] | select(.name=="validate") | .databaseId'   # job id
+gh api repos/<o>/<r>/check-runs/<job_id>/annotations --jq '.[] | "\(.level) \(.message[0:400])"'
+```
+
+Fetch-shape traps measured on that run: `actions/jobs/<id>/annotations` is **404** (the route is
+`check-runs/<job_id>/annotations`), and `level` came back `null` while `message` held *both* the
+`::error::` text and GitHub's generic "Process completed with exit code 1." — so filter on substring, not
+on `level == "error"`.
+
+Then, and only as the release's own step (never silently, never as a way to keep a red PR open):
+
+```bash
+gh api "repos/<o>/<r>/labels?per_page=100" --jq '.[].name' | grep -E 'hold-for-next|deferred'  # default page = 30 of 53
+gh pr list --state open --json number,title,labels \
+  --jq '.[] | select([.labels[].name] | any(. == "hold-for-next" or . == "deferred") | not) | "\(.number) \(.title)"'
+gh api -X POST "repos/<o>/<r>/issues/<n>/labels" -f labels[]=hold-for-next   # additive; PUT replaces the set
+```
+
+`hold-for-next` = "Defer to next release", `deferred` = "Deferred indefinitely" — both satisfy the gate;
+the difference is release-note intent, not mechanics. A recovery dispatch (`recover=true` + `recovery_tag`)
+runs the same gate, so the queue must be drained for that head too.
+
 ## After green: land and verify
 
 1. `git fetch origin main` — the branch base must equal current `main`.
