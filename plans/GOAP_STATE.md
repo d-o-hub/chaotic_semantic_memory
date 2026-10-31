@@ -479,7 +479,17 @@ world_state:
                                #   crates.io" claim in four files (measured `protection_rules: []` on
                                #   `crates.io`/`npm`/`npm-cli`, `branch_policy` on `github-pages`,
                                #   `pending_deployments` answering a bare `[]`) and adds the `recovery_tag`
-                               #   that `release.yml:53-56` hard-requires with `recover=true`. No effect key
+                               #   that `release.yml:53-56` hard-requires with `recover=true`.
+                               #   A third rule fell out of pairing those two runs and is the one that
+                               #   bites a green release: `bfa15d49` was gate-green at 08:49 (41186134728)
+                               #   and gate-red at 09:19 (41188203123) with no code change, because the
+                               #   08:49 run skipped six of its seven jobs — every real gate job is
+                               #   conditioned on `workflow_run.event == 'push'` (`pre-release-gate.yml:
+                               #   27-30`) while `release.yml` reads only the `--limit 1` newest run's
+                               #   `status`/`conclusion`. So a gate run can certify nothing and still
+                               #   satisfy the release, and a commit's past green never covers a new
+                               #   dispatch. Encoded as release-safety checklist item 1 plus the
+                               #   reference's job-shape query. No effect key
                                #   and no queue change: this is docs, not a queued action; the queue is at
                                #   10 since #973 landed `make_verify_release_report_every_artifact`.
                                #   Previous action: `make_verify_release_report_every_artifact`  # 2026-10-31 (#954, PR #973): release.yml's

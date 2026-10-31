@@ -9,7 +9,12 @@
 Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands.
 
 ## Pre-Release Checklist (MANDATORY)
-1. **Verify CI passes on all platforms**: `gh run list --workflow=ci.yml --limit 3`
+1. **Verify CI passes on all platforms**: `gh run list --workflow=ci.yml --limit 3`. Read the *gate* run the
+   same way but never at run level: `release.yml` accepts the **newest** `pre-release-gate` run for the SHA on
+   its `status`/`conclusion` alone, while every real gate job is conditioned on
+   `github.event.workflow_run.event == 'push'` (`pre-release-gate.yml:27-30`) — so a gate run spawned by any
+   other event skips all six checks and still reports `success` (measured: 41186134728, 1 of 7 jobs ran).
+   Query the per-job conclusions before treating a green gate as a verified one.
 2. **Ensure Cargo.lock is synchronized**: `cargo build --release && git add Cargo.lock`
 3. **Check existing releases**: `gh release list --limit 5`
 4. **Validate changelog entry exists**: `grep -q "^## \[${VERSION}\]" CHANGELOG.md`

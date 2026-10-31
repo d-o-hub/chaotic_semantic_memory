@@ -527,3 +527,14 @@
   re-running the tagged commit's CI fires `workflow_run` again, creating a new gate run that re-reads today's
   open-PR list, so an operator can convert a green historical verdict into a refusal with one click. Verify the
   pair with `gh run list --workflow=… --commit $(git rev-list -n 1 <tag>) --limit 1` before promising either.
+- **A run-level `success` is not a checked gate (2026-10-31, gate run 41186134728).** Chasing the queue rule I
+  paired `bfa15d49`'s two gate runs and found the commit read green at 08:49Z and red at 09:19Z with **no code
+  change** — and the green one had skipped six of its seven jobs. Cause: every real job in
+  `pre-release-gate.yml` is conditioned on `github.event.workflow_run.event == 'push'` (`:27-30`), so a gate run
+  spawned by any other upstream completes `success` having verified nothing, and `release.yml`'s verify step
+  reads `gh run list … --limit 1` and consumes only `status`/`conclusion`. Three rules: (a) never quote a gate
+  run's conclusion without its per-job conclusions — `…/actions/runs/<id>/jobs` is one call and
+  `skipped` is not `success`; (b) a gate verdict belongs to a *run*, so a commit's past green never covers a new
+  dispatch; (c) the consumer of a conditional workflow is the thing to audit, not just the workflow — the `if:`
+  that keeps a job honest is only protective if the gate-reading code also demands the jobs ran. Verified the
+  recovery target passes this test (41110522706: 7-for-7 `success`) before letting the exemption stand.
