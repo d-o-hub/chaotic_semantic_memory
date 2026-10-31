@@ -368,9 +368,16 @@ jobs:
     - name: Publish workspace crates incrementally
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
+        # The pattern this file shipped for its first four index probes — `""vers":"$VERSION""` — is
+        # not the pattern it looks like. Bash splices the adjacent quote runs (`""` + `vers` + `":"` +
+        # $VERSION + `""`) into `vers:0.3.9`, and the sparse index stores `"vers":"0.3.9"`, with the
+        # quotes between the key and the colon, so `vers:0.3.9` cannot match a row that exists: every
+        # one of these checks answered "not published" for versions that were (#971). `-F` with
+        # escaped quotes is the whole fix, and every index probe in this file uses the same form so
+        # the next one does not re-derive the splice.
         version_published() {
           local p1="${1:0:2}" p2="${1:2:2}"
-          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -q ""vers":"$VERSION""
+          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -qF "\"vers\":\"$VERSION\""
         }
 
         CRATES="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
@@ -404,7 +411,7 @@ jobs:
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         p1="ch" p2="ao"
-        if curl -sL "https://index.crates.io/$p1/$p2/chaotic_semantic_memory" | grep -q ""vers":"$VERSION""; then
+        if curl -sL "https://index.crates.io/$p1/$p2/chaotic_semantic_memory" | grep -qF "\"vers\":\"$VERSION\""; then
           echo "⏭️ chaotic_semantic_memory@$VERSION already on crates.io, skipping"
         else
           echo "Publishing chaotic_semantic_memory@$VERSION..."
@@ -417,13 +424,13 @@ jobs:
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         p1="cs" p2="m-"
-        if curl -sL "https://index.crates.io/cs/m-/csm-duckdb" | grep -q ""vers":"$VERSION""; then
+        if curl -sL "https://index.crates.io/cs/m-/csm-duckdb" | grep -qF "\"vers\":\"$VERSION\""; then
           echo "⏭️ csm-duckdb@$VERSION already on crates.io, skipping"
           return 0 2>/dev/null || exit 0
         fi
         echo "Waiting for chaotic_semantic_memory@$VERSION in sparse index..."
         for attempt in $(seq 1 30); do
-          if curl -sL "https://index.crates.io/ch/ao/chaotic_semantic_memory" | grep -q ""vers":"$VERSION""; then
+          if curl -sL "https://index.crates.io/ch/ao/chaotic_semantic_memory" | grep -qF "\"vers\":\"$VERSION\""; then
             echo "✅ chaotic_semantic_memory@$VERSION visible"
             break
           fi
@@ -672,9 +679,31 @@ jobs:
           return 1
         }
 
-        check_with_retry "crates.io" "curl -sL https://index.crates.io/ch/ao/chaotic_semantic_memory | grep -q '"vers":"$VERSION"'"
-        check_with_retry "npm (@d-o-hub/chaotic_semantic_memory)" "[ "$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo 'none')" = "$VERSION" ]"
-        check_with_retry "npm (@d-o-hub/csm)" "[ "$(npm view @d-o-hub/csm version 2>/dev/null || echo 'none')" = "$VERSION" ]"
+        # Every probe is a function invoked by name, for two reasons that are the same shape.
+        # check_with_retry evals its command once per attempt, so a probe written inline as
+        # "[ "$(npm view …)" = "$VERSION" ]" in a double-quoted argument has already been substituted
+        # by the caller: eval then re-runs the literal `[[ 0.3.9 = 0.3.9 ]]` eight times and the
+        # 245 s backoff can never observe a registry that propagated late (#972). A function name has
+        # nothing left to interpolate. And the inline form cannot survive two parse layers anyway —
+        # the pattern this step shipped, '"vers":"$VERSION"', is collapsed by the outer quotes into
+        # 'vers:0.3.9', which the sparse index does not contain (#971). Same splice as the four
+        # publish-side probes above, reached from the other direction.
+        published_on_crates_io() {
+          curl -sL "https://index.crates.io/ch/ao/chaotic_semantic_memory" | grep -qF "\"vers\":\"$VERSION\""
+        }
+        published_on_npm() {
+          [ "$(npm view "$1" version 2>/dev/null || echo none)" = "$VERSION" ]
+        }
+
+        # `if ! …; then :; fi` is load-bearing, not stylistic. GitHub's default run shell is
+        # `bash -e {0}`, and check_with_retry returns 1 on a miss, so a bare call ended the step at the
+        # first missing artifact: later registries were never probed, their ❌ rows never reached
+        # $GITHUB_STEP_SUMMARY, and the aggregate ::error:: below was unreachable (#954). A condition
+        # context is what suppresses -e for the call *and its body*. `|| true` would also work but
+        # reads as discarding a real error, which is precisely what ERRORS exists to collect.
+        if ! check_with_retry "crates.io" "published_on_crates_io"; then :; fi
+        if ! check_with_retry "npm (@d-o-hub/chaotic_semantic_memory)" "published_on_npm @d-o-hub/chaotic_semantic_memory"; then :; fi
+        if ! check_with_retry "npm (@d-o-hub/csm)" "published_on_npm @d-o-hub/csm"; then :; fi
 
         if gh release view "v${VERSION}" --repo ${{ github.repository }} >/dev/null 2>&1; then
           echo "✅ GitHub Release: Created" >> $GITHUB_STEP_SUMMARY

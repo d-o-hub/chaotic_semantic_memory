@@ -287,6 +287,19 @@ else
   exit 1
 fi
 
+# Release verification replay (issues #954, #971, #972). `verify-release` and the
+# `publish-crates` index probes are inline workflow shell: the mutation surface does
+# not contain `.github/workflows/*.yml`, and the steps only run after a tag, so this
+# fixture is their only test surface. It extracts the live step bodies and replays them
+# under GitHub's own `bash -e`, with the registries stubbed.
+if [[ -x "${SCRIPT_DIR}/test-verify-release-step.sh" ]]; then
+  echo "==> Release verification fixture (every verdict collected, truthful, re-probed)"
+  "${SCRIPT_DIR}/test-verify-release-step.sh"
+else
+  echo "Error: scripts/test-verify-release-step.sh missing or not executable"
+  exit 1
+fi
+
 # Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   echo "==> Skill format validation (fail-closed)"
