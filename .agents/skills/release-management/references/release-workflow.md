@@ -79,9 +79,12 @@ Prefer **fix-forward** (patch release) over deleting published artifacts.
 For partially published releases (e.g., npm succeeded but crates.io failed), use recovery dispatch:
 
 ```bash
-# Retry missing artifacts for existing tag
-gh workflow run release.yml --ref main -f recover=true
+# Retry missing artifacts for an existing tag
+gh workflow run release.yml --ref main -f recover=true -f recovery_tag=v0.3.9
 ```
+
+`recovery_tag` is not optional: with `recover=true` an empty tag makes `validate` fail with
+`::error::recovery_tag is required when recover=true.` (`release.yml:53-56`).
 
 The recovery workflow:
 1. Sees tag exists, but `recover=true` → proceeds with `release-needed=true`
@@ -89,8 +92,14 @@ The recovery workflow:
 3. Publishes only missing artifacts (idempotent)
 
 **Prerequisites for recovery:**
-- `CARGO_REGISTRY_TOKEN` must belong to an owner of ALL workspace crates on crates.io
-- crates.io environment must not have a wait timer blocking the `publish-crates` job
+- `CARGO_REGISTRY_TOKEN` must belong to an owner of ALL workspace crates on crates.io, and must be written to
+  **both** scopes that can supply it (the repo secret and the `crates.io` environment secret) — `publish-crates`
+  reads the environment copy
+- The tagged commit still has a green history: `recover=true` gates on the **newest** `CI` and
+  `Pre-Release Gate` runs *for the commit the tag points at* (`release.yml:60`), not on the current head, so
+  an open-PR queue does **not** block a recovery. Verify before promising either — for `v0.3.9`
+  (`642238f0`) both are green (41104878082 / 41110522706). Re-running that commit's CI is the way to spoil it:
+  the new gate run re-reads today's open-PR list and can refuse where history passed
 - Workspace crate names must not be taken by unrelated projects (see below)
 
 ## crates.io name conflicts
@@ -114,17 +123,23 @@ done
 **Known conflicts (as of 2026-07-22):**
 - `csm-core`: Taken by Sesame CSM-1B TTS project → renamed to `csm-core-lib`
 
-## Environment wait timer
+## Environment protection (measured 2026-10-31: there is no wait timer here)
 
-The `crates.io` GitHub environment may have a wait timer (default 15 minutes). This blocks the `publish-crates` job until the timer expires.
+This section previously asserted a "default 15 minutes" wait timer on the `crates.io` environment and told
+you to remove it. Measured on this repo, `crates.io`, `npm` and `npm-cli` all report `protection_rules: []`;
+only `github-pages` carries a rule (`branch_policy`). Nothing can stall `publish-crates` behind an approval
+or a timer, so a failed publish has a real cause — on v0.3.9 it was nine `403 authentication failed` uploads
+from a dead `CARGO_REGISTRY_TOKEN` (issue #967), not a waiting deployment.
 
 ```bash
-# Check pending deployments
-gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
-# Look for wait_timer > 0
+gh api repos/{owner}/{repo}/environments \
+  --jq '.environments[] | "\(.name) \([.protection_rules[].type])"'
+gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments   # [] when nothing waits (top-level array)
 ```
 
-**Solution:** Remove the timer in GitHub Settings → Environments → crates.io, or wait for it to expire before the job starts.
+**If** protection is ever added to a publish environment, remove it in GitHub Settings → Environments or wait
+it out — but query first: an ungated run answers `[]`, and reading that as "the cause" is how a wrong
+diagnosis survives a release.
 
 ## Local helpers
 

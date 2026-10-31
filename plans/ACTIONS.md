@@ -28,6 +28,13 @@
     # verify-release (positive-controlled against the known-attested 0.3.8 and the known-unattested
     # 0.3.4) and drop the `|| npm publish` retry. Do not implement the original options — "accept
     # token publishing, drop --provenance" would delete attestations that exist today.
+    # Measured 2026-10-31: `.dist.attestations` (shape `{url, provenance}`, both packages, 0.3.8 and
+    # 0.3.9) is served ONLY by the abbreviated packument — `Accept: application/vnd.npm.install-v1+json`.
+    # `npm view <pkg> dist --json` reads the full packument, which returns shasum/tarball/fileCount/
+    # integrity and no `attestations` key, so an assertion written against `npm view` reports "missing"
+    # on an attested release. Same class as #972's frozen substitution: the tool you reach for is not
+    # the endpoint the data lives on. `npm audit signatures` is the third option and the only one that
+    # verifies an attestation rather than its presence.
 
   - name: gate_the_member_to_root_version_pins
     github_issue: 964
@@ -37,10 +44,15 @@
     cost: 2
     status: queued
     # Independent of the #960 -> #954 -> #955 release-chain trio; runnable any time.
-    # Measured 2026-10-30: three member manifests pin `chaotic_semantic_memory = { path = …,
-    # version = "0.3.8" }` while every package version is 0.3.9, and
-    # `scripts/verify-version-sync.sh` exits 0 over it. Not a v0.3.9 blocker (^0.3.8 accepts
-    # 0.3.9, and only csm-duckdb of the three goes to crates.io).
+    # Premise re-measured 2026-10-31 and the issue corrected: the drift is 16 stale intra-workspace
+    # version pins across 9 member manifests, not "three". Every manifest's own `version =` is 0.3.9
+    # (11 of 11) and root's 8 `path = "crates/…"` pins are current, so only the member -> root and
+    # member -> sibling edges drift — the direction `sync-version.sh` never rewrites and
+    # `verify-version-sync.sh` never checks (it still exits 0 over all 16). 7 of the 9 crates.io
+    # artifacts therefore publish stale metadata; `^0.3.8` accepts 0.3.9 so nothing mis-resolves
+    # today. Any PR opened for this carries hold-for-next while a release is pending: pr-drain-check
+    # fails the gate for the head it runs on (github-ci-guardrails -> "The queue gate"). A v0.3.9
+    # recover=true dispatch is exempt -- it reads the tagged commit's historical gate verdicts.
 
   - name: gate_the_effective_squash_subject_length
     github_issue: 965

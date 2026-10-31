@@ -453,7 +453,46 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: make_verify_release_report_every_artifact  # 2026-10-31 (#954, PR #973): release.yml's
+  action_last_completed: encode_the_open_pr_release_block_as_an_operational_rule  # 2026-10-31 (docs wave, rebased on #973) —
+                               #   `pre-release-gate.yml:37-50`'s `pr-drain-check` `exit 1`s while ANY open PR
+                               #   lacks `hold-for-next`/`deferred`, and `release.yml` requires that gate run
+                               #   to be `completed/success`, so one open PR blocks every release whose gate
+                               #   run is created now. Measured twice in production, an hour apart: run
+                               #   41188203137 refused `bfa15d49` and run 41192441437 refused the then-current
+                               #   `4ea6a8e6`, both with `2 of 7 gate jobs failed: pr-drain-check,
+                               #   gate-summary`, no tag, every publish job skipped. Encoded in
+                               #   `github-ci-guardrails/SKILL.md` (new section) + its
+                               #   `references/gh-ci-truth.md` (annotation fetch shape — `check-runs/<id>/
+                               #   annotations`, not `actions/jobs/<id>/annotations`, and `level` is null
+                               #   while `message` carries the `::error::`; additive `POST …/issues/<n>/
+                               #   labels`; `labels?per_page=100` because the default 30-of-53 page is what
+                               #   made `hold-for-next` read as absent), one sentence in `release-management`
+                               #   hard rule 3, and `agents-docs/release-safety.md` checklist item 6. The
+                               #   recovery path is the exception, and finding it reversed this wave's first
+                               #   draft: `recover=true` resolves the SHA with `git rev-list -n 1 $TAG_NAME`
+                               #   (`release.yml:60`) while a normal release takes the current head (`:67`),
+                               #   so a recovery reads the *tagged commit's* historical CI + gate verdicts —
+                               #   for `v0.3.9` (`642238f0`) 41104878082 and 41110522706, both green since
+                               #   2026-10-30 — and therefore needs NO queue drain. #967's owner action
+                               #   stands as posted (rotate the token in both scopes); the drain was never
+                               #   its precondition. Same wave falsifies the "default 15 min wait timer on
+                               #   crates.io" claim in four files (measured `protection_rules: []` on
+                               #   `crates.io`/`npm`/`npm-cli`, `branch_policy` on `github-pages`,
+                               #   `pending_deployments` answering a bare `[]`) and adds the `recovery_tag`
+                               #   that `release.yml:53-56` hard-requires with `recover=true`.
+                               #   A third rule fell out of pairing those two runs and is the one that
+                               #   bites a green release: `bfa15d49` was gate-green at 08:49 (41186134728)
+                               #   and gate-red at 09:19 (41188203123) with no code change, because the
+                               #   08:49 run skipped six of its seven jobs — every real gate job is
+                               #   conditioned on `workflow_run.event == 'push'` (`pre-release-gate.yml:
+                               #   27-30`) while `release.yml` reads only the `--limit 1` newest run's
+                               #   `status`/`conclusion`. So a gate run can certify nothing and still
+                               #   satisfy the release, and a commit's past green never covers a new
+                               #   dispatch. Encoded as release-safety checklist item 1 plus the
+                               #   reference's job-shape query. No effect key
+                               #   and no queue change: this is docs, not a queued action; the queue is at
+                               #   10 since #973 landed `make_verify_release_report_every_artifact`.
+                               #   Previous action: `make_verify_release_report_every_artifact`  # 2026-10-31 (#954, PR #973): release.yml's
                                #   verify step calls each probe as `if ! check_with_retry …; then :; fi`
                                #   so every artifact gets a row and the `::error::Missing:` aggregate is
                                #   reachable, the crates.io index patterns match what the index stores

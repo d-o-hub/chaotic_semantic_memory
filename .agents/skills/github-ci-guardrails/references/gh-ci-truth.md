@@ -82,6 +82,80 @@ fix's own run — the pinned `ubuntu-24.04` job failed the byte-identical line. 
    main's `validate.sh` had no `cargo deny` stage at all until this branch unified the gate. When
    a PR moves a gate into a different toolchain, price the timeout from a run of *that* shape.
 
+## The queue gate: read the refusal, then drain (measured 2026-10-31, runs 41188203137 + 41192441437)
+
+`release.yml` can refuse a perfectly green `main` because `pre-release-gate.yml`'s `pr-drain-check` job
+(`:25-50`, step `:37-50`) fails on **any** open PR lacking `hold-for-next`/`deferred`. The release log already
+names the job — read it before looking for a quality regression:
+
+```bash
+gh run view <release-run> --json jobs -q '.jobs[] | select(.name=="validate") | .databaseId'   # job id
+gh api repos/<o>/<r>/check-runs/<job_id>/annotations --jq '.[] | "\(.level) \(.message[0:400])"'
+```
+
+Fetch-shape traps measured on that run: `actions/jobs/<id>/annotations` is **404** (the route is
+`check-runs/<job_id>/annotations`), and `level` came back `null` while `message` held *both* the
+`::error::` text and GitHub's generic "Process completed with exit code 1." — so filter on substring, not
+on `level == "error"`.
+
+Two production refusals, one signature. `bfa15d49` (release 41188203137) and `4ea6a8e6` (release
+41192441437) each ended `failure` with **no tag created**, and in both the paired gate run (41188203123,
+41192441477) reported the same 2-of-7: `pr-drain-check` + `gate-summary` red, the other five green. That
+shape *is* the queue. A real gate failure names one check, so read the job list before opening a hunt.
+
+**The verdict belongs to the newest run, not to the commit.** `release.yml` asks
+`gh run list --workflow=pre-release-gate.yml --commit "$SHA" --limit 1` — one run, newest first — and reads
+only its `status`/`conclusion`. `bfa15d49` was gate-green at 08:49Z (41186134728) and gate-red at 09:19Z
+(41188203123) with no code change in between; the earlier green simply never ran the drain check. So "this
+commit already passed" is not evidence a *new* dispatch will pass, and a refusal that lands minutes after a
+merge is not a regression.
+
+**A green gate run can have verified nothing.** Every real job in `pre-release-gate.yml` is conditioned on
+`github.event.workflow_run.event == 'push'` (`:27-30`), so a gate run spawned by any other upstream
+completion skips all six checks and still concludes `success` — measured on 41186134728: six jobs `skipped`,
+only `gate-summary` ran, run conclusion `success`, and `release.yml` would have accepted it. Read the
+per-job shape before trusting a gate verdict for a SHA:
+
+```bash
+gh api "repos/<o>/<r>/actions/runs/<gate_run>/jobs?per_page=100" \
+  --jq '"jobs=\(.jobs|length): " + ([.jobs[] | .name + "=" + (.conclusion // "-")] | join(", "))'
+```
+
+The recovery target passes that test — `41110522706` for `642238f0` is seven-for-seven `success` including
+`pr-drain-check` — so the exemption below rests on a real green, not a vacuous one.
+
+Then, and only as the release's own step (never silently, never as a way to keep a red PR open):
+
+```bash
+gh api "repos/<o>/<r>/labels?per_page=100" --jq '.[].name' | grep -E 'hold-for-next|deferred'  # default page = 30 of 53
+gh pr list --state open --json number,title,labels \
+  --jq '.[] | select([.labels[].name] | any(. == "hold-for-next" or . == "deferred") | not) | "\(.number) \(.title)"'
+gh api -X POST "repos/<o>/<r>/issues/<n>/labels" -f labels[]=hold-for-next   # additive; PUT replaces the set
+```
+
+`hold-for-next` = "Defer to next release", `deferred` = "Deferred indefinitely" — both satisfy the gate;
+the difference is release-note intent, not mechanics.
+
+Scope the drain to the trigger that needs it. `release.yml` resolves the target SHA two ways: a
+`workflow_run` release or a plain dispatch takes
+`github.event.workflow_run.head_sha || github.sha` (the current head, `:67`), while `recover=true` takes
+`git rev-list -n 1 "$TAG_NAME"` (the **tagged** commit, `:60`). The gate check then asks for the newest
+`CI` run and the newest `pre-release-gate` run *for that SHA* to be `completed/success`. Measured on the live
+recovery target: `v0.3.9` → `642238f0a2678e55c4931500402c671fa2aa02c5`, CI `41104878082` and gate
+`41110522706`, both green since 2026-10-30 — so `recover=true recovery_tag=v0.3.9` needs **no** drain, and
+telling an operator to empty the queue first is wrong. Verify the historical pair before promising either:
+
+```bash
+git fetch --tags --force
+SHA=$(git rev-list -n 1 v0.3.9)   # same resolution release.yml uses; ls-remote would give the tag object
+gh run list --workflow=ci.yml --commit "$SHA" --limit 1 --json conclusion,headSha
+gh run list --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json conclusion,headSha
+```
+
+The one way a recovery *can* be blocked by the queue is self-inflicted: re-running the tagged commit's CI
+fires `workflow_run` again, which creates a new gate run for that SHA and evaluates today's open-PR list.
+Green history is a single re-run away from a refusal — do not re-run CI for a tag you are about to recover.
+
 ## After green: land and verify
 
 1. `git fetch origin main` — the branch base must equal current `main`.

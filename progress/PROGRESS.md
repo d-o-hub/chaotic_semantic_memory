@@ -1957,3 +1957,53 @@ filed and landed inside one branch — so the count moves by one, not three. `re
 stays **false**: crates.io is 0/9 at 0.3.9 and the token rotation (#967) is owner-only. Next in the
 release chain is #955 (npm attestations + drop the `|| npm publish` retry), whose precondition
 `verify_release_collects_all_verdicts` this branch just satisfied.
+
+## 2026-10-31 — the queue gate became a rule, and the wait-timer claim died
+
+Docs-only follow-up to the release-refusal diagnosis (`docs/pr-drain-release-block`, off `4ea6a8e6`). Three
+findings from the #953/#960 work had no home in the doc set, and one doc set was actively wrong.
+
+**The open-PR block is now operational law.** `pre-release-gate.yml:37-50` `pr-drain-check` `exit 1`s while
+any open PR lacks `hold-for-next`/`deferred`, and run 41188203137 refused `bfa15d49` on exactly that
+(`2 of 7 gate jobs failed: pr-drain-check, gate-summary`, no tag). Encoded in three places sized to their
+budget: a new `github-ci-guardrails/SKILL.md` section ("An open PR blocks the release whose gate runs now",
+150/250 LOC), the full fetch-and-drain recipe in `references/gh-ci-truth.md`, and one sentence appended to
+`release-management` hard rule 3. It applies to a `workflow_run` release and to a plain dispatch on current
+`main` — see the correction below for why a `recover=true` dispatch is exempt.
+
+**A false claim that survived because it lived in four files.** "Default 15 min wait timer on the crates.io
+environment" — measured `protection_rules: []` for `crates.io`, `npm` and `npm-cli` (only `github-pages` has
+a rule, a `branch_policy`), and `…/pending_deployments` answering a bare `[]`. Repaired in
+`agents-docs/release-safety.md` checklist item 6 + failure item 2, in `release-management/SKILL.md`'s
+environment section, and in `references/release-workflow.md`'s "Environment wait timer" section and recovery
+prerequisite — where `release-management/SKILL.md:197` had already contradicted it. Recovery item 3 also
+gained `recovery_tag`, which `release.yml:53-56` hard-requires when `recover=true`: every doc line that
+omitted it described a dispatch that cannot run.
+
+**The wave caught its own first draft.** The rule as written above — "one open PR blocks every release, a
+`recover=true` dispatch included" — is wrong for the recovery path, and reading `release.yml`'s target
+resolution rather than the gate's steps is what showed it: a normal release takes the current head (`:67`) so
+its gate run is created now and reads today's queue, while `recover=true` takes
+`git rev-list -n 1 "$TAG_NAME"` (`:60`) and queries the newest CI + gate runs for the **tagged** commit. For
+`v0.3.9` (`642238f0`) those are 41104878082 and 41110522706, both green since 2026-10-30 — so the owner's
+dispatch is **not** queue-blocked, and the "drain before recovering" advice that went with my status message
+is withdrawn. The real hazard runs the other way: re-running the tagged commit's CI spawns a fresh gate run
+that re-reads today's open-PR list, converting green history into a refusal with one click. This PR still
+carries `hold-for-next`, but for the plain-dispatch case that follows it, not to unlock #967.
+
+**A green gate run turned out to certify nothing.** Pairing `bfa15d49`'s two gate runs to pin the queue rule
+measured something worse: the 08:49Z run 41186134728 concluded `success` with six of its seven jobs
+`skipped`, because every real job in `pre-release-gate.yml` is conditioned on
+`github.event.workflow_run.event == 'push'` (`:27-30`) and that run had a different upstream — while
+`release.yml`'s verify step reads `--limit 1` and only the run-level `status`/`conclusion`. The same head read
+red half an hour later (41188203123) with no code change between. So the gate is not a property of the commit,
+and a "green gate" is not yet a checked gate: `agents-docs/release-safety.md` item 1 now demands per-job
+conclusions and `references/gh-ci-truth.md` carries the one-call job-shape query. The recovery target passes
+it — 41110522706 is seven-for-seven `success` — so the exemption above rests on a real green, not a vacuous
+one.
+
+**Queue comments corrected against the tree, not memory.** #964's block said "three member manifests";
+re-measured on `4ea6a8e6` it is **16** stale pins across **9** manifests (root's 8 `path = "crates/…"` pins
+are all current, so only member → root and member → sibling edges drift) — matching the issue body I
+re-published the same day. #955's block gained the measured endpoint fact: `.dist.attestations` is served
+only by the abbreviated packument, and `npm view <pkg> dist --json` omits it.

@@ -486,3 +486,55 @@
   bundle had been counted as a sixth platform. Same for path rules: `1/a`→200 vs `1/a/a`→404, `2/io`→200,
   `3/s/syn`→200 vs the helper's `sy/n/syn`→404 prove `p1="${1:0:2}" p2="${1:2:2}"` is correct only for
   names ≥ 4 characters.
+- **A false operational claim is a grep, not an edit (2026-10-31, the crates.io "wait timer").**
+  `agents-docs/release-safety.md` checklist item 6 told the operator to check a wait timer that does not exist
+  on this repo. The same claim lived in three other places (`release-management/SKILL.md` environment section,
+  its `references/release-workflow.md` "Environment wait timer" section + recovery prerequisite), and one of
+  them — `release-management/SKILL.md:197`, "`protection_rules: []` means no wait timer" — already *refuted*
+  it. The doc set carried both halves of a contradiction, and I had only been asked to fix the one file. So:
+  when a claim proves false, grep its **words** (`wait timer`, `15 min`, `pending_deployments`) across
+  `agents-docs/`, `.agents/skills/**/SKILL.md`, `**/references/*.md` and `plans/`, and repair every hit.
+  Measured while doing it: `crates.io`, `npm`, `npm-cli` all report `protection_rules: []`; only
+  `github-pages` carries a rule (`branch_policy`); and `…/actions/runs/<id>/pending_deployments` answers a
+  bare top-level `[]` — not `{"workflows": […]}` — so a reader who expects the second shape mis-parses an
+  empty answer as an error. Same discipline for any command a doc prints: `recover=true` without
+  `recovery_tag` hard-errors at `release.yml:53-56`, so the two doc lines that omitted it described a
+  dispatch that cannot run.
+- **One open PR blocks every release, and no doc said so (2026-10-31, run 41188203137).** `release.yml`
+  refused `bfa15d49` with `2 of 7 gate jobs failed: pr-drain-check, gate-summary` and created no tag. The
+  cause was queue state, not code: `pre-release-gate.yml:37-50` runs `gh pr list --state open` and `exit 1`
+  unless every open PR carries `hold-for-next` or `deferred`, and `release.yml` requires the *gate* run to be
+  `completed/success` — so an open PR blocks `workflow_run` releases and `recover=true` dispatches alike. Three
+  traps found on the way to that reading: (a) the escape-hatch labels *exist* and `gh api repos/<o>/<r>/labels`
+  paginates at 30 of 53, so my first grep "proved" `hold-for-next` was missing — always pass `?per_page=100`
+  before concluding an absence; (b) the additive REST route is `POST …/issues/<n>/labels` (`PUT` replaces the
+  whole set, and `gh pr edit --add-label` dies on the known `projectCards` failure); (c) annotations are on
+  `check-runs/<job_id>/annotations` — `actions/jobs/<id>/annotations` is 404 — and `level` came back `null`
+  while `message` held both the `::error::` text and GitHub's generic "Process completed with exit code 1.", so
+  filtering on `level == "error"` returns nothing on a run that failed loudly. Queue state is now a documented
+  pre-release step, not folklore.
+- **Whether current state gates a run depends on which commit the lookup asks about (2026-10-31, and I wrote
+  the wrong half first).** My first version of the rule above said "one open PR blocks every release — a
+  `recover=true` dispatch included", and it was wrong because I reasoned from the gate *job* instead of from
+  `release.yml`'s SHA resolution: a `workflow_run` release or plain dispatch takes
+  `github.event.workflow_run.head_sha || github.sha` (`:67`), so its gate run is created now and reads today's
+  queue; `recover=true` takes `git rev-list -n 1 "$TAG_NAME"` (`:60`) and then queries the **newest** CI and
+  gate runs *for the tagged commit* — historical verdicts. Measured on the live target: `v0.3.9` → `642238f0`,
+  CI 41104878082 and gate 41110522706, both `completed/success` since 2026-10-30, so the owner's recovery needs
+  **no** drain, and advising one would have delayed a blocked release behind pointless queue work. Two rules
+  fall out: (a) to predict what a gate can block, read the trigger's *target resolution*, not the gate's steps —
+  the same check on a different SHA has different sensitivity to the present; (b) history is fragile here —
+  re-running the tagged commit's CI fires `workflow_run` again, creating a new gate run that re-reads today's
+  open-PR list, so an operator can convert a green historical verdict into a refusal with one click. Verify the
+  pair with `gh run list --workflow=… --commit $(git rev-list -n 1 <tag>) --limit 1` before promising either.
+- **A run-level `success` is not a checked gate (2026-10-31, gate run 41186134728).** Chasing the queue rule I
+  paired `bfa15d49`'s two gate runs and found the commit read green at 08:49Z and red at 09:19Z with **no code
+  change** — and the green one had skipped six of its seven jobs. Cause: every real job in
+  `pre-release-gate.yml` is conditioned on `github.event.workflow_run.event == 'push'` (`:27-30`), so a gate run
+  spawned by any other upstream completes `success` having verified nothing, and `release.yml`'s verify step
+  reads `gh run list … --limit 1` and consumes only `status`/`conclusion`. Three rules: (a) never quote a gate
+  run's conclusion without its per-job conclusions — `…/actions/runs/<id>/jobs` is one call and
+  `skipped` is not `success`; (b) a gate verdict belongs to a *run*, so a commit's past green never covers a new
+  dispatch; (c) the consumer of a conditional workflow is the thing to audit, not just the workflow — the `if:`
+  that keeps a job honest is only protective if the gate-reading code also demands the jobs ran. Verified the
+  recovery target passes this test (41110522706: 7-for-7 `success`) before letting the exemption stand.
