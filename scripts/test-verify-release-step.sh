@@ -336,8 +336,16 @@ if grep -qF 'check_with_retry "crates.io" "curl' "${WORKFLOW}"; then
 else
     pass "verify-release passes the crates.io probe by function name"
 fi
-if grep -qF 'check_with_retry "npm (@d-o-hub/csm)" "[ "$(npm' "${WORKFLOW}"; then
+# The needle stops at the `[ ` that opens an inlined test expression, and the
+# positive control names the function that replaced it. Together they pin the
+# same property the longer pattern did — the second argument to check_with_retry
+# is either `eval`ed text or a function name, and `[ ` vs `published_on_npm`
+# tells you which — without carrying a `$(` inside single quotes, which
+# ShellCheck reads as an accidental non-expansion (SC2016).
+if grep -qF 'check_with_retry "npm (@d-o-hub/csm)" "[ ' "${WORKFLOW}"; then
     fail "verify-release inlines an npm probe (frozen substitution) again"
+elif ! grep -qF 'check_with_retry "npm (@d-o-hub/csm)" "published_on_npm @d-o-hub/csm"' "${WORKFLOW}"; then
+    fail "verify-release no longer calls the npm CLI probe through a named function"
 else
     pass "verify-release passes the npm probes by function name"
 fi
