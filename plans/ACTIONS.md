@@ -13,15 +13,6 @@
 > entries to this file.
 
 ```yaml
-  - name: name_the_failing_job_in_the_release_refusal
-    github_issue: 960
-    preconditions:
-      release_gate_race_repaired: true
-    effects:
-      release_refusal_names_the_failing_gate_job: true
-    cost: 1
-    status: queued
-
   - name: make_verify_release_report_every_artifact
     github_issue: 954
     preconditions:

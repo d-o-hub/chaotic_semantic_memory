@@ -116,22 +116,45 @@ jobs:
         # ever hit while a gate run was actually in flight — that would mean the 30m bound is wrong, not
         # that the design is.
         GATE_DEADLINE=$(( $(date +%s) + 1800 ))
+        # #960: name the job that blocked the release. The blended run verdict is
+        # byte-identical for a RUSTSEC finding, a red benchmark and "somebody has an
+        # open PR", so a refusal could not be triaged from the release log. The
+        # per-job conclusions are one API call away; scripts/gate-failure-detail.sh
+        # parses them from stdin so the logic is fixture-tested without network
+        # (scripts/test-gate-failure-detail.sh) and always exits 0 — a diagnostic must
+        # never itself become the reason a release refuses.
+        gate_refusal_detail() {
+          if [ "${GATE_RUN_ID}" = "missing" ] || [ "${GATE_RUN_ID}" = "null" ]; then
+            echo "SUMMARY: no pre-release-gate run exists for ${SHA} — that workflow never started for this commit"
+            return 0
+          fi
+          gh api "repos/${{ github.repository }}/actions/runs/${GATE_RUN_ID}/jobs" 2>/dev/null \
+            | bash scripts/gate-failure-detail.sh "${GATE_RUN_ID}" "${SHA}" \
+            || echo "SUMMARY: gate job detail could not be rendered for run ${GATE_RUN_ID}"
+        }
         while :; do
-          GATE_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
+          GATE_RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json databaseId,status,conclusion --jq '.[0] // {}')
+          GATE_RUN_ID=$(echo "$GATE_RUN" | jq -r '.databaseId // "missing"')
           GATE_STATUS=$(echo "$GATE_RUN" | jq -r '.status // "missing"')
           GATE_CONCLUSION=$(echo "$GATE_RUN" | jq -r '.conclusion // "none"')
-          echo "Pre-Release Gate on ${SHA}: status=${GATE_STATUS} conclusion=${GATE_CONCLUSION}"
+          echo "Pre-Release Gate on ${SHA}: status=${GATE_STATUS} conclusion=${GATE_CONCLUSION} run=${GATE_RUN_ID}"
           if [ "$GATE_STATUS" = "completed" ]; then
             break
           fi
           if [ "$(date +%s)" -ge "$GATE_DEADLINE" ]; then
-            echo "::error::Refusing release: Pre-Release Gate on ${SHA} had no verdict within 30m (last seen ${GATE_STATUS}/${GATE_CONCLUSION})."
+            GATE_DETAIL="$(gate_refusal_detail)"
+            printf '%s\n' "${GATE_DETAIL}"
+            GATE_SUMMARY="$(printf '%s\n' "${GATE_DETAIL}" | sed -n 's/^SUMMARY: //p')"
+            echo "::error::Refusing release: Pre-Release Gate on ${SHA} had no verdict within 30m (last seen ${GATE_STATUS}/${GATE_CONCLUSION}). ${GATE_SUMMARY}"
             return 1 2>/dev/null || exit 1
           fi
           sleep 60
         done
         if [ "$GATE_CONCLUSION" != "success" ]; then
-          echo "::error::Refusing release: Pre-Release Gate on ${SHA} is ${GATE_STATUS}/${GATE_CONCLUSION}, expected completed/success."
+          GATE_DETAIL="$(gate_refusal_detail)"
+          printf '%s\n' "${GATE_DETAIL}"
+          GATE_SUMMARY="$(printf '%s\n' "${GATE_DETAIL}" | sed -n 's/^SUMMARY: //p')"
+          echo "::error::Refusing release: Pre-Release Gate on ${SHA} is ${GATE_STATUS}/${GATE_CONCLUSION}, expected completed/success. ${GATE_SUMMARY}"
           return 1 2>/dev/null || exit 1
         fi
       env:

@@ -385,3 +385,18 @@
   "deny passed" as "no critical advisory": query `…/dependabot/alerts?state=open`, and treat the push banner as
   the trigger for that query rather than as a duplicate of the gate. Rule now in `github-ci-guardrails`
   ("A green `cargo deny` says nothing about a GHSA that has no RustSec id").
+
+- **A diagnostic for an event you cannot reproduce is only as good as the real payload it is replayed
+  against (2026-10-30, #960).** The release-refusal path cannot be triggered on demand, so "it prints the
+  job names" was unverifiable by construction — until the parsing moved out of the workflow `run:` block
+  into `scripts/gate-failure-detail.sh` (stdin JSON → stdout lines) and the *actual* jobs payload of the two
+  real gate runs went through the actual step body (`yaml.safe_load` walk of `jobs.*.steps[]`, `${{ }}`
+  substituted, `bash -e`). Two consequences worth keeping: (a) a fixture over recorded payloads is the
+  coverage when `scripts/**` is outside the mutation surface (`--lib` only), so wire it fail-closed in
+  `validate.sh` rather than shipping untested inline shell; (b) the guard that prints the diagnostic must
+  exit 0 unconditionally — a broken *reporter* must never become a new reason to refuse a release.
+- **`SCRIPT_CATALOG.md` caller columns are grep over prose, not call graphs (2026-10-30, #960).** Adding a
+  comment that mentions `scripts/check-actionlint.sh` made the generator record that script as a *caller* of
+  it. The drift gate stays green (it re-renders with the same generator), so nothing catches this — read the
+  header's own disclaimer ("static indicators, not proof") as law, and expect to regenerate the catalog in
+  the same commit that adds or wires any script.

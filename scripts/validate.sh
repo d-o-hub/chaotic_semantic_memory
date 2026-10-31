@@ -275,6 +275,18 @@ else
   exit 1
 fi
 
+# Release refusal detail (issue #960). A gate refusal only ever renders while a
+# release is being blocked, which is the one moment nobody is debugging locally; the
+# fixture replays every refusal shape (failed / in-flight / skipped / jobless /
+# non-JSON / newline-in-name) against scripts/gate-failure-detail.sh.
+if [[ -x "${SCRIPT_DIR}/test-gate-failure-detail.sh" ]]; then
+  echo "==> Release refusal detail fixture (names the blocking gate job)"
+  "${SCRIPT_DIR}/test-gate-failure-detail.sh"
+else
+  echo "Error: scripts/test-gate-failure-detail.sh missing or not executable"
+  exit 1
+fi
+
 # Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   echo "==> Skill format validation (fail-closed)"
