@@ -92,17 +92,18 @@ jobs:
         #
         # Both this workflow and pre-release-gate.yml are triggered by the same `CI` completion, so the
         # gate is still running when this step executes: its `gate-summary` fans in on six jobs
-        # (pre-release-gate.yml:184) and the slowest measured pass ran 4m37s (run 39060608423, 277s,
-        # 2026-10-17T19:00:58Z -> 19:05:35Z). `validate` gets here inside a minute — measured on run
-        # 39648046550, where the job ran 17:55:13 -> 17:56:15 (62s) while that SHA's gate run
-        # 39648046307 was open 17:55:10 -> 17:59:17. The one-shot read therefore saw in_progress/none
-        # (#953). It has never fired in anger: `release.yml` was unparsable from 0f77c0d0 until #947,
-        # so no run reached this step. This is the race #953 predicts will block the first real release,
-        # not a recorded refusal. Wait for a verdict instead, bounded. Fail-closed is preserved: anything
-        # but completed/success still blocks, and a gate that never starts costs the deadline rather than
-        # failing instantly, because sibling run creation is not ordered. `validate` declares no
-        # timeout-minutes, so the 360-min default covers this 30-min wait (~6.5x the slowest measured
-        # pass) plus the rest of the job.
+        # (pre-release-gate.yml:184). Measured on the release that settled it (run 41110522627, 642238f0):
+        # the gate's first job started 18:53:01 and `gate-summary` completed 18:59:01, so the *run* this
+        # poll waits for is 6m00s — of which `security-audit` (18:54:14 -> 18:58:52, 4m38s) is the slowest
+        # single job, close to the 4m37s first written here. `validate` ran 18:52:06 -> 19:02:29, so
+        # ~6m55s of that was this wait, and it produced completed/success and the v0.3.9 tag. The pre-fix
+        # one-shot read would have seen in_progress/none at that moment — run 39648046550 reached the step
+        # in 62s while its gate run 39648046307 was open 17:55:10 -> 17:59:17 — though no *false* refusal
+        # is on record yet: 4ac8422d's refusal (run 41078875362) was a genuinely red gate. Fail-closed is
+        # preserved: anything but completed/success still blocks, and a gate that never starts costs the
+        # deadline rather than failing instantly, because sibling run creation is not ordered. `validate`
+        # declares no timeout-minutes, so the 360-min default covers this 30-min wait (~4.3x the measured
+        # 6m55s, not the ~6.5x a job-level figure suggested) plus the rest of the job.
         #
         # This deliberately keeps a poll, against the standing rule in progress/LEARNINGS.md
         # ("Polling a gate is a ceiling you will raise forever; migrate to the event", 2026-09-30). The
