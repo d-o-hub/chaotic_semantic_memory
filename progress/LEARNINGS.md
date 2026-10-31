@@ -527,14 +527,26 @@
   re-running the tagged commit's CI fires `workflow_run` again, creating a new gate run that re-reads today's
   open-PR list, so an operator can convert a green historical verdict into a refusal with one click. Verify the
   pair with `gh run list --workflow=… --commit $(git rev-list -n 1 <tag>) --limit 1` before promising either.
-- **A run-level `success` is not a checked gate (2026-10-31, gate run 41186134728).** Chasing the queue rule I
+- **A run-level `success` is not a checked gate (2026-10-31, gate run 41186134728; filed as d-o-hub#969).**
+  Chasing the queue rule I
   paired `bfa15d49`'s two gate runs and found the commit read green at 08:49Z and red at 09:19Z with **no code
   change** — and the green one had skipped six of its seven jobs. Cause: every real job in
-  `pre-release-gate.yml` is conditioned on `github.event.workflow_run.event == 'push'` (`:27-30`), so a gate run
-  spawned by any other upstream completes `success` having verified nothing, and `release.yml`'s verify step
-  reads `gh run list … --limit 1` and consumes only `status`/`conclusion`. Three rules: (a) never quote a gate
+  `pre-release-gate.yml` requires `workflow_run.event == 'push'` **and** `workflow_run.conclusion == 'success'`
+  (`:27-30`), and CI run 41184146253's **attempt 1 had concluded failure** (self-hosted runner out of disk), so
+  that completion lit a green gate and a green release run while skipping everything checkable; the attempt-2
+  re-run at 09:19:08Z produced the real gate run, which then refused on the queue. I first wrote "a gate run
+  spawned by any other upstream" — reading the `if:` as one clause instead of two — and only corrected it by
+  pulling `actions/runs/41184146253` and seeing `run_attempt: 2` with an `updated_at` that matched the second
+  gate run. An inferred cause is a guess even when every number around it is measured. Three rules: (a) never quote a gate
   run's conclusion without its per-job conclusions — `…/actions/runs/<id>/jobs` is one call and
   `skipped` is not `success`; (b) a gate verdict belongs to a *run*, so a commit's past green never covers a new
   dispatch; (c) the consumer of a conditional workflow is the thing to audit, not just the workflow — the `if:`
   that keeps a job honest is only protective if the gate-reading code also demands the jobs ran. Verified the
   recovery target passes this test (41110522706: 7-for-7 `success`) before letting the exemption stand.
+  The same condition sits on `release.yml`'s own `validate` (`:34-38`), so that one upstream completion lit
+  *two* green runs that did nothing: gate 41186134728 and release 41186134783 (`validate` skipped ⇒ every
+  publish skipped, only `notify` ran). And a third quiet green is routine rather than exotic: when the tag
+  already exists `validate` sets `release-needed=false`, all downstream jobs skip, and the run still reports
+  `success` — 41195178865 on `14687660` is green and published nothing, which is why "the latest release run
+  passed" must never be quoted as registry evidence. Generalize: a run-level conclusion certifies *nothing
+  failed*, not *anything happened*; the jobs are the record.

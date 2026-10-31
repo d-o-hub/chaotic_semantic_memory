@@ -453,7 +453,27 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: encode_the_open_pr_release_block_as_an_operational_rule  # 2026-10-31 (docs wave, rebased on #973) —
+  action_last_completed: encode_the_green_release_run_as_not_publish_evidence  # 2026-10-31 (follow-up wave off `44e1c5ba`) —
+                               #   `release.yml:34-38` guards `validate` with the same two-clause
+                               #   `workflow_run.event == 'push' && workflow_run.conclusion == 'success'` condition
+                               #   as the gate, so CI 41184146253's 08:49:08Z **attempt-1 failure** lit gate
+                               #   41186134728 and release 41186134783 green in the same second — the release
+                               #   run skipping `validate` and therefore all seven substantive jobs, only
+                               #   `notify` running. The routine version is
+                               #   `release-needed=false`: when `v{version}` already exists every downstream job
+                               #   skips and the run still reports `success`, which is the state of the newest
+                               #   release run on main (41195178865, `14687660`) while crates.io still has no
+                               #   0.3.9. Encoded as `agents-docs/release-safety.md` checklist item 3 ("a green
+                               #   `release.yml` run is not publish evidence") and item 1's per-job rule, the
+                               #   reference's three-quiet-greens paragraph plus its one-call job-shape query,
+                               #   and the skill's read-the-jobs sentence; the gate paragraph is reworded from a
+                               #   code reading ("would have accepted it") to the observed pair. Consequence for
+                               #   the operator: `gh run list --workflow=release.yml` cannot answer "is 0.3.9
+                               #   published" — only `verify-release`'s rows or the registries can, so #967's
+                               #   recovery dispatch stays the open path and its re-verification is the registry
+                               #   query, not the run badge. No effect key and no queue change (docs, 10 actions
+                               #   queued); the PR queue itself is now empty since #975 merged.
+                               #   Previous action: `encode_the_open_pr_release_block_as_an_operational_rule`  # 2026-10-31 (docs wave, rebased on #973) —
                                #   `pre-release-gate.yml:37-50`'s `pr-drain-check` `exit 1`s while ANY open PR
                                #   lacks `hold-for-next`/`deferred`, and `release.yml` requires that gate run
                                #   to be `completed/success`, so one open PR blocks every release whose gate
@@ -483,13 +503,19 @@ world_state:
                                #   A third rule fell out of pairing those two runs and is the one that
                                #   bites a green release: `bfa15d49` was gate-green at 08:49 (41186134728)
                                #   and gate-red at 09:19 (41188203123) with no code change, because the
-                               #   08:49 run skipped six of its seven jobs — every real gate job is
-                               #   conditioned on `workflow_run.event == 'push'` (`pre-release-gate.yml:
-                               #   27-30`) while `release.yml` reads only the `--limit 1` newest run's
+                               #   08:49 run skipped six of its seven jobs — every real gate job
+                               #   requires `workflow_run.event == 'push'` **and**
+                               #   `workflow_run.conclusion == 'success'` (`pre-release-gate.yml:
+                               #   27-30`) and the 08:49:08Z completion was CI 41184146253's failed
+                               #   attempt 1, while `release.yml` reads only the `--limit 1` newest run's
                                #   `status`/`conclusion`. So a gate run can certify nothing and still
                                #   satisfy the release, and a commit's past green never covers a new
-                               #   dispatch. Encoded as release-safety checklist item 1 plus the
-                               #   reference's job-shape query. No effect key
+                               #   dispatch. `release.yml:34-38` guards `validate` with the same condition,
+                               #   so that completion lit release run 41186134783 green with nothing
+                               #   published, and 41195178865 is green today only because
+                               #   `release-needed=false` skips every downstream job. Encoded as
+                               #   release-safety checklist items 1 and 3 plus the reference's job-shape
+                               #   query. No effect key
                                #   and no queue change: this is docs, not a queued action; the queue is at
                                #   10 since #973 landed `make_verify_release_report_every_artifact`.
                                #   Previous action: `make_verify_release_report_every_artifact`  # 2026-10-31 (#954, PR #973): release.yml's
