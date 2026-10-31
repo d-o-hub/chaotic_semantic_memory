@@ -1966,11 +1966,10 @@ findings from the #953/#960 work had no home in the doc set, and one doc set was
 **The open-PR block is now operational law.** `pre-release-gate.yml:37-50` `pr-drain-check` `exit 1`s while
 any open PR lacks `hold-for-next`/`deferred`, and run 41188203137 refused `bfa15d49` on exactly that
 (`2 of 7 gate jobs failed: pr-drain-check, gate-summary`, no tag). Encoded in three places sized to their
-budget: a new `github-ci-guardrails/SKILL.md` section ("An open PR blocks the *release*, not just the merge",
+budget: a new `github-ci-guardrails/SKILL.md` section ("An open PR blocks the release whose gate runs now",
 150/250 LOC), the full fetch-and-drain recipe in `references/gh-ci-truth.md`, and one sentence appended to
-`release-management` hard rule 3. Consequence recorded for the owner: the v0.3.9 recovery dispatch (#967)
-must run with the queue drained, and this PR carries `hold-for-next` so it cannot be the thing that blocks
-that dispatch.
+`release-management` hard rule 3. It applies to a `workflow_run` release and to a plain dispatch on current
+`main` — see the correction below for why a `recover=true` dispatch is exempt.
 
 **A false claim that survived because it lived in four files.** "Default 15 min wait timer on the crates.io
 environment" — measured `protection_rules: []` for `crates.io`, `npm` and `npm-cli` (only `github-pages` has
@@ -1980,6 +1979,17 @@ environment section, and in `references/release-workflow.md`'s "Environment wait
 prerequisite — where `release-management/SKILL.md:197` had already contradicted it. Recovery item 3 also
 gained `recovery_tag`, which `release.yml:53-56` hard-requires when `recover=true`: every doc line that
 omitted it described a dispatch that cannot run.
+
+**The wave caught its own first draft.** The rule as written above — "one open PR blocks every release, a
+`recover=true` dispatch included" — is wrong for the recovery path, and reading `release.yml`'s target
+resolution rather than the gate's steps is what showed it: a normal release takes the current head (`:67`) so
+its gate run is created now and reads today's queue, while `recover=true` takes
+`git rev-list -n 1 "$TAG_NAME"` (`:60`) and queries the newest CI + gate runs for the **tagged** commit. For
+`v0.3.9` (`642238f0`) those are 41104878082 and 41110522706, both green since 2026-10-30 — so the owner's
+dispatch is **not** queue-blocked, and the "drain before recovering" advice that went with my status message
+is withdrawn. The real hazard runs the other way: re-running the tagged commit's CI spawns a fresh gate run
+that re-reads today's open-PR list, converting green history into a refusal with one click. This PR still
+carries `hold-for-next`, but for the plain-dispatch case that follows it, not to unlock #967.
 
 **Queue comments corrected against the tree, not memory.** #964's block said "three member manifests";
 re-measured on `4ea6a8e6` it is **16** stale pins across **9** manifests (root's 8 `path = "crates/…"` pins

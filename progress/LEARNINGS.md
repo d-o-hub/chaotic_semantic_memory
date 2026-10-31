@@ -513,3 +513,17 @@
   while `message` held both the `::error::` text and GitHub's generic "Process completed with exit code 1.", so
   filtering on `level == "error"` returns nothing on a run that failed loudly. Queue state is now a documented
   pre-release step, not folklore.
+- **Whether current state gates a run depends on which commit the lookup asks about (2026-10-31, and I wrote
+  the wrong half first).** My first version of the rule above said "one open PR blocks every release — a
+  `recover=true` dispatch included", and it was wrong because I reasoned from the gate *job* instead of from
+  `release.yml`'s SHA resolution: a `workflow_run` release or plain dispatch takes
+  `github.event.workflow_run.head_sha || github.sha` (`:67`), so its gate run is created now and reads today's
+  queue; `recover=true` takes `git rev-list -n 1 "$TAG_NAME"` (`:60`) and then queries the **newest** CI and
+  gate runs *for the tagged commit* — historical verdicts. Measured on the live target: `v0.3.9` → `642238f0`,
+  CI 41104878082 and gate 41110522706, both `completed/success` since 2026-10-30, so the owner's recovery needs
+  **no** drain, and advising one would have delayed a blocked release behind pointless queue work. Two rules
+  fall out: (a) to predict what a gate can block, read the trigger's *target resolution*, not the gate's steps —
+  the same check on a different SHA has different sensitivity to the present; (b) history is fragile here —
+  re-running the tagged commit's CI fires `workflow_run` again, creating a new gate run that re-reads today's
+  open-PR list, so an operator can convert a green historical verdict into a refusal with one click. Verify the
+  pair with `gh run list --workflow=… --commit $(git rev-list -n 1 <tag>) --limit 1` before promising either.

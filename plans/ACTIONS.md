@@ -50,8 +50,9 @@
     # member -> sibling edges drift — the direction `sync-version.sh` never rewrites and
     # `verify-version-sync.sh` never checks (it still exits 0 over all 16). 7 of the 9 crates.io
     # artifacts therefore publish stale metadata; `^0.3.8` accepts 0.3.9 so nothing mis-resolves
-    # today. Do not open the PR until the v0.3.9 recovery is dispatched, or label it hold-for-next
-    # (any open PR reddens pr-drain-check and refuses the release — github-ci-guardrails).
+    # today. Any PR opened for this carries hold-for-next while a release is pending: pr-drain-check
+    # fails the gate for the head it runs on (github-ci-guardrails -> "The queue gate"). A v0.3.9
+    # recover=true dispatch is exempt -- it reads the tagged commit's historical gate verdicts.
 
   - name: gate_the_effective_squash_subject_length
     github_issue: 965

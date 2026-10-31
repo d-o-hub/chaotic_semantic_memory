@@ -95,8 +95,11 @@ The recovery workflow:
 - `CARGO_REGISTRY_TOKEN` must belong to an owner of ALL workspace crates on crates.io, and must be written to
   **both** scopes that can supply it (the repo secret and the `crates.io` environment secret) — `publish-crates`
   reads the environment copy
-- The open-PR queue is drained: `pr-drain-check` fails the pre-release gate while any open PR lacks a
-  `hold-for-next`/`deferred` label, and a recovery run passes that same gate
+- The tagged commit still has a green history: `recover=true` gates on the **newest** `CI` and
+  `Pre-Release Gate` runs *for the commit the tag points at* (`release.yml:60`), not on the current head, so
+  an open-PR queue does **not** block a recovery. Verify before promising either — for `v0.3.9`
+  (`642238f0`) both are green (41104878082 / 41110522706). Re-running that commit's CI is the way to spoil it:
+  the new gate run re-reads today's open-PR list and can refuse where history passed
 - Workspace crate names must not be taken by unrelated projects (see below)
 
 ## crates.io name conflicts

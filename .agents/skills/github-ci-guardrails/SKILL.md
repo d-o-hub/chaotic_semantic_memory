@@ -91,14 +91,19 @@ its non-status rules are invisible to `gh pr checks` — this repo's ruleset als
 handshake timeout; exit 1 = client error, not a verdict) — snapshot with `--json name,bucket` or the
 check-runs API in a bounded loop. Recipes and the measured state: `references/gh-ci-truth.md`.
 
-## An open PR blocks the *release*, not just the merge (2026-10-31)
+## An open PR blocks the release whose gate runs now — not just the merge (2026-10-31)
 
 `pre-release-gate.yml`'s `pr-drain-check` job (`:37-50`) runs `gh pr list --state open` and `exit 1` unless
 **every** open PR carries `hold-for-next` or `deferred`. Since `release.yml` refuses any main head whose gate
-run is not `completed/success`, one open PR blocks every release — a `recover=true` dispatch included.
-Measured: run 41188203137 (`bfa15d49`) refused with `2 of 7 gate jobs failed: pr-drain-check, gate-summary`
-and created no tag. So draining or labelling the queue is a **step of the release dispatch**, not
-housekeeping, and a release that never started is not evidence of a quality failure.
+run is not `completed/success`, one open PR blocks every release **whose gate run is created now** — a
+`workflow_run` release or a plain dispatch. `recover=true` is the exception and it matters: it resolves
+`git rev-list -n 1 <recovery_tag>`, the *tagged* commit, and reads that commit's historical gate run
+(`v0.3.9` → `642238f0`: CI 41104878082 + gate 41110522706, both green), so a recovery needs no drain. The
+inverse hazard: re-running the tagged commit's CI spawns a **new** gate run that re-reads today's queue,
+turning a green historical verdict into a refusal. Measured normal-path block: run 41188203137 (`bfa15d49`)
+refused with `2 of 7 gate jobs failed: pr-drain-check, gate-summary` and created no tag. So draining or
+labelling the queue is a **step of the release dispatch**, not housekeeping, and a release that never started
+is not evidence of a quality failure.
 Label *existence* is a measurement, not an assumption: `gh api repos/<o>/<r>/labels` paginates at 30 of this
 repo's 53, so `hold-for-next` read as absent until re-queried with `?per_page=100`. Additive labelling is
 `gh api -X POST repos/<o>/<r>/issues/<n>/labels -f labels[]=hold-for-next` (`PUT` replaces the set;

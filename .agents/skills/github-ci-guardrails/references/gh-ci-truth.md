@@ -108,8 +108,27 @@ gh api -X POST "repos/<o>/<r>/issues/<n>/labels" -f labels[]=hold-for-next   # a
 ```
 
 `hold-for-next` = "Defer to next release", `deferred` = "Deferred indefinitely" — both satisfy the gate;
-the difference is release-note intent, not mechanics. A recovery dispatch (`recover=true` + `recovery_tag`)
-runs the same gate, so the queue must be drained for that head too.
+the difference is release-note intent, not mechanics.
+
+Scope the drain to the trigger that needs it. `release.yml` resolves the target SHA two ways: a
+`workflow_run` release or a plain dispatch takes
+`github.event.workflow_run.head_sha || github.sha` (the current head, `:67`), while `recover=true` takes
+`git rev-list -n 1 "$TAG_NAME"` (the **tagged** commit, `:60`). The gate check then asks for the newest
+`CI` run and the newest `pre-release-gate` run *for that SHA* to be `completed/success`. Measured on the live
+recovery target: `v0.3.9` → `642238f0a2678e55c4931500402c671fa2aa02c5`, CI `41104878082` and gate
+`41110522706`, both green since 2026-10-30 — so `recover=true recovery_tag=v0.3.9` needs **no** drain, and
+telling an operator to empty the queue first is wrong. Verify the historical pair before promising either:
+
+```bash
+git fetch --tags --force
+SHA=$(git rev-list -n 1 v0.3.9)   # same resolution release.yml uses; ls-remote would give the tag object
+gh run list --workflow=ci.yml --commit "$SHA" --limit 1 --json conclusion,headSha
+gh run list --workflow=pre-release-gate.yml --commit "$SHA" --limit 1 --json conclusion,headSha
+```
+
+The one way a recovery *can* be blocked by the queue is self-inflicted: re-running the tagged commit's CI
+fires `workflow_run` again, which creates a new gate run for that SHA and evaluates today's open-PR list.
+Green history is a single re-run away from a refusal — do not re-run CI for a tag you are about to recover.
 
 ## After green: land and verify
 
