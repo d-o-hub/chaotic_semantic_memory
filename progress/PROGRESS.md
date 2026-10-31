@@ -1886,3 +1886,29 @@ not carry), and **#964** is the member→root version-pin blind spot in `sync-ve
   `release_pipeline_validated` reflects the live tag + npm 2/2 + 7 assets against crates.io 0/9 blocked on
   the owner-only credential in #967). Roast verdict: `plans/PR_ROAST_2026_10_30.md` ("#960 — roasted before
   implementation"), including the five self-inflicted errors the re-derivation caught.
+
+- 2026-10-30 18:52→19:14Z **v0.3.9 published everywhere except crates.io, and the wait proved itself.**
+  CI on `642238f0` completed success → gate run **41110522706** and release run **41110522627** both started
+  18:52:01. `validate` ran 18:52:06 → 19:02:29: the bounded wait held ~**6m55s** and then saw
+  completed/success (gate first job 18:53:01, `gate-summary` done 18:59:01 = 6m00s of run; `security-audit`
+  18:54:14 → 18:58:52 = 4m38s is the slowest *job* — the 4m37s figure `release.yml` quoted was job-level, so
+  the 30-min bound is ~4.3× the real wait, not ~6.5×). Tag `v0.3.9` created → `642238f0` (lightweight).
+  `build-wasm`/`build-cli-matrix`/`create-github-release`/both `publish-npm-*` → **success** (7 assets; npm
+  2/2 at 0.3.9 with `attestations=provenance,url`). `publish-crates` **failed** 19:07:45 → 19:10:28 with nine
+  `403 authentication failed` uploads and `verify-release` **failed** 19:10:32 → 19:14:41 → index 0/9. The
+  E0432s in the later crates are a *consequence* (a verify build resolves companions from the registry, and
+  the companions never uploaded), not a feature-gate bug. Filed as **#967** with the ~1 s
+  `GET /api/v1/me` pre-flight; recovery is `recover=true recovery_tag=v0.3.9` and is owner-only (the
+  `CARGO_REGISTRY_TOKEN` behind the `crates.io` *environment* secret wins over the repo-level copy).
+- 2026-10-31 08:19→08:49Z **#960 landed and main went red on an infra fault, which exposed a worse defect.**
+  `fix(ci): name the gate job that refused the release` merged as `bfa15d49` (owner-merged; #960 auto-closed).
+  CI run 41184146253 job `test` (124487486597) failed with annotation `System.IO.IOException: No space left on
+  device : '/home/runner/actions-runner/…/_diag/Worker_20261031-081949-utc.log'` — the self-hosted runner's
+  disk, not the tree (the PR run on `b9e2044c` had concluded success, and no step carried a failure
+  conclusion). Re-ran the failed job. While that was still in flight, `release.yml` run **41186134783**
+  triggered off the *failed* CI conclusion and skipped `validate` + all eight dependents
+  (`needs.validate.outputs.release-needed` is null), executing only `notify` (`if: always()`) — and concluded
+  **`success`** while crates.io stayed 0/9. Filed as **#969**: the #903 no-verdict rule, never applied to
+  `release.yml`. Lesson recorded in `progress/LEARNINGS.md` (run-level status is not monotonic; a green
+  `Release` is not proof of a release) and distilled into `release-management` (post-publish verification +
+  the crates.io token pre-flight).

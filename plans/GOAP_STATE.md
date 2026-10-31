@@ -149,14 +149,15 @@ world_state:
   yaml_gate_severity_classified_and_gated: true  # 2026-10-05 (#841, PR #854, main 2984d3e): validate-workflows.sh classifies yamllint output on `-f parsable` into syntax error / error-level / warning-level instead of calling every finding "YAML syntax error", .yamllint gives it a profile (relaxed; line-length 200 warning, priced from ci.yml:516 at 166 cols and benchmark-ci.yml:61 at 207), an unavailable parser prints SKIPPED — NOT A PASS instead of a silent pass, and the 12-case fixture runs from validate.sh:297-303 with yamllint apt-installed in the lint job (pip hits PEP 668 on ubuntu-24.04).
 
   # ── Active wave ───────────────────────────────────────────────
-  release_pipeline_validated: false  # 2026-10-30, re-measured after run 41110522627: the v0.3.9 tag is
+  release_pipeline_validated: false  # 2026-10-31, re-measured after run 41110522627: the v0.3.9 tag is
                                #   live (→ 642238f0, lightweight), npm is 2/2 at 0.3.9 with
                                #   attestations=provenance,url, and the GitHub release carries 7 assets
                                #   (SHA256SUMS + 6 platform tarballs). crates.io is 0/9 — every upload
                                #   403s on `authentication failed`, an owner-only credential rotation
                                #   (#967), not a pipeline defect. Stays false until 9/9 land; recovery is
                                #   `recover=true recovery_tag=v0.3.9`, which is idempotent and re-uses
-                               #   the existing tag.
+                               #   the existing tag. Do not read a green `Release` run as evidence: run
+                               #   41186134783 skipped all nine jobs and concluded success (#969).
   audit_followup_wave_merged: true   # 2026-10-30: PR #947 squashed into main as 3953e818 (12:55:38Z);
                                #   roasted before merge in plans/PR_ROAST_2026_10_30.md, mutation gate
                                #   measured at 94.0476% on that head.

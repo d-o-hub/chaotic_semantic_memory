@@ -424,3 +424,20 @@
   it. The drift gate stays green (it re-renders with the same generator), so nothing catches this — read the
   header's own disclaimer ("static indicators, not proof") as law, and expect to regenerate the catalog in
   the same commit that adds or wires any script.
+- **A run-level `status` is not monotonic, so a watcher that assumes it invents a re-run (2026-10-30, the
+  v0.3.9 chain monitor).** While watching `CI → pre-release-gate → release` for one head, the monitor read
+  `GATE queued/` *after* it had already reported `GATE in_progress/`. The obvious alarm — something re-ran
+  the gate — was false, and disproved in two calls: `gh api …/actions/runs/<id> --jq '.attempt'` returned 1,
+  and `…/runs/<id>/jobs --jq '[.jobs[] | select(.name=="gate-summary")] | .[0].created_at'` showed the
+  fan-in job created **after** the run started (18:58:52Z, six siblings already running). GitHub recomputes
+  the run-level status when a late job appears, so `queued` can legitimately follow `in_progress`. Two
+  rules: (a) key a watcher's dedupe state on `label|status` **pairs**, never on the label alone — otherwise
+  the first sight (`queued/`) freezes the report and the terminal transition can never fire; (b) treat a
+  status *regression* as a question about the job list and `.attempt`, not as evidence of a re-run, and only
+  treat `completed/<conclusion>` as terminal.
+- **During a live run the annotation is the whole surface (2026-10-30, #954/#960).** `gh run view --log
+  --job <id>` refuses while the run is in progress, so an operator mid-release sees only step conclusions
+  and `::error::` text — which is exactly why the refusal message has to carry the failing gate job's name
+  (see `release-management` hard rule 3) rather than pointing at a log that does not exist yet. Same family:
+  `gh api …/actions/jobs/<id>/logs` after completion returns 200 text/plain but the CLI prints nothing and
+  the real cause sits on stderr — a payload with escape sequences needs `--allow-escape-sequences`.

@@ -11,7 +11,7 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: `pre-release-gate.yml` starts only after CI, so `validate` **waits** for a verdict rather than reading once — `GATE_DEADLINE = now + 1800`, `sleep 60`, break on `status == completed`, then still require `conclusion == success` (`release.yml:118-134`). It is fail-closed on timeout and on any non-success, so a red gate never publishes; do not re-dispatch while a verdict is pending. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check.
+3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: `pre-release-gate.yml` starts only after CI, so `validate` **waits** for a verdict rather than reading once — `GATE_DEADLINE = now + 1800`, `sleep 60`, break on `status == completed`, then still require `conclusion == success` (`release.yml:119-160`). It is fail-closed on timeout and on any non-success, so a red gate never publishes; do not re-dispatch while a verdict is pending. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check. The refusal **names the blocking job**: `scripts/gate-failure-detail.sh` turns the gate run's per-job conclusions into one `SUMMARY:` line inside the `::error::` annotation (`2 of 7 gate jobs failed: pr-drain-check, gate-summary`), which is how you tell a queue-policy block from a quality failure without leaving the release log — and a **jobless** gate run says so, because that is a rejected workflow file (rule 4), not a red check.
 4. **A failed release run with no jobs is a bad workflow file, not a bad release:** `gh run view <id> --json jobs` returning `[]` means GitHub rejected the file before scheduling (since 2026-10-22 this is how `release.yml` failed: double-quoted / unquoted string literals in `if:` expressions — expressions take single quotes only). There is no step log, so read the YAML and run `scripts/check-actionlint.sh`; nothing published and no tag was created.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
@@ -178,6 +178,11 @@ on the root and polls the index for it).
 
 Rules that came out of validating the 0.3.9 scripts against the *previous* release:
 
+- **A green `Release` run is not proof that a release happened.** `validate` skips unless the trigger was a
+  successful CI push (`release.yml:34-38`), and every dependent job then reads a null
+  `needs.validate.outputs.release-needed` and skips too — so the run can conclude `success` having published
+  nothing. Measured: run **41186134783** (2026-10-31T08:49Z) had all nine jobs skipped, only `notify`
+  (`if: always()`) green, and crates.io still at 0/9. Read the job list, then the registry (#969).
 - **Run the control, don't hope for it.** A verifier is trusted only after one input that must pass **and**
   one that must fail produce those outputs. Most verifier bugs do not crash — they print a confident
   sentence about a different fact ("release missing" for a **lightweight** tag whose `.object.url` contains
@@ -191,8 +196,19 @@ Rules that came out of validating the 0.3.9 scripts against the *previous* relea
   and give the error branch its own label (`FAIL`, not `MISS`).
 - Before a release, confirm the publish environments cannot stall: `protection_rules: []` means no wait timer
   and no required reviewer; mid-run use `…/actions/runs/{id}/pending_deployments`.
-- If anything after the tag exists fails, recover with `workflow_dispatch` `recover=true` + `recovery_tag=v*`
-  — never delete or re-create the tag.
+- **Probe the crates.io token before the publish loop, not during it** (measured on v0.3.9, run 41110522627:
+  nine `403 authentication failed` uploads ≈142 s apart, because each crate only fails at *its own* upload
+  after a full verify build). `curl -H "Authorization: api-token $T" https://crates.io/api/v1/me` answers
+  **200** (`.user.login` proves *which* identity), **401** malformed, **403** absent-or-revoked. Note the
+  scope trap: a job declaring `environment: crates.io` uses the **environment** secret, which takes
+  precedence over a differing repo-level copy.
+- **Do not chase the `E0432` you see in a later crate's verify build.** `cargo publish` verifies in an
+  isolated build that resolves companions from the **registry**, so when the root crate's upload 403s, the
+  next crate rebuilds against the *previous* published version and fails on symbols that exist in the tree.
+  It reads like a feature-gate defect and is a consequence of the credential.
+- If anything after the tag exists, recover with `workflow_dispatch` `recover=true` + `recovery_tag=v*`
+  — never delete or re-create the tag. The guards are idempotent, so a partial release is re-driven, not
+  rebuilt.
 
 ## SemVer (from conventional commits)
 
