@@ -106,9 +106,10 @@ labelling the queue is a **step of the release dispatch**, not housekeeping, and
 is not evidence of a quality failure.
 Label *existence* is a measurement, not an assumption: `gh api repos/<o>/<r>/labels` paginates at 30 of this
 repo's 53, so `hold-for-next` read as absent until re-queried with `?per_page=100`. Additive labelling is
-`gh api -X POST repos/<o>/<r>/issues/<n>/labels -f labels[]=hold-for-next` (`PUT` replaces the set;
-`gh pr edit --add-label` hits the known `projectCards` failure). Annotation-fetch shape + the drain sequence:
-`references/gh-ci-truth.md`.
+`gh api -X POST repos/<o>/<r>/issues/<n>/labels -f labels[]=hold-for-next` — `PUT` replaces the whole set,
+and `gh pr edit` is the command `AGENTS.md` flags for the deprecated `projectCards` failure, so reach for the
+REST route rather than the wrapper. Annotation-fetch shape + the drain sequence and the recovery exemption
+measurement: `references/gh-ci-truth.md`.
 
 ## Event payloads are point-in-time
 
