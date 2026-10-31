@@ -441,3 +441,48 @@
   (see `release-management` hard rule 3) rather than pointing at a log that does not exist yet. Same family:
   `gh api …/actions/jobs/<id>/logs` after completion returns 200 text/plain but the CLI prints nothing and
   the real cause sits on stderr — a payload with escape sequences needs `--allow-escape-sequences`.
+- **A wall clock can be the proof (2026-10-31, #954/PR #973).** GitHub's default `run:` shell is
+  `bash -e {0}`, so a bare call that returns non-zero aborts the step and every accumulator and trailing
+  `::error::` line after it is unreachable code. Job 124260081872 ran **245.99 s** — exactly one
+  `delays=(5 10 15 20 30 45 60 60)` = 245 s cycle. One backoff executed ⇒ the step died inside the first
+  failing probe. When a control-flow bug leaves no log (annotations are the whole surface during a live
+  run), price the intended behaviour in seconds and look for its multiple in the job duration. Repair:
+  call it as `if ! f; then :; fi` — condition context suppresses `-e` for the call *and its body*; the `:`
+  is load-bearing, not stylistic.
+- **Two "the code that runs is not the code you read" shapes, both found only by replaying the step
+  (2026-10-31, #971/#972).** (a) Quote splicing: `""vers":"$VERSION""` concatenates adjacent runs into
+  `vers:0.3.9`, which can never match the `"vers":"0.3.9"` a JSON index stores — write the pattern as
+  `grep -qF "\"vers\":\"$VERSION\""`. (b) Argument pre-substitution: a probe written inline inside a
+  double-quoted argument (`"[ \"$(npm view …)\" = \"$VERSION\" ]"`) is resolved by the *caller*, so `eval`
+  re-tests a frozen comparison — 16 `npm view` calls where the design implies 2. Pass probes by *function
+  name* so each `eval` re-queries. Detection for both: extract the live step body out of the YAML with
+  PyYAML, run it under `bash -e -o pipefail` against stubbed `curl`/`npm`/`gh`/`cargo` on a PATH prefix,
+  and count the calls. `""`-spliced patterns and frozen `$(…)` are invisible to `actionlint`, `yamllint`
+  and the mutation gate alike.
+- **A fixture for `.github/workflows/*.yml` is the only proof surface there is, so it must be neuter-tested
+  (2026-10-31, #973).** `scripts/**` and `.github/**` sit outside `mutation-test` (`--lib` only); nothing
+  else executes release.yml logic. Extracting the step bodies from the YAML (never transcribing them) keeps
+  the test from drifting away from the workflow, and disabling each repair in the extracted body must turn
+  the fixture red — 33 cases here fail 8/8/2 for the three un-fixes. During development the stubs *were*
+  the measurement: created without `chmod +x`, PATH skipped them and the **real** npm/gh ran, which is how
+  "npm 2/2 at 0.3.9, only crates.io missing" got established by accident.
+- **Codacy is a required status check with `issueThreshold: 0`, so one style warning about a test file
+  blocks a merge (2026-10-31, #973).** `shellcheck_SC2016` fired on a deliberately single-quoted needle
+  containing `$(` — the non-expansion is the point, and the linter cannot know. Fix by **re-expressing**
+  the assertion, not suppressing it: a negative needle that stops at the `[ ` which opens an inlined
+  expression, plus a positive control naming the function that replaced it, asserts the same property with
+  no `$` in quotes and no new ignore. Read the ruleset, not the check list, to know a check is required:
+  `gh api …/rulesets/<id>` (here `lint`, `test`, `mutation-test`, `commitlint`, `Build CLI (linux-x64)`
+  **and** `Codacy Static Code Analysis`, with `strict_required_status_checks_policy: true`).
+- **Cite from `origin/main`, and confirm the write landed before you publish (2026-10-31, #974).** Issue
+  #974 shipped with line numbers read from a worktree still based on `642238f0` (~60 lines stale) and a
+  `cs/-m/` typo for the index path `cs/m-/`, because the citation-fix script aborted on an `assert` and the
+  file is only written at the end — `gh issue create` then published the unpatched draft. Re-derive from
+  `git show origin/main:<path>`, `assert` each replacement individually, then diff the **shipped** body
+  (`gh api …/issues/<n> --jq .body`) against the corrected draft instead of trusting the PATCH.
+- **Measure a count before you reuse it, including your own prose (2026-10-31, #974).** `SHA256SUMS + 6
+  platform tarballs` had been sitting in `release_pipeline_validated`'s comment; the live v0.3.9 release is
+  `SHA256SUMS` + 5 CLI tarballs (one per `build-cli-matrix` target) + 1 wasm bundle = 7, and the wasm
+  bundle had been counted as a sixth platform. Same for path rules: `1/a`→200 vs `1/a/a`→404, `2/io`→200,
+  `3/s/syn`→200 vs the helper's `sy/n/syn`→404 prove `p1="${1:0:2}" p2="${1:2:2}"` is correct only for
+  names ≥ 4 characters.

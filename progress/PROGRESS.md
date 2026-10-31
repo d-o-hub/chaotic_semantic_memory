@@ -1912,3 +1912,48 @@ not carry), and **#964** is the member→root version-pin blind spot in `sync-ve
   `release.yml`. Lesson recorded in `progress/LEARNINGS.md` (run-level status is not monotonic; a green
   `Release` is not proof of a release) and distilled into `release-management` (post-publish verification +
   the crates.io token pre-flight).
+
+## 2026-10-31 — the release-verifier trio lands, #974 filed, queue at 10
+
+**main's red `test` job was disk, and it is closed.** Run 41184146253 (`bfa15d49`) re-ran to
+`completed/success`; the failure was `System.IO.IOException: No space left on device` on the self-hosted
+runner's `_diag` log, with no step carrying a failure conclusion. No code changed. (#970's roast record
+has the classification.)
+
+**#970 (docs wave) merged as `4ea6a8e6`** — squash, head current with `bfa15d49`, 25 checks pass / 9
+skipping / 0 fail, `mergeStateStatus: CLEAN`, `Codacy Static Code Analysis` green, verdict recorded in its
+own branch (`plans/PR_ROAST_2026_10_31.md`). Its worktree removed per rule 12; `git worktree list` is back
+to the main tree plus one.
+
+**#973 = #954 + #971 + #972, one branch because they are two lines apart in the same step.** Writing the
+replay fixture is what found #971 and #972, and the interlock is what made the order non-negotiable: with
+`-e` repaired and the index pattern still quote-spliced, the reachable crates.io verdict becomes a
+permanent `Missing:` on a clean publish. The premise itself was upgraded from prediction to observation
+(job 124260081872, 245.99 s = exactly one 245 s backoff). 33-case fixture, fail-closed wired into
+`validate.sh`, neuter-tested 8/8/2. Rebased onto `4ea6a8e6` clean — #970's only `release.yml` edit is the
+`validate` comment at `:92-110`, nowhere near `:370-430` or `:700-705`.
+
+**One required check went red on a style note about a test file.** Codacy's `shellcheck_SC2016` on the
+fixture's negative needle (a literal `$(` inside single quotes, intentional) fails the gate at
+`issueThreshold: 0`. Re-expressed as needle-plus-positive-control rather than suppressed; `shellcheck
+-S warning` and `-i SC2016` both clean, fixture still 33/33.
+
+**#974 filed, then corrected in place** — `verify-release` renders 4 verdicts across 18 published
+artifacts (9 crates + 2 npm + 7 release assets), `create-github-release`/`publish-npm-wasm`/`publish-npm-cli`
+take no `needs:` on `publish-crates` (`:437`, `:515`, `:577`), and `verify-release` lists it only to
+neutralise it with `if: always() && …` (`:647`), so a release missing eight of nine crates certifies green.
+Its body shipped with ~60-line-stale citations read from a worktree based on `642238f0` plus a `cs/-m/`
+path typo; both re-derived from `origin/main` and PATCHed, then the shipped body diffed against the draft.
+Re-measuring its claims also corrected two of my own: the v0.3.9 asset set is `SHA256SUMS` + 5 CLI
+tarballs + 1 wasm bundle (the wasm bundle had been counted as a sixth platform in
+`release_pipeline_validated`'s comment), and `version_published()`'s two-slice index path is valid only for
+names ≥ 4 characters (`3/s/syn`→200 vs its `sy/n/syn`→404).
+
+**State**: three effect keys flipped true (`verify_release_collects_all_verdicts`,
+`crates_io_index_checks_match_the_index`, `verify_release_retries_re_query`); #954's block removed;
+`queued_actions_count` 11 → **10**, checker `10 action(s), 10 tracked issue(s), 10 effect key(s)`;
+`action_last_completed: make_verify_release_report_every_artifact`. #971/#972 never became queued blocks —
+filed and landed inside one branch — so the count moves by one, not three. `release_pipeline_validated`
+stays **false**: crates.io is 0/9 at 0.3.9 and the token rotation (#967) is owner-only. Next in the
+release chain is #955 (npm attestations + drop the `|| npm publish` retry), whose precondition
+`verify_release_collects_all_verdicts` this branch just satisfied.
