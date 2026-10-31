@@ -386,6 +386,30 @@
   the trigger for that query rather than as a duplicate of the gate. Rule now in `github-ci-guardrails`
   ("A green `cargo deny` says nothing about a GHSA that has no RustSec id").
 
+- **A verifier that reports the *wrong accusation* is worse than one that crashes (2026-10-30, the two v0.3.9 release validators)**:
+  I wrote `/tmp/verify-039.sh` (registry reads only) and `/tmp/post-039.sh` (the dynamic half: tag, release asset,
+  `cargo add` from the index, npm attestation) and only trusted them after pushing the *previous* release `0.3.8`
+  through them as a positive control. Four defects surfaced, and not one of them made a script fail — each printed a
+  confident sentence about a **different fact** than the check was about:
+  (1) the tag probe keyed on `.object.url` containing `tags/`, but **`v0.3.8` is a lightweight tag** — measured
+  `object.type = commit`, `…/git/commits/d86b15fd…`, `contains("tags/")` → **false** — so that assertion could only
+  ever print MISS, i.e. a permanently-red check that reads as "the release is missing". `GET /repos/{o}/{r}/git/matching-refs/tags/{t}`
+  and matching `.ref` answers for annotated *and* lightweight tags.
+  (2) `gh release download` **refuses to overwrite**, so the second run failed its own asset check for a reason that
+  had nothing to do with the artifact; a non-idempotent tool turns a re-run into a false negative. Fix the container,
+  not the call: `rm -rf "$WORK"` at the top.
+  (3) `npm view pkg@X --json` on an unpublished version does not reliably print nothing, so "not in the registry"
+  fell through to the next branch and was reported as *"published with NO provenance"* — a supply-chain accusation
+  against a version that does not exist. Key on the returned `.version`, print what npm actually said, and `continue`
+  before asserting anything about attestation.
+  (4) `gh release view` and `git ls-remote` resolve the repository from the **current directory's** remote, so run
+  from `/tmp` they emitted a git error that the script printed in the slot reserved for a verdict. Every call in a
+  script that may run from anywhere takes `--repo "$REPO"` / `git -C "$REPO"`, and its error branch must be
+  distinguishable from an answer.
+  Rule: a control is not a value you hope for, it is a case you *run* — validate an instrument on one input that must
+  pass **and one that must fail**, then make the failure legible (name the accusation you are actually making). Same
+  family as "an instrument that can only print zero" and the jobless-run tell: correctness most of the time is not
+  the property, *reachable outputs being only the ones you mean* is.
 - **A diagnostic for an event you cannot reproduce is only as good as the real payload it is replayed
   against (2026-10-30, #960).** The release-refusal path cannot be triggered on demand, so "it prints the
   job names" was unverifiable by construction — until the parsing moved out of the workflow `run:` block
@@ -400,3 +424,20 @@
   it. The drift gate stays green (it re-renders with the same generator), so nothing catches this — read the
   header's own disclaimer ("static indicators, not proof") as law, and expect to regenerate the catalog in
   the same commit that adds or wires any script.
+- **A run-level `status` is not monotonic, so a watcher that assumes it invents a re-run (2026-10-30, the
+  v0.3.9 chain monitor).** While watching `CI → pre-release-gate → release` for one head, the monitor read
+  `GATE queued/` *after* it had already reported `GATE in_progress/`. The obvious alarm — something re-ran
+  the gate — was false, and disproved in two calls: `gh api …/actions/runs/<id> --jq '.attempt'` returned 1,
+  and `…/runs/<id>/jobs --jq '[.jobs[] | select(.name=="gate-summary")] | .[0].created_at'` showed the
+  fan-in job created **after** the run started (18:58:52Z, six siblings already running). GitHub recomputes
+  the run-level status when a late job appears, so `queued` can legitimately follow `in_progress`. Two
+  rules: (a) key a watcher's dedupe state on `label|status` **pairs**, never on the label alone — otherwise
+  the first sight (`queued/`) freezes the report and the terminal transition can never fire; (b) treat a
+  status *regression* as a question about the job list and `.attempt`, not as evidence of a re-run, and only
+  treat `completed/<conclusion>` as terminal.
+- **During a live run the annotation is the whole surface (2026-10-30, #954/#960).** `gh run view --log
+  --job <id>` refuses while the run is in progress, so an operator mid-release sees only step conclusions
+  and `::error::` text — which is exactly why the refusal message has to carry the failing gate job's name
+  (see `release-management` hard rule 3) rather than pointing at a log that does not exist yet. Same family:
+  `gh api …/actions/jobs/<id>/logs` after completion returns 200 text/plain but the CLI prints nothing and
+  the real cause sits on stderr — a payload with escape sequences needs `--allow-escape-sequences`.
