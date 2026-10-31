@@ -11,12 +11,22 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
 ## Pre-Release Checklist (MANDATORY)
 1. **Verify CI passes on all platforms**: `gh run list --workflow=ci.yml --limit 3`. Read the *gate* run the
    same way but never at run level: `release.yml` accepts the **newest** `pre-release-gate` run for the SHA on
-   its `status`/`conclusion` alone, while every real gate job is conditioned on
-   `github.event.workflow_run.event == 'push'` (`pre-release-gate.yml:27-30`) — so a gate run spawned by any
-   other event skips all six checks and still reports `success` (measured: 41186134728, 1 of 7 jobs ran).
-   Query the per-job conclusions before treating a green gate as a verified one.
+   its `status`/`conclusion` alone, while every real gate job requires
+   `workflow_run.event == 'push'` **and** `workflow_run.conclusion == 'success'`
+   (`pre-release-gate.yml:27-30`) — so a gate run spawned by a CI attempt that failed skips all six checks and
+   still reports `success` (measured: 41186134728, 1 of 7 jobs ran, behind it CI 41184146253 attempt 1 dying on
+   runner disk-full). Query the per-job conclusions before treating a green gate as a verified one. The same
+   condition guards `release.yml`'s own `validate` (`:34-38`): that completion produced a green gate
+   (41186134728) *and* a green release run (41186134783) that published nothing — **d-o-hub#969**, unfixed.
 2. **Ensure Cargo.lock is synchronized**: `cargo build --release && git add Cargo.lock`
-3. **Check existing releases**: `gh release list --limit 5`
+3. **Check existing releases**: `gh release list --limit 5`. A green `release.yml` run is **not** publish
+   evidence — when `v{version}` already exists `validate` sets `release-needed=false`, every downstream job
+   skips, and the run still reports `success` (measured: 41195178865 on `14687660`, green and silent). Read
+   `verify-release`'s per-artifact rows or query the registries directly — with the index path built
+   correctly: the sparse index shards by name length (`1/<n>`, `2/<n>`, `3/<first>/<n>`, else
+   `<first2>/<next2>/<n>`, so `cs/m-/csm-chaos` and `ch/ao/chaotic_semantic_memory`). A hand-built path
+   returns S3 `NoSuchKey`, which reads as "never published" for a crate that is on the registry — measured
+   by getting exactly that false answer for `csm-chaos` before fixing the shard.
 4. **Validate changelog entry exists**: `grep -q "^## \[${VERSION}\]" CHANGELOG.md`
 5. **Verify crates.io availability (first publish)**: check workspace names via `cargo search`
 6. **Drain the PR queue (normal releases only)**: the gate's `pr-drain-check` job fails while **any** open

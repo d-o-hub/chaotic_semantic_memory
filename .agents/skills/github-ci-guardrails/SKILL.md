@@ -107,10 +107,15 @@ neither creating a tag. So draining or labelling the queue is a **step of the re
 housekeeping, and a release that never started is not evidence of a quality failure.
 That verdict is the *newest* gate run's, not the commit's — `release.yml` takes `--limit 1` and reads only
 its `status`/`conclusion`, and `bfa15d49` read green at 08:49 then red at 09:19 with no code change (the
-earlier run never executed the drain job). The mirror failure: every real gate job is conditioned on
-`workflow_run.event == 'push'` (`pre-release-gate.yml:27-30`), so a gate run spawned by any other event skips
-all six checks and still concludes `success` (41186134728 — 1 of 7 jobs ran). A green gate earns nothing
-until its per-job conclusions are read; the recovery target 41110522706 passes that test at 7-for-7.
+earlier run never executed the drain job). The mirror failure is worse: `pre-release-gate.yml:27-30` and
+`release.yml:34-38` both require `workflow_run.event == 'push'` **and** `workflow_run.conclusion == 'success'`,
+and it is the conclusion clause that slipped — CI 41184146253 was a `push` whose *attempt 1 failed* (runner
+disk-full), and that 08:49:08Z completion produced two green runs that did nothing: gate 41186134728 (1 of 7
+jobs ran) and release 41186134783 (`validate` skipped, every publish skipped, only `notify`). The attempt-2
+re-run at 09:19:08Z is what lit the real gate run that then refused on the queue. Filed as **d-o-hub#969**,
+unfixed. `release-needed=false` is the third quiet green: release 41195178865 is green and published nothing
+because the tag already existed. A green run earns nothing until its per-job conclusions are read; the recovery
+target 41110522706 passes that test at 7-for-7.
 Label *existence* is a measurement, not an assumption: `gh api repos/<o>/<r>/labels` paginates at 30 of this
 repo's 53, so `hold-for-next` read as absent until re-queried with `?per_page=100`. Additive labelling is
 `gh api -X POST repos/<o>/<r>/issues/<n>/labels -f labels[]=hold-for-next` — `PUT` replaces the whole set,

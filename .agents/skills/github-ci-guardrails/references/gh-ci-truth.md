@@ -106,15 +106,21 @@ shape *is* the queue. A real gate failure names one check, so read the job list 
 **The verdict belongs to the newest run, not to the commit.** `release.yml` asks
 `gh run list --workflow=pre-release-gate.yml --commit "$SHA" --limit 1` — one run, newest first — and reads
 only its `status`/`conclusion`. `bfa15d49` was gate-green at 08:49Z (41186134728) and gate-red at 09:19Z
-(41188203123) with no code change in between; the earlier green simply never ran the drain check. So "this
+(41188203123) with no code change in between; the earlier green never ran the drain check at all, because the
+upstream CI attempt behind it had concluded failure and the `if:` skipped every real job. So "this
 commit already passed" is not evidence a *new* dispatch will pass, and a refusal that lands minutes after a
 merge is not a regression.
 
-**A green gate run can have verified nothing.** Every real job in `pre-release-gate.yml` is conditioned on
-`github.event.workflow_run.event == 'push'` (`:27-30`), so a gate run spawned by any other upstream
-completion skips all six checks and still concludes `success` — measured on 41186134728: six jobs `skipped`,
-only `gate-summary` ran, run conclusion `success`, and `release.yml` would have accepted it. Read the
-per-job shape before trusting a gate verdict for a SHA:
+**A green run can have verified nothing — in both workflows.** `pre-release-gate.yml:27-30` and
+`release.yml:34-38` carry the same two-clause condition: `workflow_run.event == 'push'` **and**
+`workflow_run.conclusion == 'success'`. It is the conclusion clause that bites. CI run 41184146253 on
+`bfa15d49` was a `push` whose **attempt 1 concluded failure** (self-hosted runner: `No space left on device`
+writing `_diag/Worker_20261031-081949-utc.log`), and that 08:49:08Z completion lit *two* green runs at once:
+gate 41186134728 (six of seven jobs `skipped`, only `gate-summary` ran) and release 41186134783 (`validate`
+skipped, so all seven substantive jobs skipped and only `notify`, an `always()`, ran). The re-run — attempt 2,
+`completed/success` at 09:19:08Z — then produced the real gate run 41188203123, which executed the drain check
+and refused. `release.yml`'s gate read consumes run-level `status`/`conclusion` alone, so it accepts the first
+kind. Read the per-job shape before trusting either verdict:
 
 ```bash
 gh api "repos/<o>/<r>/actions/runs/<gate_run>/jobs?per_page=100" \
@@ -123,6 +129,14 @@ gh api "repos/<o>/<r>/actions/runs/<gate_run>/jobs?per_page=100" \
 
 The recovery target passes that test — `41110522706` for `642238f0` is seven-for-seven `success` including
 `pr-drain-check` — so the exemption below rests on a real green, not a vacuous one.
+
+A third quiet green belongs here because it is the one an operator meets first: when `v{version}` already
+exists, `validate` sets `release-needed=false` and every downstream job skips while the run still concludes
+`success` — measured on release 41195178865 (`14687660`), green and publishing nothing. A green *release* run
+is therefore not evidence a registry has the artifact; only `verify-release`'s rows, or the registries
+themselves, answer that. The release-side defect (a run that skips everything and still reports success when
+the upstream CI did not conclude `push`/`success`) is filed as **d-o-hub#969** and is *not* fixed by anything
+in this doc set — read that issue before concluding the workflow is healthy.
 
 Then, and only as the release's own step (never silently, never as a way to keep a red PR open):
 
