@@ -1993,14 +1993,22 @@ carries `hold-for-next`, but for the plain-dispatch case that follows it, not to
 
 **A green gate run turned out to certify nothing.** Pairing `bfa15d49`'s two gate runs to pin the queue rule
 measured something worse: the 08:49Z run 41186134728 concluded `success` with six of its seven jobs
-`skipped`, because every real job in `pre-release-gate.yml` is conditioned on
-`github.event.workflow_run.event == 'push'` (`:27-30`) and that run had a different upstream — while
-`release.yml`'s verify step reads `--limit 1` and only the run-level `status`/`conclusion`. The same head read
+`skipped`, because every real job in `pre-release-gate.yml` requires
+`workflow_run.event == 'push'` **and** `workflow_run.conclusion == 'success'` (`:27-30`) and the upstream that
+completed at 08:49:08Z was CI 41184146253's **attempt 1**, which had concluded *failure* (runner disk-full) —
+same `push` event, failed attempt; I first wrote "a different upstream" and corrected it by reading
+`run_attempt` — while `release.yml`'s verify step reads `--limit 1` and only the run-level `status`/`conclusion`.
+The same head read
 red half an hour later (41188203123) with no code change between. So the gate is not a property of the commit,
 and a "green gate" is not yet a checked gate: `agents-docs/release-safety.md` item 1 now demands per-job
 conclusions and `references/gh-ci-truth.md` carries the one-call job-shape query. The recovery target passes
 it — 41110522706 is seven-for-seven `success` — so the exemption above rests on a real green, not a vacuous
-one.
+one. `release.yml`'s `validate` carries the identical condition (`:34-38`), so that 08:49:08Z completion lit
+two green runs at once: the gate and release 41186134783, whose `validate` skip cascaded to every publish job
+with only `notify` running. Recording it matters because the newest release run on `14687660` (41195178865) is
+green for a third and entirely ordinary reason — the tag exists, so `release-needed=false` and everything
+downstream skips — and the v0.3.9 crates.io gap this session is chasing is invisible to anyone reading
+`gh run list --workflow=release.yml`.
 
 **Queue comments corrected against the tree, not memory.** #964's block said "three member manifests";
 re-measured on `4ea6a8e6` it is **16** stale pins across **9** manifests (root's 8 `path = "crates/…"` pins
