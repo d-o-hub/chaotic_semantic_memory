@@ -1,0 +1,436 @@
+#!/usr/bin/env python3
+"""Enumerate, verify and rewrite the intra-workspace dependency version pins.
+
+Issue #964. `scripts/sync-version.sh` updated a member's own `version =` and the
+root -> member pins, and nothing else. Measured on `5b04e9c8` (2026-11-01): 25 path
+edges to workspace members, 17 of them stale. Every one of the 17 is a *member ->
+anything* edge still declaring `0.3.8`, and the 17th is `fuzz/Cargo.toml` declaring
+`0.3.7`, two releases behind. The issue enumerated 16 because it read single-line
+`{ path = …, version = … }` forms only; `fuzz/Cargo.toml` writes its pin as a
+multi-line `[dependencies.chaotic_semantic_memory]` table. `verify-version-sync.sh`
+printed "✓ All local versions synchronized: 0.3.9" over all 17 and exited 0, so the
+drift had no sensor at all.
+
+Why it survived three releases: `version = "0.3.8"` means `^0.3.8`, which 0.3.9
+satisfies, so Cargo resolves correctly and nothing breaks. The cost lands at the next
+major — `csm-duckdb@0.4.0` would publish a manifest claiming compatibility with root
+`^0.3.8`, false the moment 0.4.0 exists — and 7 of the 9 crates.io artifacts ship that
+metadata today.
+
+Three modes, one parser, so the tool and the gate can never disagree (the class of bug
+this file exists to kill):
+
+    workspace-version-edges.py --list                [repo-root]
+    workspace-version-edges.py --check               [repo-root]
+    workspace-version-edges.py --sync <version>      [repo-root] [--dry-run]
+
+Exit: 0 as requested, 1 `--check` found a stale pin, 2 the audit could not run (no
+manifests, no tomllib, a bad version argument, or the text parser disagreeing with
+the TOML parser about which edges exist).
+
+The exit-2 rule is load-bearing. tomllib cross-checks the edge set the line parser
+found, so a manifest form the parser does not understand reports "could not audit"
+rather than "no drift" — the difference between a sensor and a shrug.
+"""
+
+from __future__ import annotations
+
+import argparse
+import glob
+import os
+import re
+import subprocess
+import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # python < 3.11: no cross-check, so no verdict
+    tomllib = None
+
+DEP_LEAVES = ("dependencies", "dev-dependencies", "build-dependencies")
+HEADER = re.compile(r"^\[([^\]]+)\]\s*(?:#.*)?$")
+VERSION_VALUE = re.compile(r'(version\s*=\s*")([^"]*)(")')
+INLINE_ENTRY = re.compile(r"([A-Za-z0-9_.+-]+)\s*=\s*\{")
+PATH_VALUE = re.compile(r'path\s*=\s*"([^"]*)"')
+WORKSPACE_TRUE = re.compile(r"\bworkspace\s*=\s*true")
+
+
+class ParseError(Exception):
+    """A manifest shape this parser must not be trusted on."""
+
+
+def refuse(message):
+    """Exit 2: the audit could not run. Never 1, which is a verdict of drift.
+
+    `SystemExit(str)` exits 1, so every "could not audit" path goes through here or the
+    sensor would report as a stale pin — and a #903-class red release job with the wrong
+    reason is the failure mode this file exists to prevent.
+    """
+    print(f"error: {message}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def manifest_paths(root):
+    """Every Cargo.toml the workspace graph reaches, through the git index when present.
+
+    Discovery by index rather than a hard-coded list: a new member must be audited
+    without editing this file, which is the same ratchet issue #964 asks for. It also
+    reaches members the globs cannot — `benchmarks/Cargo.toml` holds one of this
+    repository's 26 edges and matches no `crates/*` pattern, which is how it shipped
+    three releases behind at `0.3.6`.
+
+    Returns (paths, source); `source` is "index" or "glob", and "glob" means a member
+    outside `crates/*`, `crates/*/*` and `fuzz` is *not* being audited.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, "ls-files", "-z", "--", "*Cargo.toml"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        paths = sorted(os.path.join(root, p) for p in out.decode("utf-8").split("\0") if p)
+        if paths:
+            return paths, "index"
+    except (subprocess.CalledProcessError, OSError):
+        pass
+    found = [os.path.join(root, "Cargo.toml")]
+    for pattern in ("crates/*/Cargo.toml", "crates/*/*/Cargo.toml", "fuzz/Cargo.toml"):
+        found += sorted(glob.glob(os.path.join(root, pattern)))
+    return [p for p in found if os.path.isfile(p)], "glob"
+
+
+def classify_header(parts):
+    """(section, entry_or_None) for a TOML header, or (None, None) if not a dependency table.
+
+    Understands `[dependencies]`, `[dev-dependencies.foo]`, `[workspace.dependencies]`
+    and `[target.'cfg(…)'.dependencies(.foo)]`. Anything deeper than the entry name is
+    refused rather than guessed at.
+    """
+    if parts[0] == "workspace":
+        if len(parts) == 2 and parts[1] in DEP_LEAVES:
+            return parts[1], None
+        return None, None
+    if parts[0] == "target":
+        if len(parts) == 3 and parts[2] in DEP_LEAVES:
+            return f"target.{parts[1]}.{parts[2]}", None
+        if len(parts) == 4 and parts[2] in DEP_LEAVES:
+            return f"target.{parts[1]}.{parts[2]}", parts[3]
+        return None, None
+    if parts[0] in DEP_LEAVES:
+        if len(parts) == 1:
+            return parts[0], None
+        if len(parts) == 2:
+            return parts[0], parts[1]
+        joined = ".".join(parts)
+        raise ParseError(f"dependency table nested too deep: [{joined}]")
+    return None, None
+
+
+def new_edge(path, section, name):
+    return {
+        "file": path,
+        "section": section,
+        "dep": name,
+        "path": None,
+        "declared": None,
+        "workspace_flag": False,
+        "edit": None,  # (line index, value start column, value end column)
+    }
+
+
+def version_span(body, start_line):
+    """Locate the `version = "x"` value inside a possibly multi-line inline table."""
+    match = VERSION_VALUE.search(body)
+    if not match:
+        return None
+    newline_count = body[: match.start(2)].count("\n")
+    line_no = start_line + newline_count
+    offset = 0 if newline_count == 0 else body.rfind("\n", 0, match.start(2)) + 1
+    start = match.start(2) - offset
+    return (line_no, start, start + len(match.group(2)))
+
+
+def fill_edge(edge, body, start_line):
+    found = PATH_VALUE.search(body)
+    if found:
+        edge["path"] = found.group(1)
+    version = VERSION_VALUE.search(body)
+    if version:
+        edge["declared"] = version.group(2)
+        edge["edit"] = version_span(body, start_line)
+    if WORKSPACE_TRUE.search(body):
+        edge["workspace_flag"] = True
+
+
+def parse_manifest(path):
+    """Return (package_version, {section, dep -> edge}) for one manifest.
+
+    Line-oriented on purpose: tomllib answers "what does this mean" but not "where on
+    which line", and `--sync` must rewrite one token without reformatting anyone else's
+    manifest. tomllib is still consulted, as the cross-check in `collect()`.
+    """
+    with open(path, encoding="utf-8") as handle:
+        lines = handle.readlines()
+    package_version = None
+    edges = {}
+    section = None
+    table_entry = None
+    in_package = False
+    number = 0
+    while number < len(lines):
+        line = lines[number]
+        stripped = line.strip()
+        number += 1
+        if not stripped or stripped.startswith("#"):
+            continue
+        header = HEADER.match(stripped)
+        if header:
+            parts = [p.strip().strip("'\"") for p in header.group(1).split(".")]
+            in_package = parts == ["package"]
+            section, table_entry = (None, None) if in_package else classify_header(parts)
+            continue
+        if not line[:1].isspace():
+            version_line = re.match(r'\s*version\s*=\s*"([^"]+)"', line)
+            if in_package and version_line:
+                package_version = version_line.group(1)
+        if section is None:
+            continue
+        if table_entry is not None:
+            edge = edges.setdefault(
+                (section, table_entry), new_edge(path, section, table_entry)
+            )
+            fill_edge(edge, line, number - 1)
+            continue
+        inline = INLINE_ENTRY.match(line.strip())
+        if not inline:
+            continue
+        name = inline.group(1)
+        end = number - 1
+        body = line
+        while body.count("{") != body.count("}"):
+            end += 1
+            if end >= len(lines):
+                raise ParseError(f"{path}:{number}: unbalanced inline dependency table")
+            body += lines[end]
+        number = end + 1
+        fill_edge(edges.setdefault((section, name), new_edge(path, section, name)),
+                  body, number - len(body.splitlines()))
+    return package_version, edges
+
+
+def toml_dep_tables(document):
+    """Yield (section, {dep: spec}) using the same vocabulary `classify_header` returns."""
+    for leaf in DEP_LEAVES:
+        deps = document.get(leaf)
+        if isinstance(deps, dict):
+            yield leaf, deps
+    for target, tables in (document.get("target") or {}).items():
+        if not isinstance(tables, dict):
+            continue
+        for leaf in DEP_LEAVES:
+            deps = tables.get(leaf)
+            if isinstance(deps, dict):
+                yield f"target.{target}.{leaf}", deps
+    workspace = document.get("workspace") or {}
+    for leaf in DEP_LEAVES:
+        deps = workspace.get(leaf)
+        if isinstance(deps, dict):
+            yield leaf, deps
+
+
+def collect(root):
+    """(member_versions, edges_to_members) for the whole workspace graph."""
+    member_versions = {}
+    all_edges = []
+    manifests, source = manifest_paths(root)
+    if source == "glob":
+        # Say it out loud: a silent fallback is a sensor that reports clean about a tree it
+        # only half read, which is the false green this file exists to remove.
+        print(
+            "warning: no git index — manifests came from the glob fallback "
+            "(Cargo.toml, crates/*, crates/*/*, fuzz), so a member outside it is NOT audited",
+            file=sys.stderr,
+        )
+    for path in manifests:
+        package_version, edges = parse_manifest(path)
+        with open(path, "rb") as handle:
+            document = tomllib.load(handle)
+        name = (document.get("package") or {}).get("name")
+        if name and package_version:
+            member_versions[name] = package_version
+        for edge in edges.values():
+            if edge["path"] is not None:
+                all_edges.append(edge)
+    cross_check(root, manifests, all_edges)
+    edges = [e for e in all_edges if e["dep"] in member_versions]
+    for edge in edges:
+        edge["target"] = member_versions[edge["dep"]]
+    return member_versions, edges
+
+
+def cross_check(root, manifests, edges):
+    """Exit 2 unless the line parser and tomllib agree about every path edge *and its pin*.
+
+    Comparing the version value too is what closes the false-green: `version = '0.3.8'`
+    (single quotes) is valid TOML that a double-quote regex never sees, and an edge-set-only
+    cross-check would call that "no pin to sync" and report clean.
+    """
+    if tomllib is None:  # pragma: no cover - collect() would already have refused
+        refuse("python3 has no tomllib (3.11+); the version-edge audit did not run")
+    expected = {}
+    for path in manifests:
+        with open(path, "rb") as handle:
+            document = tomllib.load(handle)
+        for section, deps in toml_dep_tables(document):
+            for name, spec in deps.items():
+                if isinstance(spec, dict) and "path" in spec:
+                    expected[(os.path.relpath(path, root), section, name)] = spec.get(
+                        "version"
+                    )
+    seen = {
+        (os.path.relpath(e["file"], root), e["section"], e["dep"]): e["declared"]
+        for e in edges
+    }
+    if set(seen) != set(expected):
+        unparsed = ", ".join(sorted(f"{s}.{n}" for _, s, n in set(expected) - set(seen)))
+        misparsed = ", ".join(sorted(f"{s}.{n}" for _, s, n in set(seen) - set(expected)))
+        refuse(
+            "the version-edge parser disagrees with tomllib about which path "
+            f"edges exist (unparsed: {unparsed or 'none'}; misparsed: {misparsed or 'none'}); "
+            "the audit did not run"
+        )
+    silent = [
+        f"{key[0]} [{key[1]}] {key[2]}: tomllib sees \"{expected[key]}\", the parser sees none"
+        for key in sorted(seen)
+        if seen[key] != expected[key]
+    ]
+    if silent:
+        refuse(
+            "the version-edge parser could not read a pin tomllib can: "
+            + "; ".join(silent)
+            + " — refusing to report clean"
+        )
+
+
+def stale_edges(edges, expected):
+    """Edges whose declared requirement is not the member's own version."""
+    return [
+        e
+        for e in edges
+        if e["declared"] is not None and e["declared"] != expected[e["dep"]]
+    ]
+
+
+def label(root, edge):
+    return f"{os.path.relpath(edge['file'], root)} [{edge['section']}] {edge['dep']}"
+
+
+def cmd_list(root):
+    member_versions, edges = collect(root)
+    print(f"{'FILE':34s} {'SECTION':26s} {'DEPENDENCY':26s} {'DECLARES':9s} {'TARGET':8s} PATH")
+    for edge in sorted(edges, key=lambda e: (e["file"], e["section"], e["dep"])):
+        print(
+            f"{os.path.relpath(edge['file'], root):34s} {edge['section']:26s} "
+            f"{edge['dep']:26s} {str(edge['declared']):9s} {edge['target']:8s} "
+            f"{edge['path']}"
+        )
+    print(
+        f"\n{len(edges)} path edge(s) to workspace members; "
+        f"{len(stale_edges(edges, member_versions))} stale"
+    )
+    return 0
+
+
+def cmd_check(root):
+    member_versions, edges = collect(root)
+    stale = stale_edges(edges, member_versions)
+    if not stale:
+        print(
+            f"version edges: {len(edges)} path edge(s) to workspace members, every pin "
+            "matches the member's own version"
+        )
+        return 0
+    for edge in sorted(stale, key=lambda e: (e["file"], e["section"], e["dep"])):
+        print(
+            f"DRIFT: {label(root, edge)} declares \"{edge['declared']}\" but the "
+            f"package is \"{edge['target']}\""
+        )
+    print(
+        f"\nversion edges: {len(stale)} stale pin(s) of {len(edges)}; fix with "
+        "python3 scripts/workspace-version-edges.py --sync <version>",
+        file=sys.stderr,
+    )
+    return 1
+
+
+def cmd_sync(root, version, dry_run):
+    member_versions, edges = collect(root)
+    wrong = [e for e in edges if e["declared"] is not None and e["declared"] != version]
+    if not wrong:
+        print(f"version edges: nothing to sync, all {len(edges)} pin(s) already {version}")
+        return 0
+    edits = {}
+    for edge in wrong:
+        if edge["edit"] is None:
+            refuse(
+                f"{label(root, edge)} has a version this parser cannot locate; "
+                "refusing a partial rewrite"
+            )
+        edits.setdefault(edge["file"], []).append(edge["edit"])
+    total = 0
+    for path, spots in sorted(edits.items()):
+        with open(path, encoding="utf-8") as handle:
+            lines = handle.readlines()
+        for line_no, start, end in sorted(spots, reverse=True):
+            lines[line_no] = lines[line_no][:start] + version + lines[line_no][end:]
+            total += 1
+        verb = "would rewrite" if dry_run else "rewrote"
+        print(f"{verb} {len(spots)} edge(s) in {os.path.relpath(path, root)}")
+        if not dry_run:
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.writelines(lines)
+    print(f"{'would rewrite' if dry_run else 'rewrote'} {total} intra-workspace pin(s) to {version}")
+    if not dry_run:
+        moved = [e for e in wrong if e["target"] != version]
+        if moved:
+            print(
+                f"note: {len(moved)} pin(s) now declare {version} while the member itself is "
+                f"{sorted({e['target'] for e in moved})} — sync the member versions too, or "
+                "--check will report drift",
+                file=sys.stderr,
+            )
+    return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--list", action="store_true", help="print every path edge to a member")
+    mode.add_argument("--check", action="store_true", help="exit 1 on a stale pin")
+    mode.add_argument("--sync", metavar="VERSION", help="rewrite member pins to VERSION")
+    parser.add_argument("root", nargs="?", default=".", help="repository root")
+    parser.add_argument("--dry-run", action="store_true", help="with --sync")
+    args = parser.parse_args(argv)
+
+    if tomllib is None:
+        refuse("python3 has no tomllib (3.11+); the version-edge audit did not run")
+    if args.sync is not None and not re.fullmatch(r"\d+\.\d+\.\d+", args.sync):
+        print(f"error: not a semver version: {args.sync}", file=sys.stderr)
+        return 2
+    root = os.path.abspath(args.root)
+    if not manifest_paths(root)[0]:
+        print(f"error: no Cargo.toml under {root}", file=sys.stderr)
+        return 2
+    try:
+        if args.list:
+            return cmd_list(root)
+        if args.check:
+            return cmd_check(root)
+        return cmd_sync(root, args.sync, args.dry_run)
+    except ParseError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

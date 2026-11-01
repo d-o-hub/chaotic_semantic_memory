@@ -44,18 +44,38 @@ if [ "$CARGO_VERSION" != "$VERSION_FILE_CONTENT" ]; then
     FAILED=1
 fi
 
-# Verify root Cargo.toml internal workspace dependency requirements match CARGO_VERSION
-echo "Checking root Cargo.toml internal workspace dependencies..."
-INTERNAL_DEPS_MISMATCH=$(grep -E 'path = "crates/csm-[^"]+", version = "' Cargo.toml | grep -v "version = \"$CARGO_VERSION\"" || true)
-if [ -n "$INTERNAL_DEPS_MISMATCH" ]; then
-    echo "ERROR: Root Cargo.toml internal dependency requirements do not match $CARGO_VERSION:"
-    echo "$INTERNAL_DEPS_MISMATCH"
+# Verify every intra-workspace dependency pin, in both directions and in every section.
+# The block this replaces grepped `path = "crates/csm-…", version = "…"` out of the root
+# manifest only — the single direction sync-version.sh already wrote correctly — while 18
+# member -> anything pins sat at 0.3.8 (and 0.3.7 in fuzz/Cargo.toml) and this script
+# printed "✓ All local versions synchronized" and exited 0 (issue #964). Same parser as
+# the writer, so the tool and the gate cannot disagree about what a pin is.
+echo "Checking intra-workspace dependency pins (all manifests, all sections)..."
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "ERROR: python3 is required to audit workspace version pins"
+    exit 2
+fi
+if [ ! -f scripts/workspace-version-edges.py ]; then
+    # Fail closed and say why: a verifier that silently skipped the pin audit would print
+    # the same "✓ All local versions synchronized" line that let 18 stale pins ship.
+    echo "ERROR: scripts/workspace-version-edges.py is missing — the pin audit cannot run"
+    exit 2
+fi
+EDGES_RC=0
+python3 scripts/workspace-version-edges.py --check . || EDGES_RC=$?
+if [ "$EDGES_RC" -eq 2 ]; then
+    # A sensor that did not run is not a pass: exit 2 keeps "could not audit" distinct
+    # from "drift", which is how #903/#948/#949 classify an unrunnable probe.
+    echo "ERROR: the workspace version-pin audit could not run (exit 2) — not a verdict"
+    exit 2
+elif [ "$EDGES_RC" -ne 0 ]; then
     FAILED=1
 fi
 
-# Verify workspace crate versions match CARGO_VERSION
-echo "Checking workspace crate versions in crates/*/Cargo.toml..."
-CRATE_VERSION_MISMATCHES=$(find crates -name "Cargo.toml" -exec grep -H '^version = ' {} + | grep -v "version = \"$CARGO_VERSION\"" || true)
+# Verify workspace member versions match CARGO_VERSION. `crates/` alone missed
+# benchmarks, a declared root [workspace] member.
+echo "Checking workspace crate versions in crates/*/Cargo.toml and benchmarks/Cargo.toml..."
+CRATE_VERSION_MISMATCHES=$(find crates benchmarks -name "Cargo.toml" -exec grep -H '^version = ' {} + | grep -v "version = \"$CARGO_VERSION\"" || true)
 if [ -n "$CRATE_VERSION_MISMATCHES" ]; then
     echo "ERROR: Workspace crate version mismatch found:"
     echo "$CRATE_VERSION_MISMATCHES"
