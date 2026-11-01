@@ -145,7 +145,7 @@ test = { path = "../..", version = '0.3.5' }
 EOF
 rc=0
 bash verify-version-sync.sh > out7.txt 2>&1 || rc=$?
-if [ "${rc}" -eq 2 ] \
+if [[ "${rc}" -eq 2 ]] \
     && grep -q "could not run (exit 2) — not a verdict" out7.txt \
     && ! grep -q "All local versions synchronized" out7.txt; then
     echo "✅ Success (exit 2, and no synchronization claim)"
@@ -201,7 +201,7 @@ echo "Test 9: a verifier missing its pin-audit tool refuses instead of claiming 
 rm -rf scripts
 rc=0
 bash verify-version-sync.sh > out9.txt 2>&1 || rc=$?
-if [ "${rc}" -eq 2 ] \
+if [[ "${rc}" -eq 2 ]] \
     && grep -q "the pin audit cannot run" out9.txt \
     && ! grep -q "All local versions synchronized" out9.txt; then
     echo "✅ Success (exit 2, and no synchronization claim)"

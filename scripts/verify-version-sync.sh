@@ -52,23 +52,23 @@ fi
 # the writer, so the tool and the gate cannot disagree about what a pin is.
 echo "Checking intra-workspace dependency pins (all manifests, all sections)..."
 if ! command -v python3 >/dev/null 2>&1; then
-    echo "ERROR: python3 is required to audit workspace version pins"
+    echo "ERROR: python3 is required to audit workspace version pins" >&2
     exit 2
 fi
-if [ ! -f scripts/workspace-version-edges.py ]; then
+if [[ ! -f scripts/workspace-version-edges.py ]]; then
     # Fail closed and say why: a verifier that silently skipped the pin audit would print
     # the same "✓ All local versions synchronized" line that let 18 stale pins ship.
-    echo "ERROR: scripts/workspace-version-edges.py is missing — the pin audit cannot run"
+    echo "ERROR: scripts/workspace-version-edges.py is missing — the pin audit cannot run" >&2
     exit 2
 fi
 EDGES_RC=0
 python3 scripts/workspace-version-edges.py --check . || EDGES_RC=$?
-if [ "$EDGES_RC" -eq 2 ]; then
+if [[ "$EDGES_RC" -eq 2 ]]; then
     # A sensor that did not run is not a pass: exit 2 keeps "could not audit" distinct
     # from "drift", which is how #903/#948/#949 classify an unrunnable probe.
-    echo "ERROR: the workspace version-pin audit could not run (exit 2) — not a verdict"
+    echo "ERROR: the workspace version-pin audit could not run (exit 2) — not a verdict" >&2
     exit 2
-elif [ "$EDGES_RC" -ne 0 ]; then
+elif [[ "$EDGES_RC" -ne 0 ]]; then
     FAILED=1
 fi
 

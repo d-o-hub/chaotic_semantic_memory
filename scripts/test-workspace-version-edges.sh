@@ -32,8 +32,8 @@ trap 'rm -rf "${WORK}"' EXIT
 
 RUNS=0
 FAILED=0
-ok() { RUNS=$((RUNS + 1)); echo "  ok: $1"; }
-no() { RUNS=$((RUNS + 1)); FAILED=$((FAILED + 1)); echo "  FAIL: $1"; }
+ok() { local desc="$1"; RUNS=$((RUNS + 1)); echo "  ok: ${desc}"; }
+no() { local desc="$1"; RUNS=$((RUNS + 1)); FAILED=$((FAILED + 1)); echo "  FAIL: ${desc}"; }
 
 if [[ ! -r "${SUBJECT}" ]]; then
     printf 'ERROR: cannot read %s\n' "${SUBJECT}" >&2
@@ -73,19 +73,21 @@ expect_rc() { # expect_rc <want> <description> <case> <args…>
 # has / lacks read the output `tool` captured for a case. Argument order matches
 # expect_has in scripts/test-check-nix-git-env.sh: description, needle, case.
 has() { # has <description> <needle> <case>
-    if grep -qF -- "$2" "${WORK}/$3.out"; then
-        ok "$1"
+    local desc="$1" needle="$2" case_name="$3"
+    if grep -qF -- "${needle}" "${WORK}/${case_name}.out"; then
+        ok "${desc}"
     else
-        no "$1 — missing [$2]"
-        sed 's/^/    /' "${WORK}/$3.out"
+        no "${desc} — missing [${needle}]"
+        sed 's/^/    /' "${WORK}/${case_name}.out"
     fi
 }
 
 lacks() { # lacks <description> <needle> <case>
-    if grep -qF -- "$2" "${WORK}/$3.out"; then
-        no "$1 — unexpected [$2]"
+    local desc="$1" needle="$2" case_name="$3"
+    if grep -qF -- "${needle}" "${WORK}/${case_name}.out"; then
+        no "${desc} — unexpected [${needle}]"
     else
-        ok "$1"
+        ok "${desc}"
     fi
 }
 
@@ -174,14 +176,14 @@ TOML
 
 # --------------------------------------------------------------- case 1: clean tree
 echo "== a tree whose pins are current =="
-CLEAN="$(mk_tree clean 1.2.3)"
+mk_tree clean 1.2.3 >/dev/null
 expect_rc 0 "every member pin matches its package" clean --check
 has "the clean verdict names the count it checked" "8 path edge(s) to workspace members, every pin matches" clean
 lacks "a clean tree prints no finding" "DRIFT:" clean
 
 # ------------------------------------------------- case 2: the eight stale directions
 echo "== the shapes the root-only sed could not reach =="
-STALE="$(mk_tree stale 1.0.0 git)"
+mk_tree stale 1.0.0 git >/dev/null
 expect_rc 1 "stale pins are drift" stale --check
 has "member -> sibling inline edge is named" "crates/alpha/Cargo.toml [dependencies] beta declares \"1.0.0\"" stale
 has "member -> root edge is named" "crates/alpha/Cargo.toml [dependencies] root-pkg declares \"1.0.0\"" stale
@@ -282,7 +284,7 @@ PY
 expect_rc 0 "a path edge with no version is not drift" nopin --check
 has "…but it is still counted and cross-checked" "8 path edge(s)" nopin
 
-VENDOR="$(mk_tree vendor 1.2.3 git)"
+mk_tree vendor 1.2.3 git >/dev/null
 expect_rc 0 "a path edge to a non-member is not the workspace's business" vendor --check
 expect_rc 0 "…even though index discovery does read the vendor manifest" vendor --list
 has "the non-member edge is excluded from the count" "8 path edge(s)" vendor
@@ -364,6 +366,28 @@ expect_rc 2 "no manifest at all is exit 2" empty --check
 expect_rc 2 "a version argument that is not semver is exit 2" clean --sync 1.2
 expect_rc 2 "…and a nonsense version is exit 2 too" clean --sync banana
 expect_rc 2 "no mode selected is a usage error, not a verdict" clean --list-not-a-mode
+
+# `resolve_root` is the single containment boundary: the caller's path is realpath'd
+# there, so a root that does not exist is "could not run" — not an empty edge set that
+# `--check` would print as clean.
+expect_rc 2 "a root that is not a directory is exit 2, not an empty audit" no-such-dir --check
+has "it names the path it refused" "not a repository directory: ${WORK}/no-such-dir" no-such-dir
+lacks "and reports no verdict about a tree it never opened" "every pin matches" no-such-dir
+
+# A manifest that resolves outside the root is refused, not filtered. Quietly dropping it
+# would print "every pin matches" about a file the audit never read, and `--sync` would
+# write through the symlink to somewhere the caller never pointed at.
+mkdir -p "${WORK}/outside"
+ESCAPE="$(mk_tree escape 1.2.3)"
+cat >"${WORK}/outside/Cargo.toml" <<TOML
+[package]
+name = "beta"
+version = "1.2.3"
+TOML
+ln -sf "${WORK}/outside/Cargo.toml" "${ESCAPE}/crates/beta/Cargo.toml"
+expect_rc 2 "a manifest symlinked out of the tree refuses instead of auditing around it" escape --check
+has "the refusal names the escaping file" "resolve outside the repository root" escape
+expect_rc 2 "…and --sync refuses too, because a partial rewrite is still a rewrite" escape --sync 9.9.9
 
 # ------------------------------------------------------- case 9: the real repository
 echo "== the shipped repository is the positive control =="

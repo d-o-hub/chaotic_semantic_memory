@@ -2,14 +2,16 @@
 """Enumerate, verify and rewrite the intra-workspace dependency version pins.
 
 Issue #964. `scripts/sync-version.sh` updated a member's own `version =` and the
-root -> member pins, and nothing else. Measured on `5b04e9c8` (2026-11-01): 25 path
-edges to workspace members, 17 of them stale. Every one of the 17 is a *member ->
-anything* edge still declaring `0.3.8`, and the 17th is `fuzz/Cargo.toml` declaring
+root -> member pins, and nothing else. Measured 2026-11-01 on `cae70539`: 26 path
+edges to workspace members, 18 of them stale. Seventeen of the 18 are a *member ->
+anything* edge still declaring `0.3.8`; the 18th is `fuzz/Cargo.toml` declaring
 `0.3.7`, two releases behind. The issue enumerated 16 because it read single-line
-`{ path = …, version = … }` forms only; `fuzz/Cargo.toml` writes its pin as a
-multi-line `[dependencies.chaotic_semantic_memory]` table. `verify-version-sync.sh`
-printed "✓ All local versions synchronized: 0.3.9" over all 17 and exited 0, so the
-drift had no sensor at all.
+`{ path = …, version = … }` forms only — `fuzz/Cargo.toml` writes its pin as a
+multi-line `[dependencies.chaotic_semantic_memory]` table — and a tomllib pass over
+`crates/*` plus the root reached 17 of 25 edges because `benchmarks/Cargo.toml` is a
+declared root member no `crates/*` pattern reaches. `verify-version-sync.sh` printed
+"✓ All local versions synchronized: 0.3.9" over all 18 and exited 0, so the drift had
+no sensor at all.
 
 Why it survived three releases: `version = "0.3.8"` means `^0.3.8`, which 0.3.9
 satisfies, so Cargo resolves correctly and nothing breaks. The cost lands at the next
@@ -70,6 +72,35 @@ def refuse(message):
     raise SystemExit(2)
 
 
+def resolve_root(raw):
+    """Absolute, symlink-free repository root, or exit 2.
+
+    Every path this tool reads or rewrites is derived from here, so containment is
+    decided once at the boundary instead of at each `open()`. The root arrives on the
+    command line (`scripts/validate.sh` passes its own parent, the fixture passes a
+    temp tree), and a root that is not a directory is "could not run" — never a verdict
+    of no drift.
+    """
+    root = os.path.realpath(raw)
+    if not os.path.isdir(root):
+        refuse(f"not a repository directory: {raw}")
+    return root
+
+
+def escapes(root, path):
+    """True when `path` resolves outside `root`.
+
+    `git ls-files` answers from the index, and an index can name a symlink whose target
+    is outside the worktree; reading it would let one manifest smuggle in a file this
+    audit was never pointed at, and `--sync` would write back to it. Escaping is refused
+    rather than silently dropped — a filter that discards an edge reports clean.
+    """
+    try:
+        return os.path.commonpath((root, os.path.realpath(path))) != root
+    except ValueError:  # no shared ancestor at all (e.g. a different mount root)
+        return True
+
+
 def manifest_paths(root):
     """Every Cargo.toml the workspace graph reaches, through the git index when present.
 
@@ -83,20 +114,39 @@ def manifest_paths(root):
     outside `crates/*`, `crates/*/*` and `fuzz` is *not* being audited.
     """
     try:
+        # `cwd=` rather than `-C <root>`: the caller-supplied root then never enters the
+        # argument vector, so a path that begins with `-` cannot be re-read by git as an
+        # option.
         out = subprocess.run(
-            ["git", "-C", root, "ls-files", "-z", "--", "*Cargo.toml"],
+            ["git", "ls-files", "-z", "--", "*Cargo.toml"],
+            cwd=root,
             check=True,
             capture_output=True,
         ).stdout
         paths = sorted(os.path.join(root, p) for p in out.decode("utf-8").split("\0") if p)
         if paths:
-            return paths, "index"
+            return keep_inside(root, paths), "index"
     except (subprocess.CalledProcessError, OSError):
         pass
     found = [os.path.join(root, "Cargo.toml")]
     for pattern in ("crates/*/Cargo.toml", "crates/*/*/Cargo.toml", "fuzz/Cargo.toml"):
         found += sorted(glob.glob(os.path.join(root, pattern)))
-    return [p for p in found if os.path.isfile(p)], "glob"
+    return keep_inside(root, [p for p in found if os.path.isfile(p)]), "glob"
+
+
+def keep_inside(root, paths):
+    """Return `paths`, refusing if any of them resolves outside `root`.
+
+    Refuse rather than filter: dropping an escaping manifest quietly would make the
+    audit report "every pin matches" about a tree it did not read.
+    """
+    outside = sorted(p for p in paths if escapes(root, p))
+    if outside:
+        refuse(
+            "manifest(s) resolve outside the repository root; refusing to audit or "
+            f"rewrite them: {', '.join(outside)}"
+        )
+    return paths
 
 
 def classify_header(parts):
@@ -364,11 +414,13 @@ def cmd_check(root):
 
 
 def cmd_sync(root, version, dry_run):
-    member_versions, edges = collect(root)
+    """Rewrite every member pin to `version`, or refuse. No verdict is returned: this
+    either writes or exits 2, so a caller cannot mistake a return code for a finding."""
+    _, edges = collect(root)
     wrong = [e for e in edges if e["declared"] is not None and e["declared"] != version]
     if not wrong:
         print(f"version edges: nothing to sync, all {len(edges)} pin(s) already {version}")
-        return 0
+        return
     edits = {}
     for edge in wrong:
         if edge["edit"] is None:
@@ -399,7 +451,6 @@ def cmd_sync(root, version, dry_run):
                 "--check will report drift",
                 file=sys.stderr,
             )
-    return 0
 
 
 def main(argv=None):
@@ -415,18 +466,17 @@ def main(argv=None):
     if tomllib is None:
         refuse("python3 has no tomllib (3.11+); the version-edge audit did not run")
     if args.sync is not None and not re.fullmatch(r"\d+\.\d+\.\d+", args.sync):
-        print(f"error: not a semver version: {args.sync}", file=sys.stderr)
-        return 2
-    root = os.path.abspath(args.root)
+        refuse(f"not a semver version: {args.sync}")
+    root = resolve_root(args.root)
     if not manifest_paths(root)[0]:
-        print(f"error: no Cargo.toml under {root}", file=sys.stderr)
-        return 2
+        refuse(f"no Cargo.toml under {root}")
     try:
         if args.list:
             return cmd_list(root)
         if args.check:
             return cmd_check(root)
-        return cmd_sync(root, args.sync, args.dry_run)
+        cmd_sync(root, args.sync, args.dry_run)
+        return 0
     except ParseError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
