@@ -602,7 +602,12 @@ if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
     if [[ -n "${ARM_FEATURE}" ]]; then
       ARM_ARGS+=(--features "${ARM_FEATURE}")
     fi
-    ARM_PREFLIGHT="${PREFLIGHT_LOG}.${arm}"
+    # Name it `…-<arm>-latest.log`, not `…latest.log.<arm>`: .gitignore:46 ignores
+    # `/progress/mutation/*.log`, and a suffix-anchored glob does not match a file
+    # that ends in the arm name. Measured — the dotted form left
+    # `fast-preflight-latest.log.root` and `.crates` as untracked residue in
+    # `git status`, which Phase 1 step 2 reads as a dirty tree.
+    ARM_PREFLIGHT="${OUT_DIR}/${PROFILE}-preflight-${arm}-latest.log"
     LIST_RC=0
     cargo mutants --list "${ARM_ARGS[@]}" "${EXCLUDE_ARGS[@]}" >"${ARM_PREFLIGHT}" 2>&1 || LIST_RC=$?
     if [[ "${LIST_RC}" -ne 0 ]]; then
