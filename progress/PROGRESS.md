@@ -2140,3 +2140,18 @@ manifests and the same 26 edges, at 0.13 s; the walk additionally reaches a memb
 tracked. Fixture 60 → 77 cases; the discovery sweep caught 4/5 neuterings, the survivor being a guard
 redundant with another (its failure mode is wasted work, not a wrong verdict — recorded as a lesson
 rather than papered over with a new green assertion).
+
+### 2026-11-01 — roast re-triage after #979, and a measured regression inside #977
+
+`scripts/pr-triage.sh` on `main = c4c167b6`: #983/#981/#980 all `CONFLICTING`, and only in the generated
+files (`SCRIPT_CATALOG.md` ×2, `validate.sh`); #977 `MERGEABLE/BLOCKED` with lint/test in flight.
+Verdicts in `plans/PR_ROAST_2026_11_01.md` (second sitting). #977's zero-init premise was adjudicated by
+disassembly rather than inherited from #783/#893/#950: at `hyperdim_simd.rs` the old bodies do contain
+`call memset(0x500)` (computed-pointer stores defeat DSE), so the mechanism is real — measured −21.5 % /
+−22.7 % on the two AVX2 kernels, 4/4 interleaved rounds, and **+5.3 %, 0/4 on `bind_simd_x86`**, which the
+cited `hvec_bind` benchmark cannot reach on an AVX2 host. Repairs: drop that hunk, split the
+unrelated `flake.nix` input swap (a non-failing FlakeHub warning, proven by #981's 13-minute timeline),
+retitle the "and and" subject. #983's 291-line `S3776` residue was applied to the tree, measured at 52/77
+fixture failures because of a new cwd-containment guard, and discarded — the committed head is 77/77.
+#981's red re-measured as the catalog gate; #980's and #981's Codacy reds are `SC2016`/`SC2086` on
+intentional quoting. No merge executed and no GOAP counter changed.

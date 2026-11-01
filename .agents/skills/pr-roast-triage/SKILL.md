@@ -137,14 +137,14 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
   - State all three in the verdict: the benchmark reaches changed code, its input distribution exercises the affected case, and the measured direction/sign supports the claim. A `perf` → `refactor` title change never bypasses this evidence bar.
-  - **A bench can be blind three ways (#800; #909/#891; #917).** By its *arguments*
+  - **A bench can be blind four ways (#800; #909/#891; #917; #977).** By its *arguments*
     (`permute(321)` never reaches the word-aligned path); by the *callee's fast path*
     (`make_candidates` prefills `score = 1.0`, so `rerank`'s `>= 0.99` return starved every
-    `mmr_rerank/*` id); and by a *flat corpus* — #917's `sort_unstable_by_key(entries.len())`
-    ran on every bm25 bench and reordered nothing, because each feeds equal-length posting
-    lists. Reachability shows at the call site; **blindness lives in the data**, so for an
-    ordering or selection claim read the corpus generator's key distribution. Proof recipe:
-    the `bench-blindness` reference.
+    `mmr_rerank/*` id); by a *flat corpus* (#917's sort reordered nothing — every bm25 bench
+    feeds equal-length posting lists); and by a *dispatch arm* (#977: `hvec_bind` enters only
+    the two AVX2 kernels, so the `bind_simd_x86` fallback it regressed +5.3 % is unreachable).
+    Reachability shows at the call site; **blindness lives in the data and in the host**: read
+    the corpus keys and every changed `cfg` arm (`references/bench-blindness.md`).
   - **Separate zero-fill elimination from scheduling effects (PR #783, 2026-09-28).** LLVM
     already removes the overwritten zero-init — an old-only body disassembles to a bare
     `memcpy`, old/new `from_hvec`/`from_bytes` folding to the *same address* — so "no

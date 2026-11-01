@@ -622,3 +622,28 @@
   suppression or removal, and on a sensor whose whole job is honesty, suppression is the wrong answer; the
   subprocess existed only to enumerate manifests, and a filesystem walk did it better (reaching untracked
   members, needing no git) at 0.13 s. **Re-read the rule's subject before defending the code.**
+
+- **A bench can be blind by dispatch arm, and that is the one blindness no input distribution fixes
+  (2026-11-01, #977).** `hvec_bind` calls `HVec10240::bind`, which on any AVX2 host enters
+  `bind_simd_avx2` and can never reach `bind_simd_x86`. The diff changed five kernels; the AVX2 two won
+  (−21.5 % / −22.7 %, 4/4 interleaved rounds) and the x86 fallback **lost** (+5.3 %, 0/4) because the new
+  body writes a stack buffer and then `memcpy(0x500)`s into the return slot where the old body wrote it
+  directly after the memset. Diff every changed `cfg` arm and disassemble each one; a green claimed delta on
+  the benchmarked arm says nothing about its siblings.
+- **Inherit the measurement method, never the verdict — in either direction (2026-11-01, #977).** The
+  `MaybeUninit` zero-init family had been closed twice (#783, #893, #950) because LLVM had already
+  dead-store-eliminated those initializers. At `hyperdim_simd.rs` it had not: the old bodies still
+  `call memset(0x500)`, because the loop writes through a computed pointer (`res.as_mut_ptr().add(i)`),
+  which defeats the full-coverage proof DSE used on the `copy_nonoverlapping` sites. Run the disassembly
+  on the new site; a prior "no impact" verdict transfers the *method*, not the outcome.
+- **A guard can be a plausible security fix and still be wrong at the boundary it chose (2026-11-01, #983).**
+  Uncommitted residue added `if os.path.commonpath((cwd, root)) != cwd: refuse(...)` to `resolve_root`, plus
+  a rewrite of that function's rationale to justify it. It refuses every tree the fixture builds, because the
+  fixture uses `mktemp -d`: 52 of 77 cases failed, while the committed head was 77/77. Run the fixture against
+  uncommitted work before reading its docstring — and fix the finding where the exposure is (`keep_inside` on
+  the member joins, one line) rather than at the CLI boundary that documented callers depend on.
+- **Codacy counts `info`-severity shellcheck findings, and two of them are intentional code (2026-11-01,
+  #980/#981).** `SC2016` on a single-quoted `sed` program that matches the literal text `${status}`, and
+  `SC2086` on `set -- ${row}` where the split *is* the parse. Applying the suggested fix breaks the fixture
+  each time (the `sed` then matches nothing and the `cmp -s` sharpness guard fires; the `set --` then makes
+  `$1` the whole row). Suppress inline with the reason instead — quoting a literal is not a repair.
