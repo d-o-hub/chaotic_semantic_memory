@@ -17,6 +17,9 @@ CI_MODE=false
 THRESHOLD="${MUTATION_THRESHOLD:-85}"
 POSITIONAL=()
 NO_DEFAULT_FEATURES=false
+# Set true only when the bounded diff selects at least one production Rust file.
+# It is what separates "this PR has nothing to mutate" from "the gate broke".
+DIFF_RUST_SELECTED=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -77,28 +80,131 @@ OUT_DIR="${MUTATION_OUTPUT_DIR:-progress/mutation}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_FILE="${OUT_DIR}/${PROFILE}-${TIMESTAMP}.log"
 REPORT_FILE="${OUT_DIR}/${PROFILE}-latest.md"
+PREFLIGHT_LOG="${OUT_DIR}/${PROFILE}-preflight-latest.log"
 mkdir -p "${OUT_DIR}"
+TMP_PKGS="$(mktemp)"
+trap 'rm -f "${TMP_PKGS}"' EXIT
 
 HELP_TEXT="$(cargo mutants --help 2>/dev/null || true)"
 FAST_ARGS=()
 TEST_ARGS=()
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Packages the fast profile always inspects, whether or not the diff touches them:
+# `--features chaotic_semantic_memory/mcp` (below) is only valid when the root
+# package is selected, so the selection can never be empty.
+ROOT_PACKAGE="chaotic_semantic_memory"
+MUTATION_PACKAGES=(csm-core-lib csm-retrieval "${ROOT_PACKAGE}")
+
+# Map the diff's production Rust files to the packages that own them.
+#
+# WHY THIS EXISTS (2026-11-01, PR #977): `cargo mutants` with no `-p` reads the
+# *current package*, and the root manifest is both a package and a workspace, so
+# discovery walked `src/**` only — 1259 mutants, zero of them under `crates/`,
+# measured on the #977 head. `detect-changes` (ci.yml:127) nevertheless sets
+# `mutation=true` for `crates/*/src/*.rs`, and TEST_ARGS already tested
+# csm-core-lib and csm-retrieval, so the gate claimed the diff was
+# mutation-visible and then proved it with a scope that could not see it. This is
+# the same fault ci-workspace-crate-matrix.sh:14-17 documents for the
+# lint/test jobs as issue #905 — third occurrence, and the mutation job was the
+# one still unfixed.
+#
+# Returns 2 when the workspace cannot be described or a selected file belongs to
+# no package: an unresolved scope is a broken gate, never a passing one.
+diff_package_scope() {
+  local diff_file="$1"
+  local metadata abs best best_pkg file pkg root
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq is not installed; the mutation gate cannot map the diff to its packages" >&2
+    return 2
+  fi
+  if ! metadata="$(cargo metadata --no-deps --format-version 1 \
+      --manifest-path "${REPO_ROOT}/Cargo.toml" 2>&1)"; then
+    echo "error: cargo metadata failed; the mutation gate cannot resolve which packages the diff touches" >&2
+    printf '%s\n' "${metadata}" | sed 's/^/  /' >&2
+    return 2
+  fi
+  # "<package root dir>\t<package name>" per line. An empty table must not read as
+  # "nothing in scope", so the parse and the result are both checked.
+  if ! printf '%s' "${metadata}" \
+      | jq -r '.packages[] | [.manifest_path, .name] | @tsv' \
+      | sed 's|/Cargo\.toml\t|\t|' >"${TMP_PKGS}"; then
+    echo "error: could not parse cargo metadata into a package table" >&2
+    return 2
+  fi
+  if [[ ! -s "${TMP_PKGS}" ]]; then
+    echo "error: cargo metadata reported no workspace packages" >&2
+    return 2
+  fi
+
+  while IFS= read -r file; do
+    if [[ -z "${file}" ]]; then
+      continue
+    fi
+    abs="${REPO_ROOT}/${file}"
+    best=""
+    best_pkg=""
+    while IFS=$'\t' read -r root pkg; do
+      case "${abs}" in
+        "${root}/"*)
+          if [[ ${#root} -gt ${#best} ]]; then
+            best="${root}"
+            best_pkg="${pkg}"
+          fi
+          ;;
+      esac
+    done <"${TMP_PKGS}"
+    if [[ -z "${best_pkg}" ]]; then
+      echo "error: ${file} is a selected Rust source but no workspace package owns it" >&2
+      return 2
+    fi
+    printf '%s\n' "${best_pkg}"
+  done < <(
+    # The same path rule ci.yml:127 uses to decide this job is required; a diff
+    # that edits no production Rust has no mutants by construction.
+    grep -E '^\+\+\+ b/' "${diff_file}" | sed 's|^+++ b/||' \
+      | grep -E '^(src/.*\.rs|crates/[^/]+/src/.*\.rs)$' \
+      | grep -Ev '(^|/)(tests/|tests\.rs$|[^/]*_tests\.rs$)' | sort -u
+  )
+  return 0
+}
 
 if [[ "${PROFILE}" == "fast" ]]; then
   if grep -q -- '--in-diff' <<<"${HELP_TEXT}"; then
     DIFF_TARGET="${DIFF_TARGET:-origin/main}"
     DIFF_FILE="$(mktemp)"
-    trap 'rm -f "${DIFF_FILE}"' EXIT
+    trap 'rm -f "${TMP_PKGS}" "${DIFF_FILE}"' EXIT
     # Three-dot: only commits on this branch since merge-base (true PR delta).
-    if git rev-parse --verify "${DIFF_TARGET}" >/dev/null 2>&1; then
-      git diff "${DIFF_TARGET}...HEAD" >"${DIFF_FILE}" 2>/dev/null \
-        || git diff "${DIFF_TARGET}" >"${DIFF_FILE}" 2>/dev/null \
+    # -C REPO_ROOT so the paths in the diff are workspace-root-relative, which is
+    # what both cargo-mutants' --in-diff filter and the package scope below assume.
+    if git -C "${REPO_ROOT}" rev-parse --verify "${DIFF_TARGET}" >/dev/null 2>&1; then
+      git -C "${REPO_ROOT}" diff "${DIFF_TARGET}...HEAD" >"${DIFF_FILE}" 2>/dev/null \
+        || git -C "${REPO_ROOT}" diff "${DIFF_TARGET}" >"${DIFF_FILE}" 2>/dev/null \
         || true
     else
-      git diff "${DIFF_TARGET}" >"${DIFF_FILE}" 2>/dev/null || true
+      git -C "${REPO_ROOT}" diff "${DIFF_TARGET}" >"${DIFF_FILE}" 2>/dev/null || true
     fi
     if [[ -s "${DIFF_FILE}" ]]; then
       FAST_ARGS+=(--in-diff "${DIFF_FILE}")
       echo "mutation fast: in-diff against ${DIFF_TARGET} ($(wc -l <"${DIFF_FILE}") diff lines)" >&2
+      # Scope mutant *generation* to the packages the diff touches. Without this
+      # the job tests the root package and calls that coverage of a crates/** diff.
+      # Captured, not piped: a process substitution would drop the function's exit
+      # status and turn an unresolved scope into a silent empty list.
+      if ! DIFF_SCOPE_OUT="$(diff_package_scope "${DIFF_FILE}")"; then
+        echo "error: mutation scope for the selected diff could not be resolved" >&2
+        exit 1
+      fi
+      if [[ -n "${DIFF_SCOPE_OUT}" ]]; then
+        DIFF_RUST_SELECTED=true
+      fi
+      read -r -a DIFF_PACKAGES <<< "${DIFF_SCOPE_OUT}"
+      for diff_pkg in "${DIFF_PACKAGES[@]}"; do
+        if ! printf '%s\n' "${MUTATION_PACKAGES[@]}" | grep -qxF "${diff_pkg}"; then
+          MUTATION_PACKAGES+=("${diff_pkg}")
+          echo "mutation fast: diff selects package ${diff_pkg} — added to the mutation scope" >&2
+        fi
+      done
       # Feature-aware mutation: cfg(not(feature = "persistence")) mutants are
       # unreachable under default features — both generation and tests must run
       # with the feature off (ADR-0094, PR #621).
@@ -133,10 +239,21 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # Unit-target tests only (--lib): integration suite dominates wall time (~8× unit suite).
   # Any change to src/** or crates/** must have unit test assertions in the lib target
   # to be visible to this mutation gate (process-level tests in tests/** are ignored).
-  # We limit testing to csm-core-lib, csm-retrieval, and chaotic_semantic_memory to avoid
-  # building irrelevant workspace packages, saving up to 80% build time.
-  # TODO: expand this list of packages if new packages or workspace crates are added.
-  TEST_ARGS+=(--lib -p csm-core-lib -p csm-retrieval -p chaotic_semantic_memory)
+  # MUTATION_PACKAGES starts at csm-core-lib, csm-retrieval and chaotic_semantic_memory to
+  # avoid building irrelevant workspace packages (up to 80% of build time), and grows with
+  # whatever the diff touches — so a new member is covered without anyone editing this list.
+  # The same list reaches mutant generation, split into arms (see ROOT_PACKAGE below): a
+  # scope that only the test side had is how PR #977 went red on a job that could not see
+  # its code, and one flat `cargo mutants -p A -p B --features pkg/feat` call is how it
+  # then dies, because cargo-mutants builds one `cargo test --package=X` per selected
+  # package and a package-qualified feature is invalid in every other package's command
+  # (measured on the #977 head: `--package=csm-core-lib@0.3.9
+  # --features=chaotic_semantic_memory/mcp` → "does not contain this feature" →
+  # "cargo build failed in an unmutated tree, so no mutants were tested").
+  TEST_ARGS+=(--lib)
+  for mutation_pkg in "${MUTATION_PACKAGES[@]}"; do
+    TEST_ARGS+=(-p "${mutation_pkg}")
+  done
 
   # `mcp` is not in the crate's `default` feature set (Cargo.toml:
   # default = ["cli", "persistence", "parallel"]) and both
@@ -160,7 +277,11 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # ran the module's first baseline and added the lib-target tests and the
   # documented excludes below — evidence in
   # `plans/evidence/mutation_mcp_2026_10_15/`.
-  FAST_ARGS+=(--features chaotic_semantic_memory/mcp)
+  #
+  # It is applied to the ROOT ARM ONLY. `chaotic_semantic_memory/mcp` gates code that
+  # lives in the root package (`src/lib.rs:57`, `src/cli/mcp.rs`), and passing it to an
+  # arm that also selects `crates/*` poisons cargo-mutants' per-package build command.
+  MCP_FEATURE="${ROOT_PACKAGE}/mcp"
 
   if [[ "${NO_DEFAULT_FEATURES}" == "true" ]]; then
     # --cargo-arg applies --no-default-features to every cargo invocation
@@ -199,6 +320,15 @@ elif [[ "${PROFILE}" != "full" ]]; then
   exit 2
 else
   # full profile: broader timeouts, full suite (no --lib)
+  #
+  # KNOWN BLIND SPOT, left open deliberately: no `-p`/`--workspace` reaches
+  # FAST_ARGS here, so the nightly sweep mutates the root package only — the same
+  # current-package fault that red-gated PR #977. Widening it is not a two-line
+  # edit: csm-duckdb links bundled libduckdb and csm-wasm is wasm32-only, so the
+  # sweep needs a per-package scope decision and a shard budget, which is issue
+  # #951's work (sharding behind the one required `mutation-test` context). Until
+  # that lands, "Full Mutation Sweep" in scheduled-evidence.yml means "full tree of
+  # the root package", and this line is where a reader can find out.
   FAST_ARGS+=(--timeout 120)
   FAST_ARGS+=(--minimum-test-timeout 30)
   FAST_ARGS+=(--build-timeout 180)
@@ -398,24 +528,126 @@ EXCLUDE_ARGS=(
   --exclude-re "hybrid_result_to_array"
 )
 
+# Arm split: cargo-mutants runs one `cargo test --no-run --package=X` per selected
+# package, and a package-qualified `--features pkg/feat` is invalid in the command
+# built for any other package. So `chaotic_semantic_memory/mcp` can only be passed
+# when the root package stands alone. At most two arms exist: `root` (with the mcp
+# feature, because src/mcp/** is cfg(feature = "mcp") and invisible without it) and
+# `crates` (every other selected package, without it, because no crate gates code on
+# mcp). The nightly `full` profile keeps its single historical arm.
+ROOT_SELECTED=false
+CRATE_PKGS=()
+for mutation_pkg in "${MUTATION_PACKAGES[@]}"; do
+  if [[ "${mutation_pkg}" == "${ROOT_PACKAGE}" ]]; then
+    ROOT_SELECTED=true
+  else
+    CRATE_PKGS+=("${mutation_pkg}")
+  fi
+done
+ARM_NAMES=()
+if [[ "${PROFILE}" == "full" ]]; then
+  ARM_NAMES=(full)
+else
+  if [[ "${ROOT_SELECTED}" == "true" ]]; then
+    ARM_NAMES+=(root)
+  fi
+  if [[ ${#CRATE_PKGS[@]} -gt 0 ]]; then
+    ARM_NAMES+=(crates)
+  fi
+fi
+
+# Populates ARM_PKGS (flat `-p` args) and ARM_FEATURE for one arm.
+configure_arm() {
+  ARM_PKGS=()
+  ARM_FEATURE=""
+  case "$1" in
+    root)
+      ARM_PKGS=(-p "${ROOT_PACKAGE}")
+      ARM_FEATURE="${MCP_FEATURE:-}"
+      ;;
+    crates)
+      local crate_pkg
+      for crate_pkg in "${CRATE_PKGS[@]}"; do
+        ARM_PKGS+=(-p "${crate_pkg}")
+      done
+      ;;
+    full) ;;
+  esac
+}
+
 # Preflight count (omit -j; listing does not need parallel workers).
+#
+# This probe decides whether the CI check runs at all, so it must not conflate
+# three different things the old version reported identically as "no mutants":
+#   1. the probe itself failed (cargo-mutants error, unparseable diff, bad scope)
+#      -> a broken gate: exit 1, always;
+#   2. the diff selects production Rust but no *changed line* carries a mutant
+#      (comment-only edits, `use` lines, cfg-gated code, a return type cargo-mutants
+#      cannot synthesise a value for) -> no evidence exists to gather: loud warning,
+#      exit 0. Failing here red-gates legitimate PRs forever, which is what blocked
+#      PR #977 before the scope fix above made its mutants visible;
+#   3. the diff selects no production Rust at all -> nothing this job can say.
+# stderr and the exit status are both captured: `2>/dev/null || true` hid case 1
+# inside case 2's message, and the gate's own report then claimed "no mutants".
+# Case 2 is NOT a passing mutation result and is written as such. The residual hole
+# (a diff whose lines all sit inside a cfg-disabled block reads as case 2 while real
+# risk exists) is issue #952's inventory check, not something this probe can see.
+declare -A ARM_COUNTS=()
+MUTANT_COUNT=0
 if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
-  LIST_OUT="$(cargo mutants --list "${FAST_ARGS[@]}" "${EXCLUDE_ARGS[@]}" 2>/dev/null || true)"
-  MUTANT_COUNT="$(printf '%s\n' "${LIST_OUT}" | grep -cE '\.rs:' || true)"
-  echo "mutation preflight: ${MUTANT_COUNT:-0} mutants to test (jobs=${JOBS})" >&2
-  if [[ "${MUTANT_COUNT:-0}" -eq 0 ]]; then
+  : >"${PREFLIGHT_LOG}"
+  for arm in "${ARM_NAMES[@]}"; do
+    configure_arm "${arm}"
+    ARM_ARGS=("${FAST_ARGS[@]}" "${ARM_PKGS[@]}")
+    if [[ -n "${ARM_FEATURE}" ]]; then
+      ARM_ARGS+=(--features "${ARM_FEATURE}")
+    fi
+    # Name it `…-<arm>-latest.log`, not `…latest.log.<arm>`: .gitignore:46 ignores
+    # `/progress/mutation/*.log`, and a suffix-anchored glob does not match a file
+    # that ends in the arm name. Measured — the dotted form left
+    # `fast-preflight-latest.log.root` and `.crates` as untracked residue in
+    # `git status`, which Phase 1 step 2 reads as a dirty tree.
+    ARM_PREFLIGHT="${OUT_DIR}/${PROFILE}-preflight-${arm}-latest.log"
+    LIST_RC=0
+    cargo mutants --list "${ARM_ARGS[@]}" "${EXCLUDE_ARGS[@]}" >"${ARM_PREFLIGHT}" 2>&1 || LIST_RC=$?
+    if [[ "${LIST_RC}" -ne 0 ]]; then
+      echo "error: mutation preflight failed in arm '${arm}' (exit ${LIST_RC}); no mutation evidence was produced" >&2
+      sed 's/^/  /' "${ARM_PREFLIGHT}" >&2
+      {
+        echo "# Unit-Target Mutation Test Report"
+        echo
+        echo "- Timestamp (UTC): ${TIMESTAMP}"
+        echo "- Profile: ${PROFILE}"
+        echo "- Arms: ${ARM_NAMES[*]}"
+        echo "- Mutants: unknown (arm '${arm}' preflight failed with exit ${LIST_RC})"
+        echo "- Result: not run (preflight failure; not a passing mutation result)"
+      } >"${REPORT_FILE}"
+      exit 1
+    fi
+    ARM_COUNTS["${arm}"]="$(grep -cE '\.rs:' "${ARM_PREFLIGHT}" || true)"
+    MUTANT_COUNT=$((MUTANT_COUNT + ${ARM_COUNTS["${arm}"]:-0}))
+    cat "${ARM_PREFLIGHT}" >>"${PREFLIGHT_LOG}"
+    echo "mutation preflight: arm '${arm}' (${ARM_PKGS[*]:-workspace default}) selected ${ARM_COUNTS[$arm]} mutants" >&2
+  done
+  echo "mutation preflight: ${MUTANT_COUNT} mutants to test (jobs=${JOBS}, packages=${MUTATION_PACKAGES[*]})" >&2
+  if [[ "${MUTANT_COUNT}" -eq 0 ]]; then
     echo "No mutants generated for the bounded diff; no mutation evidence was produced" | tee "${LOG_FILE}"
     {
       echo "# Unit-Target Mutation Test Report"
       echo
       echo "- Timestamp (UTC): ${TIMESTAMP}"
       echo "- Profile: ${PROFILE}"
+      echo "- Packages inspected: ${MUTATION_PACKAGES[*]}"
       echo "- Mutants: 0"
-      echo "- Result: not run (no mutants in diff)"
+      if [[ "${DIFF_RUST_SELECTED}" == "true" ]]; then
+        echo "- Result: not run (diff selects production Rust but no changed line is mutation-visible; NOT A PASS)"
+      else
+        echo "- Result: not run (no production Rust source selected by the diff; NOT A PASS)"
+      fi
     } >"${REPORT_FILE}"
-    if [[ "${CI_MODE}" == "true" ]]; then
-      echo "error: CI mutation check selected this Rust diff but generated no mutants" >&2
-      exit 1
+    if [[ "${CI_MODE}" == "true" && "${DIFF_RUST_SELECTED}" == "true" ]]; then
+      echo "::warning title=Mutation gate::0 mutation-visible lines in the changed Rust sources. Packages inspected: ${MUTATION_PACKAGES[*]}. No mutant was tested — this is NOT a passing mutation result."
+      echo "warning: CI mutation check selected production Rust but no changed line carries a mutant; the gate reports no evidence instead of failing the PR" >&2
     fi
     exit 0
   fi
@@ -423,14 +655,54 @@ fi
 
 set -o pipefail
 set +e # cargo-mutants exits 2 when any mutant is missed; we evaluate the score below
-RUN_CMD=(cargo mutants "${MUTANTS_ARGS[@]}" "${EXCLUDE_ARGS[@]}" "$@")
-if [[ ${#TEST_ARGS[@]} -gt 0 ]]; then
-  RUN_CMD+=(-- "${TEST_ARGS[@]}")
-fi
+: >"${LOG_FILE}"
 MARKER="$(mktemp)"
-trap 'rm -f "${MARKER}" "${DIFF_FILE:-}"' EXIT
-RUSTFLAGS="" RUST_BACKTRACE=0 "${RUN_CMD[@]}" 2>&1 | tee "${LOG_FILE}"
-RESULT="${PIPESTATUS[0]}"
+trap 'rm -f "${MARKER}" "${TMP_PKGS}" "${DIFF_FILE:-}"' EXIT
+ARM_RESULTS=()
+RESULT=0
+for arm in "${ARM_NAMES[@]}"; do
+  configure_arm "${arm}"
+  # An arm whose diff-selected count is 0 cannot produce evidence, and running it
+  # would still pay a full baseline build. Only the fast profile has per-arm counts
+  # (the nightly sweep has no preflight), so skip only there.
+  if [[ "${PROFILE}" != "full" && "${ARM_COUNTS["${arm}"]:-0}" -eq 0 ]]; then
+    echo "mutation arm '${arm}': 0 selected mutants, skipped" | tee -a "${LOG_FILE}" >&2
+    ARM_RESULTS+=("${arm}=skipped")
+    continue
+  fi
+  ARM_ARGS=("${MUTANTS_ARGS[@]}" "${ARM_PKGS[@]}")
+  if [[ -n "${ARM_FEATURE}" ]]; then
+    ARM_ARGS+=(--features "${ARM_FEATURE}")
+  fi
+  ARM_OUT_DIR="${OUT_DIR}/${PROFILE}-${TIMESTAMP}-${arm}"
+  ARM_LOG="${ARM_OUT_DIR}.log"
+  mkdir -p "${ARM_OUT_DIR}"
+  RUN_CMD=(cargo mutants "${ARM_ARGS[@]}" "${EXCLUDE_ARGS[@]}" "$@")
+  if [[ ${#TEST_ARGS[@]} -gt 0 ]]; then
+    RUN_CMD+=(-- "${TEST_ARGS[@]}")
+  fi
+  {
+    echo ""
+    echo "===== mutation arm: ${arm} (packages: ${ARM_PKGS[*]:-workspace default}, feature: ${ARM_FEATURE:-none}) ====="
+    printf '%q ' "${RUN_CMD[@]}"
+    echo ""
+  } | tee -a "${LOG_FILE}"
+  touch "${MARKER}"
+  RUSTFLAGS="" RUST_BACKTRACE=0 "${RUN_CMD[@]}" >>"${ARM_LOG}" 2>&1
+  arm_rc=$?
+  cat "${ARM_LOG}" >>"${LOG_FILE}"
+  # `mutants.out` is written relative to the workspace root; `-newer "${MARKER}"`
+  # distinguishes this arm's report from a stale one in the tree, and the copy keeps
+  # the arms from overwriting each other. `mutants.out/` is gitignored at any depth,
+  # so nothing here can leave the working tree dirty.
+  if [[ -f mutants.out/outcomes.json ]] && [[ -n "$(find mutants.out/outcomes.json -newer "${MARKER}" 2>/dev/null)" ]]; then
+    rm -rf "${ARM_OUT_DIR}/mutants.out"
+    cp -a mutants.out "${ARM_OUT_DIR}/mutants.out"
+    echo "mutation arm '${arm}' report copied to ${ARM_OUT_DIR}/mutants.out" >&2
+  fi
+  RESULT="${arm_rc}"
+  ARM_RESULTS+=("${arm}=${arm_rc}")
+done
 set +o pipefail
 set -e
 
@@ -440,28 +712,28 @@ set -e
 # here) — and `mutants.out/outcomes.json` is the record that answers it: per-mutant Build/Test
 # phase durations, with `mutants.out/debug.log` carrying the timestamps that separate "this
 # mutant is slow" from "the gap between mutants is slow". Outcomes are written as the sweep
-# progresses, so a mid-run cancellation still leaves the partial data. The copy lands inside
-# OUT_DIR (uploaded as `path: progress/mutation`) rather than going through `--output`,
-# because scripts/mutation_inventory.py reads `mutants.out/outcomes.json` relative to the
-# workspace root; `mutants.out/` is gitignored at any depth, so this adds no untracked churn.
-# `-newer "${MARKER}"` distinguishes this run's report from a stale mutants.out in the tree.
-if [[ -f mutants.out/outcomes.json ]] && [[ -n "$(find mutants.out/outcomes.json -newer "${MARKER}" 2>/dev/null)" ]]; then
-  rm -rf "${OUT_DIR}/mutants.out"
-  cp -a mutants.out "${OUT_DIR}/mutants.out"
-  echo "mutation report copied to ${OUT_DIR}/mutants.out" >&2
-fi
+# progresses, so a mid-run cancellation still leaves the partial data. Each arm now goes to
+# its own `--output` directory under OUT_DIR (uploaded as `path: progress/mutation`), which
+# also keeps arms from overwriting one another's outcomes; scripts/mutation_inventory.py reads
+# `mutants.out/outcomes.json` relative to its CWD, so it runs once per arm from that arm's
+# directory rather than from the workspace root.
 
 {
   echo "# Unit-Target Mutation Test Report"
   echo
   echo "- Timestamp (UTC): ${TIMESTAMP}"
   echo "- Profile: ${PROFILE}"
-  echo "- Target Set: lib target only (--lib -p csm-core-lib -p csm-retrieval -p chaotic_semantic_memory)"
+  if [[ "${PROFILE}" == "fast" ]]; then
+    echo "- Target Set: lib target only (--lib -p ${MUTATION_PACKAGES[*]})"
+    echo "- Arms: ${ARM_RESULTS[*]}"
+    echo "- Preflight: ${ARM_NAMES[*]} = ${ARM_COUNTS[*]:-n/a}"
+  else
+    echo "- Target Set: full cargo test suite; discovery is the root package (see the full-profile note above)"
+  fi
   echo "- Exit code: ${RESULT}"
   echo "- Jobs: ${JOBS}"
   echo "- Test args: ${TEST_ARGS[*]:-(full suite)}"
   echo "- Log: \`${LOG_FILE}\`"
-  echo "- Command: \`cargo mutants ${MUTANTS_ARGS[*]} ${EXCLUDE_ARGS[*]} -- ${TEST_ARGS[*]}\`"
   echo
   echo "## Tail"
   echo
@@ -470,23 +742,39 @@ fi
   echo '```'
 } >"${REPORT_FILE}"
 
-python3 "${SCRIPT_DIR}/mutation_inventory.py" >> "${REPORT_FILE}"
+for arm in "${ARM_NAMES[@]}"; do
+  ARM_OUT_DIR="${OUT_DIR}/${PROFILE}-${TIMESTAMP}-${arm}"
+  if [[ -f "${ARM_OUT_DIR}/mutants.out/outcomes.json" ]]; then
+    {
+      echo
+      echo "## Arm \`${arm}\` mutation inventory"
+      echo
+    } >>"${REPORT_FILE}"
+    (cd "${ARM_OUT_DIR}" && python3 "${SCRIPT_DIR}/mutation_inventory.py") >>"${REPORT_FILE}" \
+      || echo "arm '${arm}' inventory could not be rendered" >>"${REPORT_FILE}"
+  fi
+done
 
 echo "wrote ${REPORT_FILE}"
 
 if [[ "${CI_MODE}" == "true" ]]; then
   SCORE=""
-  SUMMARY_LINE="$(grep -oE "[0-9]+ mutant[s]? tested in .*" "${LOG_FILE}" | tail -1 || true)"
-  if [[ -n "${SUMMARY_LINE}" ]]; then
-    TOTAL="$(echo "${SUMMARY_LINE}" | awk '{print $1}')"
-    CAUGHT="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ caught' | awk '{print $1}')"
-    CAUGHT="${CAUGHT:-0}"
-    TIMEOUTS="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ timeout' | awk '{print $1}')"
-    TIMEOUTS="${TIMEOUTS:-0}"
-    MISSED="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ missed' | awk '{print $1}')"
-    MISSED="${MISSED:-0}"
-    UNVIABLE="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ unviable' | awk '{print $1}')"
-    UNVIABLE="${UNVIABLE:-0}"
+  # One summary line per arm that ran. The gate's number is the UNION of the arms —
+  # summed caught over summed viable, never an average of per-arm percentages: an
+  # average would let an arm that killed nothing pass on its sibling's score, which
+  # is the same arithmetic issue #951 demands across shards.
+  SUMMARY_LINES="$(grep -cE '[0-9]+ mutant[s]? tested in .*' "${LOG_FILE}" || true)"
+  if [[ "${SUMMARY_LINES:-0}" -gt 0 ]]; then
+    read -r TOTAL CAUGHT TIMEOUTS MISSED UNVIABLE < <(
+      grep -oE '[0-9]+ mutant[s]? tested in .*' "${LOG_FILE}" | awk '
+        function num(re,   m) {
+          if (match($0, re)) { m = substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", m); return m + 0 }
+          return 0
+        }
+        { t += $1; c += num("[0-9]+ caught"); to += num("[0-9]+ timeout"); mi += num("[0-9]+ missed"); un += num("[0-9]+ unviable") }
+        END { printf "%d %d %d %d %d\n", t, c, to, mi, un }
+      '
+    )
     VIABLE=$((TOTAL - UNVIABLE))
     # ADR-0095: timeouts count as unresolved (not detected), not caught.
     # Infinite-loop mutants are a quality issue, not a detection success.

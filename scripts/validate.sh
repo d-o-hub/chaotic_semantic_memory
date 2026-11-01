@@ -175,6 +175,13 @@ done
 echo "==> Mutation inventory fixture"
 "${SCRIPT_DIR}/test-mutation-inventory.sh"
 
+# Mutation gate classification (PR #977): pins the four ways "0 mutants" happens,
+# the package scope that must reach generation (not only the tests), the per-arm
+# feature split, and union-not-average scoring. All cargo/git calls are stubbed,
+# so it costs seconds instead of a 40-minute sweep.
+echo "==> Mutation gate classification fixture"
+"${SCRIPT_DIR}/test-mutation-no-diff.sh"
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 
