@@ -190,7 +190,7 @@ def member_manifest_paths(root):
             paths += [os.path.join(hit, "Cargo.toml") for hit in hits]
         else:
             paths.append(os.path.join(root, member, "Cargo.toml"))
-    return paths
+    return keep_inside(root, paths)
 
 
 def check_member_coverage(root, manifests):

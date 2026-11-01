@@ -500,6 +500,28 @@ expect_rc 2 "a manifest symlinked out of the tree refuses instead of auditing ar
 has "the refusal names the escaping file" "resolve outside the repository root" escape
 expect_rc 2 "…and --sync refuses too, because a partial rewrite is still a rewrite" escape --sync 9.9.9
 
+# A `[workspace] members` entry can also point above the root. That list feeds only the
+# read-only coverage cross-check today, so the audit already refuses this tree — by
+# accident, with "discovery was blind". The containment boundary belongs at the join, so
+# it refuses first and says why, and a future caller that does read the list inherits it.
+TRAVERSE="$(mk_tree traverse 1.2.3)"
+python3 - "${TRAVERSE}/Cargo.toml" <<'PYTOML'
+import sys
+path = sys.argv[1]
+text = open(path).read()
+old = 'members = [".", "crates/alpha", "crates/beta"]'
+assert old in text, "factory members line changed"
+open(path, "w").write(text.replace(old, 'members = [".", "crates/alpha", "crates/beta", "../escaped"]'))
+PYTOML
+mkdir -p "${WORK}/escaped"
+cat >"${WORK}/escaped/Cargo.toml" <<TOML
+[package]
+name = "escaped"
+version = "1.2.3"
+TOML
+expect_rc 2 "a member declared above the root is refused, not audited" traverse --check
+has "the refusal names the traversal, not a blind discovery" "resolve outside the repository root" traverse
+
 # ------------------------------------------------------- case 9: the real repository
 echo "== the shipped repository is the positive control =="
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
