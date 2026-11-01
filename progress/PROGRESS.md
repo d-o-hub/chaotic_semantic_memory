@@ -2037,3 +2037,70 @@ same job measure 8m29s–13m01s (`CARGO_BUILD_JOBS: 2`), so the 20-minute ceilin
 observed warm maximum; the PR's lockfile change (the `benchmarks` member's own version) is enough to shift the
 artifact set and spend a cold build. The fix belongs on that PR's head, where it is measurable: raise the budget,
 do not re-run and hope.
+## 2026-11-01 — mutation-scope gate merged, the nix audit and the version-pin edge gate built
+
+`main` moved `4ea6a8e6` → `91b78c01` (#976) → `cae70539` (#978). Full PR verdicts in
+`plans/PR_ROAST_2026_11_01.md`; the open queue is now #981 (needs rebase), #980 (conflicting),
+#979 (CI pending on its rebased head) and #977 (draft, still owes its mutant test), and the
+merge order emitted there is #979 → #981 → the #964 PR → #980.
+
+**#978 merged after two of its own claims were checked, not read.** The "deleted rationale
+comments" allegation did not survive hunk inspection — the reasoning moved into the fixture
+that now proves it, and every `#9xx`/ADR tag is still in the file. The "CI proves the fixture
+runs" claim survived but for the wrong reason: the `mutation-test` job is path-filtered and
+never ran for that diff; the green came from the `lint` job invoking the fixture directly. A
+badge says which jobs are green, not which ones exist, and #960's whole subject is jobs that
+report on work they did not do.
+
+**#949 shipped as a sensor, because half of its premise was wrong.** The issue asks for a
+runner-image pin; measured, `scripts/run-with-libs.sh:9` is the tree's only
+`export LD_LIBRARY_PATH`, the flake's `devShell` exports nothing and carries no `git`/`curl`,
+and an **unwrapped** `nix develop --command cargo deny` step is the control that falsified the
+image theory — the `ubuntu-24.04` pins failed the identical line and were reverted. So the
+durable artifact is `scripts/check-nix-git-env.sh`: 14 `nix develop` lines across 6 jobs
+audited, 3 wrapped entrypoints scanned and named in the pass line, per-line `LD_LIBRARY_PATH`
+drop required for any host helper or `cargo deny`, an inventory that ratchets (a new nix-using
+job is a finding until it is audited in the same commit), and exit 2 whenever the audit cannot
+run. Its 37-case fixture replays real step bodies extracted with PyYAML and un-fixes the code
+with sed to prove the bug reappears.
+
+**#964: the issue's number was wrong, and the reason it was wrong is the deliverable.**
+Re-measured on `cae70539`: **26 path edges to workspace members, 18 stale** — not 16. The
+widening was `fuzz/Cargo.toml`'s multi-line `[dependencies.chaotic_semantic_memory]` table
+(17), then `benchmarks/Cargo.toml`, a declared `[workspace]` member that no `crates/*` glob
+reaches and which shipped three releases behind at `0.3.6` (18). Meanwhile
+`scripts/verify-version-sync.sh` printed `✓ All local versions synchronized: 0.3.9` and the
+docs/tests/examples staleness probe matched zero occurrences. Nothing was ever *broken*,
+because `^0.3.8` accepts `0.3.9` and `Cargo.lock` records resolved versions rather than
+requirements — the bill arrives at the first `0.4.x` publish, and 7 of the 9 crates.io
+artifacts carry the false metadata today. Delivered: `scripts/workspace-version-edges.py`,
+one parser behind `--list`/`--check`/`--sync`, so the writer and the gate cannot disagree
+about what a pin is; tomllib cross-checks the edge set *and every pin's value* and exits 2 on
+disagreement (the single-quoted `version = '0.3.8'` case is valid TOML a `"` regex never sees);
+discovery runs through `git ls-files` so a new member is audited without editing the tool, and
+falls back to globs only with a stderr warning naming its own blindness. `sync-version.sh` and
+`verify-version-sync.sh` now call it; 18 pins across 11 manifests rewritten to `0.3.9`, the
+`benchmarks` package version bumped, one `Cargo.lock` line, `cargo metadata --locked` clean at
+the root and in `fuzz/`.
+
+**Sharpness was measured by neutering the subject, not by counting cases.** The tool's
+fixture is 54 cases / 0 failures and 9/9 source mutations turn a direction red. The existing
+`scripts/test-version-sync.sh` went 4 → 9 tests *after* its first run failed for a reason that
+looked like a version-sync regression: a verifier that copied alone cannot find its new
+sibling tool. Two mutations then walked away green — `exit 2` downgraded to a pass, and the
+`crates`-only member glob — so tests 7 and 8 were written for exactly those, and the second
+sweep caught 6/6. An escaping mutation is not a gap in the mutation list; it is a missing case.
+
+**Filed #982** off the same shape of blindness: `sync-version.sh` rewrites doc/test literals by
+substituting `$CURRENT_VERSION`, so anything older than the previous release survives forever —
+seven `"version": "0.3.x"` occurrences across five files sit in `tests/`+`examples/` right now
+(`0.3.2`, `0.3.5`), and `verify-version-sync.sh`'s staleness probe is hardcoded to
+`0\.2\.[0-4]` and matches none of them. Explicitly out of scope for the #964 PR.
+
+Encoded as `shell-script-quality` → new `references/sensor-sharpness.md` (probe both
+directions, three exit codes, empty inventory is a finding, index discovery, neuter-the-subject
+recipe, mock trees must ship siblings, helper arg-order) and `release-management` →
+`references/version-pin-edges.md` with the 16→17→18 table and the `^`-semver explanation.
+Queue: 10 → 9 actions; `action_last_completed` is now
+`gate_the_member_to_root_version_pins`.
+

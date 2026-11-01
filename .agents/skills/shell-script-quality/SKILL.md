@@ -178,6 +178,26 @@ bats-tests:
       run: bats tests/bats/
 ```
 
+## Gate scripts (`check-*.sh` + `test-*.sh` in scripts/)
+
+A gate is a sensor, not a script: its value is the finding it would print, so it must be
+built to fail. Three rules, each learned from a gate that reported clean while checking
+nothing (`references/sensor-sharpness.md` carries the measurements and the code shapes):
+
+- **Probe every pattern before believing a zero.** Run each regex against a known positive
+  *and* a known negative at startup; if either mismatches, the audit did not run. glibc
+  `grep -E` reads an unmatched `)` as a literal, so a typo'd pattern passes every input
+  forever. `awk '…END{exit !found}' | grep -q .` can never pass — use awk's exit status.
+- **Three exit codes, always.** `0` clean verdict, `1` finding, `2` *could not run* (missing
+  dependency, unreadable file, empty inventory, parser disagreement). Never collapse 2 into
+  1 or 0; callers must treat 2 as not-a-verdict. In Python `SystemExit("msg")` exits **1**,
+  so a refusal needs `SystemExit(2)` explicitly.
+- **Neuter the subject, not the fixture.** After writing a gate, break it one direction at a
+  time (mutate the checker's own source) and require the fixture to go red. A case that
+  stays green under a mutation is asserting nothing — that is how #949's gate learned an
+  empty scanned-script list was a pass, and how #964's verifier learned two of six
+  mutations escaped until their tests were added.
+
 ## Quality Checklist
 
 - [ ] Script starts with `#!/usr/bin/env bash`
@@ -188,4 +208,6 @@ bats-tests:
 - [ ] Uses `local` for function-scoped variables
 - [ ] ShellCheck passes with no warnings
 - [ ] BATS tests cover happy path and errors (if complex)
+- [ ] Gate scripts probe their own patterns and exit `2` when they cannot run
+- [ ] Every fixture case goes red when the subject is neutered (one mutation per rule)
 - [ ] CI pipeline runs ShellCheck automatically

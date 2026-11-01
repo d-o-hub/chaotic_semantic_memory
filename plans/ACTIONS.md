@@ -36,23 +36,6 @@
     # the endpoint the data lives on. `npm audit signatures` is the third option and the only one that
     # verifies an attestation rather than its presence.
 
-  - name: gate_the_member_to_root_version_pins
-    github_issue: 964
-    preconditions: []
-    effects:
-      version_pin_edges_checked_by_gate: true
-    cost: 2
-    status: queued
-    # Independent of the #960 -> #954 -> #955 release-chain trio; runnable any time.
-    # Premise re-measured 2026-10-31 and the issue corrected: the drift is 16 stale intra-workspace
-    # version pins across 9 member manifests, not "three". Every manifest's own `version =` is 0.3.9
-    # (11 of 11) and root's 8 `path = "crates/…"` pins are current, so only the member -> root and
-    # member -> sibling edges drift — the direction `sync-version.sh` never rewrites and
-    # `verify-version-sync.sh` never checks (it still exits 0 over all 16). 7 of the 9 crates.io
-    # artifacts therefore publish stale metadata; `^0.3.8` accepts 0.3.9 so nothing mis-resolves
-    # today. Any PR opened for this carries hold-for-next while a release is pending: pr-drain-check
-    # fails the gate for the head it runs on (github-ci-guardrails -> "The queue gate"). A v0.3.9
-    # recover=true dispatch is exempt -- it reads the tagged commit's historical gate verdicts.
 
   - name: record_and_gate_the_zip_bundled_assumption
     github_issue: 966

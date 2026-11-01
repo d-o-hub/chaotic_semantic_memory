@@ -61,7 +61,7 @@ gh run watch
 
 ## Version sync (before PR)
 
-Run `./scripts/sync-version.sh <version>` BEFORE manually editing `Cargo.toml`. It updates Cargo.lock, CHANGELOG date section, README/docs minor pins, `wasm/package.json`, tests/examples, and regenerates llms files as configured.
+Run `./scripts/sync-version.sh <version>` BEFORE manually editing `Cargo.toml`. It updates Cargo.lock, CHANGELOG date section, README/docs minor pins, `wasm/package.json`, cli-npm, every workspace member's own version and — since #964 — **every** intra-workspace dependency pin via `scripts/workspace-version-edges.py`. Its docs/tests/examples sweep is still literal-matched to the *previous* version, so strings older than that survive it (#982).
 
 | Script | Purpose |
 |--------|---------|
@@ -197,6 +197,13 @@ Rules that came out of validating the 0.3.9 scripts against the *previous* relea
   and give the error branch its own label (`FAIL`, not `MISS`).
 - Before a release, confirm the publish environments cannot stall: `protection_rules: []` means no wait timer
   and no required reviewer; mid-run use `…/actions/runs/{id}/pending_deployments`.
+- **Intra-workspace version pins drift silently — run the edge audit, not the version grep.**
+  `^0.3.8` accepts `0.3.9`, so a stale member pin resolves fine, every test passes, and
+  `Cargo.lock` (which records resolved versions, not requirements) never churns. #964 measured
+  18 of 26 pins stale across 11 manifests while `verify-version-sync.sh` printed
+  `✓ All local versions synchronized`. `python3 scripts/workspace-version-edges.py --check`
+  is the sensor; `--sync <ver>` is the writer, from the same parser.
+  Detail: [references/version-pin-edges.md](references/version-pin-edges.md).
 - **Probe the crates.io token before the publish loop, not during it** (measured on v0.3.9, run 41110522627:
   nine `403 authentication failed` uploads ≈142 s apart, because each crate only fails at *its own* upload
   after a full verify build). `curl -H "Authorization: api-token $T" https://crates.io/api/v1/me` answers
