@@ -29,15 +29,25 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
    `<PR title> (#<NNN>)`, so the budget is `100 - len(" (#<NNN>)")` (7 for 3-digit, 8 for 4-digit), and
    branch-commit linting can never see it (issue #965). Measured 2026-10-30: #947's title was 97 —
    legal — and its squash subject `…bounded OTLP (#947)` was **104**, failing `header-max-length` on
-   `main` (run 41059071360, job `commitlint`, check-run 124073904392). Check before merging:
-   `printf '%s (#%s)' "$(gh pr view $N --json title -q .title)" "$N" | wc -c`. The red self-heals only on
-   the *next* merge (the push range then starts at the bad commit and drops it), so main can sit red and
-   refuse every dependent `workflow_run` — release and pre-release gate included.
-4. Validate GitHub checks with `references/gh-ci-truth.md`.
-5. If checks fail, report failing job and log URL; map failure class via
+   `main` (run 41059071360, job `commitlint`, check-run 124073904392). `scripts/check-squash-subject-length.sh
+   <pr> "<title>"` is the gate (it runs in `ci.yml`'s `commitlint` job before merge, and its fixture replays
+   that step). Count **characters**, not bytes: commitlint compares a JS string length, so the em dash in
+   #947's subject counts once and the subject is 104 chars but **106 bytes** — the `… | wc -c` form this
+   skill used to recommend reports the byte count, and bash `${#}` reports bytes too under `LC_ALL=C`. The
+   red self-heals only on the *next* merge (the push range then starts at the bad commit and drops it), so
+   main can sit red and refuse every dependent `workflow_run` — release and pre-release gate included.
+4. **Measure the squash subject the title will produce, before merging** — the step 3 lint never sees it:
+   ```bash
+   N=963
+   scripts/check-squash-subject-length.sh "$N" "$(gh pr view "$N" --json title -q .title)"   # exit 1 = retitle
+   ```
+   `ci.yml` runs the same script on every `pull_request`, so a retitle after the last run is unmeasured
+   until the pre-merge rebase re-triggers it — which is when the check belongs.
+5. Validate GitHub checks with `references/gh-ci-truth.md`.
+6. If checks fail, report failing job and log URL; map failure class via
    `references/ci-pitfalls-pr-triage.md` (commitlint scope, mutation surface,
    clippy `duplicated_attributes`, Jules force-push regression).
-6. Do not claim green until `gh pr checks` shows no failures.
+7. Do not claim green until `gh pr checks` shows no failures.
 
 ## Mutation gate (fast in-diff)
 
