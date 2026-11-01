@@ -16,8 +16,14 @@
 #   [target.'cfg(..)'.dependencies]       -> 1     (and cross-checked against tomllib)
 #   workspace = true                      -> 0     (no literal to sync is not drift)
 #   path edge with no version key         -> 0     (and still counted)
-#   a member outside the glob fallback    -> the index finds it; without the index the
-#                                            same bytes pass and the run says it was blind
+#   a member no `crates/*` pattern names  -> found, and found identically with or
+#                                            without a git index (discovery is a walk)
+#   a stale manifest under target/        -> 0     (the prune is real)
+#   …declared as a member anyway          -> 2     (so the prune cannot hide a member)
+#   a symlink back into the tree          -> counted once
+#   a symlink out of the tree             -> 2     (followed far enough to refuse it)
+#   a directory linking to itself         -> a verdict, not ENAMETOOLONG
+#   a manifest reachable by two paths     -> one edge (the shape only the manifest key catches)
 #   third-party version, no path          -> untouched by --sync
 #   --sync / --dry-run / idempotence      -> rewrite, no rewrite, nothing to do
 #   a pin tomllib reads and the parser does not, unbalanced table, no manifest,
@@ -93,7 +99,8 @@ lacks() { # lacks <description> <needle> <case>
 
 # ------------------------------------------------------------------ tree factory
 # mk_tree <name> <declared-pin-for-stale-edges>: one root package + two members +
-# a fourth "outside" manifest that is not a workspace member.
+# a fourth manifest that is not a workspace member. (`vendor` would be a more realistic
+# name for it, but that directory is pruned by discovery; this one must be *read*.)
 # Versions: members are 1.2.3; the pin passed in is what a dependency *declares*.
 mk_tree() {
     local root="${WORK}/$1" declared="$2"
@@ -101,7 +108,7 @@ mk_tree() {
     if [[ ${#} -gt 2 ]]; then
         extra="$3"
     fi
-    mkdir -p "${root}/crates/alpha/src" "${root}/crates/beta/src" "${root}/vendor"
+    mkdir -p "${root}/crates/alpha/src" "${root}/crates/beta/src" "${root}/notamember"
 
     cat >"${root}/Cargo.toml" <<TOML
 # Root manifest — comment must survive any rewrite.
@@ -155,7 +162,7 @@ TOML
 
     # Not a workspace member: no [package] in a discovered manifest, and a path edge
     # to something the tool has never heard of.
-    cat >"${root}/vendor/Cargo.toml" <<TOML
+    cat >"${root}/notamember/Cargo.toml" <<TOML
 [package]
 name = "vendored"
 version = "9.9.9"
@@ -165,9 +172,9 @@ whatever = { path = "../nowhere", version = "0.0.1" }
 TOML
 
     if [[ "${extra}" == "git" ]]; then
-        # Index-based discovery: the tool lists manifests through `git ls-files`, so a
-        # tree under git is the only way to exercise that path (and the only way a new
-        # member is audited without editing the tool — see the ratchet case below).
+        # Only to prove discovery does not need it: the walk reads the filesystem, so a
+        # tree under git and the same tree without one must yield the identical verdict.
+        # See the "outside" case below, which asserts exactly that pair.
         git -C "${root}" init -q
         git -C "${root}" add -A >/dev/null 2>&1
     fi
@@ -214,15 +221,18 @@ version = "1.2.3"
 [dependencies]
 root-pkg = { path = "../..", version = "1.0.0" }
 TOML
-git -C "${NEW}" add -A >/dev/null 2>&1
-expect_rc 1 "a newly added member's stale pin is drift on its first run" newmember --check
+# Deliberately not `git add`ed: the tree has an index, and the index does not know about
+# gamma. Discovery by index would report clean over a stale pin that exists on disk; the
+# walk reads the disk, which is where the pin that ships actually lives.
+expect_rc 1 "a member added on disk but never tracked is drift on its first run" newmember --check
 has "the finding names the new member's manifest" "crates/gamma/Cargo.toml" newmember
 
 # --------------------------------------------- case 3b: discovery reaches past the globs
-echo "== a member the glob fallback cannot reach =="
+echo "== a member no crates/* pattern names, with and without a git index =="
 # `benchmarks/Cargo.toml` is a real workspace member here and matches no `crates/*`
 # pattern; it shipped at 0.3.6 for three releases because every enumerator was glob- or
-# list-scoped. Same bytes, two verdicts, differing only by whether the git index answers.
+# list-scoped. The pair below is the same bytes twice, differing only by `.git`: a tool
+# that enumerated the index would go silent on the second run.
 OUTSIDE="$(mk_tree outside 1.2.3 git)"
 mkdir -p "${OUTSIDE}/benchmarks/src"
 cat >"${OUTSIDE}/benchmarks/Cargo.toml" <<'TOML'
@@ -243,12 +253,110 @@ if s.count(anchor) != 1:
 open(p, "w", encoding="utf-8").write(s.replace(anchor, 'members = [".", "crates/alpha", "crates/beta", "benchmarks"]'))
 PY
 git -C "${OUTSIDE}" add -A >/dev/null 2>&1
-expect_rc 1 "the index sees a member the globs cannot" outside --check
+expect_rc 1 "a member the globs cannot name is still audited" outside --check
 has "the finding names it" "benchmarks/Cargo.toml [dependencies] root-pkg" outside
-lacks "an index run announces no blindness" "glob fallback" outside
 rm -rf "${OUTSIDE}/.git"
-expect_rc 0 "…and without the index the same bytes pass, because the manifest is unseen" outside --check
-has "the fallback says so on stderr instead of passing quietly" "glob fallback" outside
+expect_rc 1 "…and the same bytes with no git at all give the same verdict, because discovery walks the filesystem" outside --check
+has "…naming the same edge" "benchmarks/Cargo.toml [dependencies] root-pkg declares \"1.0.0\"" outside
+
+# ------------------------------------------------ case 3c: the prune, and its counter-check
+echo "== pruned directories are not a way to hide a pin =="
+# `target/` is where `cargo package` unpacks a copy of every published crate, each with
+# its own stale pins, and `.qoder/worktrees/` holds full checkout copies of this
+# repository — so both must be pruned or the gate fails on bytes nobody can edit. That
+# prune is only safe because coverage is cross-checked against `[workspace] members`:
+# same tree, same stale pin, and declaring the hidden manifest a member turns the pass
+# into exit 2.
+PRUNED="$(mk_tree pruned 1.2.3)"
+mkdir -p "${PRUNED}/target/package/alpha-0.3.0" "${PRUNED}/.qoder/worktrees/wt/crates/gamma"
+cat >"${PRUNED}/target/package/alpha-0.3.0/Cargo.toml" <<'TOML'
+[package]
+name = "hidden"
+version = "1.2.3"
+
+[dependencies]
+root-pkg = { path = "../../..", version = "1.0.0" }
+TOML
+cp "${PRUNED}/target/package/alpha-0.3.0/Cargo.toml" "${PRUNED}/.qoder/worktrees/wt/crates/gamma/Cargo.toml"
+expect_rc 0 "a stale pin under target/ or .qoder/ is build output, not the workspace's business" pruned --check
+has "…and the count proves those manifests were never opened" "8 path edge(s) to workspace members, every pin matches" pruned
+python3 - "${PRUNED}" <<'PY'
+import sys
+p = f"{sys.argv[1]}/Cargo.toml"
+s = open(p, encoding="utf-8").read()
+anchor = 'members = [".", "crates/alpha", "crates/beta"]'
+if s.count(anchor) != 1:
+    raise SystemExit(f"the members anchor must appear once, found {s.count(anchor)}")
+open(p, "w", encoding="utf-8").write(
+    s.replace(anchor, 'members = [".", "crates/alpha", "crates/beta", "target/package/alpha-0.3.0"]'))
+PY
+expect_rc 2 "…but a declared member the prune hides is exit 2, not a clean report" pruned --check
+has "the refusal names the member it could not find" "target/package/alpha-0.3.0/Cargo.toml" pruned
+has "and says discovery, not the pins, is what failed" "discovery was blind" pruned
+lacks "and no verdict about matching pins is printed" "every pin matches" pruned
+
+# ------------------------------------------------- case 3d: a symlink back into the tree
+echo "== a symlinked directory is walked once, not twice =="
+# Discovery follows symlinked directories (refusing only when the target escapes the
+# root), which is what `.blackbox/skills -> ../.agents/skills` is in this repository. The
+# risk that comes with following them is a file counted along both routes — inflating the
+# edge set, and `--sync`'s write count — and two guards stand between a link and a wrong
+# number: a directory's realpath is entered once, and each discovered manifest is keyed by
+# realpath. Either one alone holds the line below; case 3g isolates the manifest key.
+LINKED="$(mk_tree linked 1.2.3)"
+ln -s crates "${LINKED}/crateslink"
+expect_rc 0 "the same manifest reached twice is still one edge" linked --check
+has "…and the count proves nothing was double-counted" "8 path edge(s) to workspace members, every pin matches" linked
+
+# --------------------------------------------- case 3e: a symlinked directory escaping
+echo "== a symlinked directory is followed to the root edge, then refused =="
+# Following symlinked directories is what makes the case above necessary, and it is what
+# makes this one the safety half: a tree can name a manifest that lives somewhere the
+# caller never pointed at. Not following it would be the quieter bug — the audit skips the
+# escaping subtree and prints "every pin matches" about bytes it never opened.
+ESCAPED_DIR="$(mk_tree escaped-dir 1.2.3)"
+mkdir -p "${WORK}/elsewhere"
+cat >"${WORK}/elsewhere/Cargo.toml" <<'TOML'
+[package]
+name = "smuggled"
+version = "1.2.3"
+
+[dependencies]
+root-pkg = { path = "../escaped-dir", version = "1.0.0" }
+TOML
+ln -s "${WORK}/elsewhere" "${ESCAPED_DIR}/sneaky"
+expect_rc 2 "a symlinked directory reaching outside refuses the whole audit" escaped-dir --check
+has "…naming the escaping manifest rather than skipping it" "resolve outside the repository root" escaped-dir
+expect_rc 2 "…and --sync refuses it too, instead of rewriting through the link" escaped-dir --sync 9.9.9
+
+# ----------------------------------------------- case 3f: a symlink cycle must terminate
+echo "== a directory that links to itself does not make discovery recurse forever =="
+# Each directory's realpath is entered once, so `self -> .` cannot walk down
+# `./self/self/self/…` to ENAMETOOLONG. This asserts the verdict, not the cost: the
+# realpath key on the manifest set already collapses any duplicate path the descent
+# produces, so the directory guard is insurance against wasted work rather than the only
+# thing standing between this tool and a wrong number. Proved by case 3g below, which is
+# the shape only the manifest key can catch.
+CYCLE="$(mk_tree cycle 1.2.3)"
+ln -s . "${CYCLE}/self"
+expect_rc 0 "a self-linking directory still reaches a verdict" cycle --check
+has "…and reads each manifest exactly once" "8 path edge(s) to workspace members, every pin matches" cycle
+
+# ------------------------------------------- case 3g: a symlinked manifest, kept inside
+echo "== a manifest reachable by two in-tree paths is one edge, not two =="
+# A real directory holding a symlinked Cargo.toml that points back into the tree: the
+# directory walk enters it (no directory realpath repeats), so the same file arrives along
+# two paths. Keyed by path, `alpha` is then audited twice, `--list` prints 10 edges for 8
+# dependencies, and `--sync` counts a rewrite that writes the same span twice — a second
+# pass would find nothing, so no idempotence check would notice.
+MIRROR="$(mk_tree mirror 1.0.0)"
+mkdir -p "${MIRROR}/mirror"
+ln -s ../crates/alpha/Cargo.toml "${MIRROR}/mirror/Cargo.toml"
+expect_rc 1 "a mirrored manifest is still drift" mirror --check
+has "…against the same eight edges, not twelve" "stale pin(s) of 8" mirror
+expect_rc 0 "--list counts the mirrored tree once" mirror --list
+has "…and says so in the summary" "8 path edge(s) to workspace members; 6 stale" mirror
+lacks "…with no doubled edge anywhere in the listing" "12 path edge(s)" mirror
 
 # --------------------------------------------------- case 4: no literal to sync
 echo "== workspace inheritance, an unpinned path edge, and non-members =="
@@ -284,9 +392,12 @@ PY
 expect_rc 0 "a path edge with no version is not drift" nopin --check
 has "…but it is still counted and cross-checked" "8 path edge(s)" nopin
 
+# The case is literally named `vendor` on purpose: `PRUNED_DIRS` prunes a *child* named
+# vendor, never the root it was handed, and a tree whose own name is on the prune list
+# must still be audited. Rename this case and that regression becomes invisible.
 mk_tree vendor 1.2.3 git >/dev/null
 expect_rc 0 "a path edge to a non-member is not the workspace's business" vendor --check
-expect_rc 0 "…even though index discovery does read the vendor manifest" vendor --list
+expect_rc 0 "…even though discovery does read the non-member manifest" vendor --list
 has "the non-member edge is excluded from the count" "8 path edge(s)" vendor
 lacks "and the non-member edge never becomes a finding" "whatever" vendor
 
@@ -312,10 +423,10 @@ if grep -q 'serde = { version = "1.0.200"' "${SYNCED}/Cargo.toml"; then
 else
     no "the sync rewrote the root's serde pin"
 fi
-if grep -q 'version = "9.9.9"' "${SYNCED}/vendor/Cargo.toml"; then
+if grep -q 'version = "9.9.9"' "${SYNCED}/notamember/Cargo.toml"; then
     ok "a manifest outside the member graph was not rewritten"
 else
-    no "the sync rewrote the vendor manifest"
+    no "the sync rewrote the non-member manifest"
 fi
 expect_rc 0 "--sync is idempotent: a second run has nothing to do" synced --sync 1.2.3
 has "the second run says so out loud" "nothing to sync" synced
@@ -395,7 +506,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 status=0
 python3 "${SUBJECT}" --check "${REPO_ROOT}" >"${WORK}/repo.out" 2>&1 || status=$?
 if [[ "${status}" == "0" ]]; then
-    ok "--check passes on this repository (and discovers its manifests through git)"
+    ok "--check passes on this repository (walked from the filesystem, git or not)"
     sed 's/^/    /' "${WORK}/repo.out"
 else
     no "--check on the real tree exited ${status}, expected 0"

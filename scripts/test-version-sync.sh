@@ -164,9 +164,11 @@ test = { path = "../..", version = "0.3.6" }
 EOF
 
 echo "Test 8: a member outside crates/ is still version-checked"
-# The pin audit reaches this manifest only through the git index, and the mock tree has
-# none — so this is the `find crates -name Cargo.toml` glob's own blind spot (#964:
-# benchmarks/Cargo.toml shipped at 0.3.6 for three releases).
+# Two sensors cover this file now, and the mock tree proves the older one was blind: the
+# pin audit reaches it by walking the filesystem (no git index, and no `crates/*` pattern
+# matches `benchmarks/`), while `find crates benchmarks` names it for the *member version*
+# check — which is the gate that fires here, because its pin matches and its own version
+# does not (#964: benchmarks/Cargo.toml shipped at 0.3.6 for three releases).
 mkdir -p benchmarks/src
 cat > benchmarks/Cargo.toml <<EOF
 [package]

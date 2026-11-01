@@ -27,12 +27,15 @@ this file exists to kill):
     workspace-version-edges.py --sync <version>      [repo-root] [--dry-run]
 
 Exit: 0 as requested, 1 `--check` found a stale pin, 2 the audit could not run (no
-manifests, no tomllib, a bad version argument, or the text parser disagreeing with
-the TOML parser about which edges exist).
+manifests, no tomllib, a bad version argument, a manifest resolving outside the root, a
+declared `[workspace] members` entry the walk did not reach, or the text parser
+disagreeing with the TOML parser about which edges exist).
 
 The exit-2 rule is load-bearing. tomllib cross-checks the edge set the line parser
 found, so a manifest form the parser does not understand reports "could not audit"
-rather than "no drift" — the difference between a sensor and a shrug.
+rather than "no drift" — the difference between a sensor and a shrug. Discovery is a
+pruned filesystem walk, cross-checked the same way: `[workspace] members` is asked which
+manifests must have been read.
 """
 
 from __future__ import annotations
@@ -41,7 +44,6 @@ import argparse
 import glob
 import os
 import re
-import subprocess
 import sys
 
 try:
@@ -50,6 +52,14 @@ except ModuleNotFoundError:  # python < 3.11: no cross-check, so no verdict
     tomllib = None
 
 DEP_LEAVES = ("dependencies", "dev-dependencies", "build-dependencies")
+# Directories that cannot hold a workspace member. `target` is where `cargo package`
+# unpacks a copy of every published crate — each with its own Cargo.toml and its own
+# stale pins — and `.qoder/worktrees/*` holds full checkout copies of this repository,
+# which is exactly how a stale worktree turned `validate.sh` red (AGENTS.md rule 12).
+# The prune is not trusted to be right: `check_member_coverage` refuses if a member the
+# root manifest *declares* is missing from what the walk found, so pruning a real member
+# is a loud exit 2 rather than the silent green this file exists to kill.
+PRUNED_DIRS = frozenset({".git", ".qoder", "node_modules", "target", "vendor"})
 HEADER = re.compile(r"^\[([^\]]+)\]\s*(?:#.*)?$")
 VERSION_VALUE = re.compile(r'(version\s*=\s*")([^"]*)(")')
 INLINE_ENTRY = re.compile(r"([A-Za-z0-9_.+-]+)\s*=\s*\{")
@@ -90,10 +100,11 @@ def resolve_root(raw):
 def escapes(root, path):
     """True when `path` resolves outside `root`.
 
-    `git ls-files` answers from the index, and an index can name a symlink whose target
-    is outside the worktree; reading it would let one manifest smuggle in a file this
-    audit was never pointed at, and `--sync` would write back to it. Escaping is refused
-    rather than silently dropped — a filter that discards an edge reports clean.
+    Discovery is a walk that follows symlinked directories, so a tree can hand back a
+    manifest living somewhere else entirely. Reading it would let one symlink smuggle in a
+    file this audit was never pointed at, and `--sync` would write back through it.
+    Escaping is refused rather than silently dropped — a filter that discards an edge
+    reports clean.
     """
     try:
         return os.path.commonpath((root, os.path.realpath(path))) != root
@@ -101,37 +112,36 @@ def escapes(root, path):
         return True
 
 
-def manifest_paths(root):
-    """Every Cargo.toml the workspace graph reaches, through the git index when present.
+def walk_manifests(root):
+    """Every Cargo.toml under `root`, by filesystem rather than by git.
 
-    Discovery by index rather than a hard-coded list: a new member must be audited
-    without editing this file, which is the same ratchet issue #964 asks for. It also
-    reaches members the globs cannot — `benchmarks/Cargo.toml` holds one of this
-    repository's 26 edges and matches no `crates/*` pattern, which is how it shipped
-    three releases behind at `0.3.6`.
+    A git index records what someone chose to track; #964's drift lived in the manifests
+    themselves, so a new member is audited before it is `git add`ed and the audit needs no
+    git at all. Symlinked directories are followed — each directory's realpath is entered
+    once, so a link back into the tree (`.blackbox/skills` here) cannot loop — and results
+    are keyed by realpath so a file reachable along two paths is still one edge.
 
-    Returns (paths, source); `source` is "index" or "glob", and "glob" means a member
-    outside `crates/*`, `crates/*/*` and `fuzz` is *not* being audited.
+    It also reaches members no glob list names: `benchmarks/Cargo.toml` holds one of this
+    repository's 26 edges and matches no `crates/*` pattern, which is how it shipped three
+    releases behind at `0.3.6`.
     """
-    try:
-        # `cwd=` rather than `-C <root>`: the caller-supplied root then never enters the
-        # argument vector, so a path that begins with `-` cannot be re-read by git as an
-        # option.
-        out = subprocess.run(
-            ["git", "ls-files", "-z", "--", "*Cargo.toml"],
-            cwd=root,
-            check=True,
-            capture_output=True,
-        ).stdout
-        paths = sorted(os.path.join(root, p) for p in out.decode("utf-8").split("\0") if p)
-        if paths:
-            return keep_inside(root, paths), "index"
-    except (subprocess.CalledProcessError, OSError):
-        pass
-    found = [os.path.join(root, "Cargo.toml")]
-    for pattern in ("crates/*/Cargo.toml", "crates/*/*/Cargo.toml", "fuzz/Cargo.toml"):
-        found += sorted(glob.glob(os.path.join(root, pattern)))
-    return keep_inside(root, [p for p in found if os.path.isfile(p)]), "glob"
+    found = {}
+    seen_dirs = {root}
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
+        kept = []
+        for name in sorted(dirnames):
+            if name in PRUNED_DIRS:
+                continue
+            real = os.path.realpath(os.path.join(dirpath, name))
+            if real in seen_dirs:
+                continue
+            seen_dirs.add(real)
+            kept.append(name)
+        dirnames[:] = kept
+        if "Cargo.toml" in filenames:
+            path = os.path.join(dirpath, "Cargo.toml")
+            found.setdefault(os.path.realpath(path), path)
+    return sorted(found.values())
 
 
 def keep_inside(root, paths):
@@ -147,6 +157,63 @@ def keep_inside(root, paths):
             f"rewrite them: {', '.join(outside)}"
         )
     return paths
+
+
+def manifest_paths(root):
+    """The workspace's manifest set: discovered by walk, deduped, and contained."""
+    return keep_inside(root, walk_manifests(root))
+
+
+def member_manifest_paths(root):
+    """The manifests `[workspace] members` names, expanded the way cargo expands it.
+
+    Read from the root manifest rather than hard-coded here, because the list that gates
+    a build is the list a version audit should trust — and it is the counter-check that
+    makes a wrong `PRUNED_DIRS` entry impossible to miss.
+    """
+    root_manifest = os.path.join(root, "Cargo.toml")
+    if not os.path.isfile(root_manifest):
+        return []
+    with open(root_manifest, "rb") as handle:
+        document = tomllib.load(handle)
+    members = (document.get("workspace") or {}).get("members")
+    if members is None:
+        return []
+    if not isinstance(members, list):
+        refuse("[workspace] members is not an array; the coverage cross-check did not run")
+    paths = []
+    for member in members:
+        if not isinstance(member, str):
+            refuse(f"[workspace] members holds a non-string: {member!r}")
+        if glob.has_magic(member):
+            hits = (h for h in sorted(glob.glob(os.path.join(root, member))) if os.path.isdir(h))
+            paths += [os.path.join(hit, "Cargo.toml") for hit in hits]
+        else:
+            paths.append(os.path.join(root, member, "Cargo.toml"))
+    return paths
+
+
+def check_member_coverage(root, manifests):
+    """Exit 2 unless every declared member's manifest is among `manifests`.
+
+    Comparing by realpath is what keeps a symlinked tree from reading as "missing", and
+    the direction matters: a discovered manifest nobody declared is merely out of scope,
+    while a *declared* one nobody discovered means discovery was blind.
+    """
+    seen = {os.path.realpath(path) for path in manifests}
+    missing = sorted(
+        {
+            os.path.relpath(path, root)
+            for path in member_manifest_paths(root)
+            if os.path.realpath(path) not in seen
+        }
+    )
+    if missing:
+        refuse(
+            "a declared workspace member has no manifest among those discovered: "
+            + ", ".join(missing)
+            + " — discovery was blind, so this is not a verdict"
+        )
 
 
 def classify_header(parts):
@@ -292,15 +359,8 @@ def collect(root):
     """(member_versions, edges_to_members) for the whole workspace graph."""
     member_versions = {}
     all_edges = []
-    manifests, source = manifest_paths(root)
-    if source == "glob":
-        # Say it out loud: a silent fallback is a sensor that reports clean about a tree it
-        # only half read, which is the false green this file exists to remove.
-        print(
-            "warning: no git index — manifests came from the glob fallback "
-            "(Cargo.toml, crates/*, crates/*/*, fuzz), so a member outside it is NOT audited",
-            file=sys.stderr,
-        )
+    manifests = manifest_paths(root)
+    check_member_coverage(root, manifests)
     for path in manifests:
         package_version, edges = parse_manifest(path)
         with open(path, "rb") as handle:
@@ -468,7 +528,7 @@ def main(argv=None):
     if args.sync is not None and not re.fullmatch(r"\d+\.\d+\.\d+", args.sync):
         refuse(f"not a semver version: {args.sync}")
     root = resolve_root(args.root)
-    if not manifest_paths(root)[0]:
+    if not manifest_paths(root):
         refuse(f"no Cargo.toml under {root}")
     try:
         if args.list:
