@@ -82,6 +82,13 @@ echo "==> cargo deny --locked check"
 # rather than the runner image.
 env -u LD_LIBRARY_PATH cargo deny --locked check
 
+# `fuzz/` is a second workspace with its own Cargo.lock, so nothing above says
+# whether it still matches its manifest: a dependency added to a crate the fuzz
+# targets resolve passed this script with rc 0 and failed CI's Fuzz Workspace
+# Build job (PR #947, issue #948). Resolution only, no compile.
+echo "==> fuzz/Cargo.lock freshness (issue #948)"
+"${SCRIPT_DIR}/check-fuzz-lock.sh"
+
 # `GitHub Pages` runs `cargo doc --no-deps --all-features` with
 # CARGO_BUILD_WARNINGS=deny exported by actions-rust-lang/setup-rust-toolchain, so
 # a rustdoc warning fails nothing a PR can see and instead silently stops the docs
@@ -181,6 +188,12 @@ echo "==> Mutation inventory fixture"
 # so it costs seconds instead of a 40-minute sweep.
 echo "==> Mutation gate classification fixture"
 "${SCRIPT_DIR}/test-mutation-no-diff.sh"
+
+# Fuzz lock freshness (issue #948): the stale/fresh pair on a synthetic path-only
+# workspace, and the fail-closed directions of scripts/check-fuzz-lock.sh — a
+# missing manifest or an unusable cargo must not read as "lock is fresh".
+echo "==> Fuzz lock fixture"
+"${SCRIPT_DIR}/test-check-fuzz-lock.sh"
 
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
