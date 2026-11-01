@@ -284,7 +284,10 @@ PY
     # Sharpness control: un-fix the branch that reads the status and require the bug
     # to come back. Without this, the replay could pass on a step that had silently
     # regressed to always-green.
-    sed 's/if \[\[ ${status} -eq 0 \]\]; then/if [[ ${status} -ge 0 ]]; then/' \
+    # Double quotes with the `$` escaped: `${status}` is sed input meant to reach
+    # the file literally, not a shell expansion. Single quotes always report
+    # SC2016 here, which Codacy scores as a blocking new issue.
+    sed "s/if \[\[ \${status} -eq 0 \]\]; then/if [[ \${status} -ge 0 ]]; then/" \
         "${WORK}/subject_step.sh" >"${WORK}/subject_step_broken.sh"
     if cmp -s "${WORK}/subject_step.sh" "${WORK}/subject_step_broken.sh"; then
         no "the sharpness edit applied to nothing (the step body changed shape)"
