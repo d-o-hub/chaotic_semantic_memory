@@ -586,9 +586,11 @@
   three releases behind at `0.3.6` while `verify-version-sync.sh` printed `✓ All local versions synchronized:
   0.3.9`. Same class, one step smaller: the issue's own count was 16 because it grepped single-line
   `{ path = …, version = … }` and missed `fuzz/Cargo.toml`'s multi-line `[dependencies.x]` table. The durable
-  form is `git ls-files -z -- '*Cargo.toml'` (a new member is then audited without editing the tool — the
-  ratchet the issue asked for), and when a fallback to globs is unavoidable the run must say so on stderr
-  ("a member outside it is NOT audited") rather than narrow its own scope silently. **Re-measure every count in
+  form is a pruned filesystem walk *cross-checked against `[workspace] members`*: it audits a new member before
+  anyone `git add`s it, needs no git at all, and exits 2 when the prune would hide a declared member. Printing
+  `warning: no git index — manifests came from the glob fallback …` and returning 0 (this entry's first answer,
+  since corrected in the same PR) is still a sensor narrowing its own scope while keeping its old verdict —
+  **announce-then-pass is the weaker form of silent-then-pass; cross-check the declared set instead.** **Re-measure every count in
   an issue body before writing the fix, including your own previous number** — 16 → 17 → 18 here, each step a
   different enumeration method, and each one a claim that had looked measured.
 - **Neuter the subject, not the fixture (2026-11-01, #949/#964).** Writing N green cases proves nothing about
@@ -602,3 +604,21 @@
   fixture that copies a script into a temp tree must copy its **dependencies** too — `test-version-sync.sh`'s
   first run failed on a missing sibling tool, which reads exactly like a version-sync regression, and the
   verifier's fail-closed guard for that case became a testable direction of its own.
+- **Two redundant guards make each other untestable (2026-11-01, #964/#983).** The walk's discovery sweep
+  neutered five guards and **four** turned a case red. The survivor was the directory `seen_dirs` skip: with it
+  gone, the manifest-level realpath key still collapses every duplicated path, and with the key gone the
+  directory skip still prevents the descent — so neither is individually observable through an exit code, and
+  the one case written for "counted once" passed under both neuterings. Its real failure mode is *wasted work*
+  (`self -> .` walking `./self/self/…` until `ENAMETOOLONG`), not a wrong verdict. Lesson: when a sweep
+  survives, first ask whether the guard has an observable effect at all before writing another case; then
+  either isolate it with a case only it can pass or comment it as insurance — do not leave a green assertion
+  implying a sharpness it does not have. The manifest key got its own case (a real directory holding a
+  symlinked `Cargo.toml`: 8 edges, not 12) and turned red the moment the key was dropped.
+- **You cannot harden your way out of an import-level lint finding (2026-11-01, #983).** Bandit B404 fires on
+  `import subprocess`; the B603 "check for execution of untrusted input" fires on the call. I moved the
+  caller-supplied root out of the argv (`cwd=root` instead of `-C root`), which is a real fix for a real
+  argument-splice class — and the required `Codacy Static Code Analysis` context still failed with the same two
+  annotations on the same lines. When a rule attaches to a *dependency* rather than a defect, the options are
+  suppression or removal, and on a sensor whose whole job is honesty, suppression is the wrong answer; the
+  subprocess existed only to enumerate manifests, and a filesystem walk did it better (reaching untracked
+  members, needing no git) at 0.13 s. **Re-read the rule's subject before defending the code.**

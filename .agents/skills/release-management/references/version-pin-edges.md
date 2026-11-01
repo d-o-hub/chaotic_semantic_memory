@@ -38,7 +38,7 @@ different enumeration method, not a different bug:
 |---|---|---|
 | 16 | single-line `{ path = …, version = … }` grep | `fuzz/Cargo.toml`, whose pin is a multi-line `[dependencies.chaotic_semantic_memory]` table |
 | 17 | tomllib over `crates/*` + root | `benchmarks/Cargo.toml` — a declared `[workspace]` **member** that no `crates/*` pattern reaches |
-| 18 | `git ls-files -z -- '*Cargo.toml'` | (nothing; this is the enumerator) |
+| 18 | a pruned filesystem walk of every `Cargo.toml`, cross-checked against `[workspace] members` | (nothing; this is the enumerator) |
 
 ## The tool that replaced both
 
@@ -54,18 +54,33 @@ points worth keeping in mind when you extend it:
   would call that "no pin to sync" and report clean.
 - **`workspace = true` is not drift** — there is no literal to compare. A path edge with no
   `version` key at all is also not drift, but it is still counted and cross-checked.
-- **A pin to a non-member is not the workspace's business.** `vendor/`-style manifests get
-  parsed (the index finds them) and are excluded from the edge count by name.
+- **A pin to a non-member is not the workspace's business.** A manifest the walk reaches
+  that declares no member dependency is parsed and excluded from the edge count by name.
 - **Exit 2 is not a verdict.** No manifests, no tomllib, a non-semver `--sync` argument, a
-  malformed table, or a parser disagreement all exit 2. `refuse()` exists because
+  malformed table, an escaping manifest, an undiscoverable declared member, or a parser
+  disagreement all exit 2. `refuse()` exists because
   `SystemExit("msg")` exits **1**, which would have reported "could not audit" as drift.
-- **Discovery announces its own degradation.** Without a git index the run prints
-  `warning: no git index — manifests came from the glob fallback …, so a member outside it
-  is NOT audited` instead of quietly narrowing its scope.
+- **Discovery is cross-checked, not announced.** It walks the filesystem — reaching a member
+  before anyone `git add`s it, and needing no git at all — and prunes `target`, `.git`,
+  `.qoder`, `node_modules` and `vendor`, because `cargo package` unpacks stale copies into
+  `target/` and dispatched worktrees under `.qoder/` would otherwise make the gate red about
+  bytes nobody can edit. The prune is not trusted: `check_member_coverage()` asks the root
+  manifest which members *must* exist and exits 2 if the walk missed one. Printing
+  "warning: I only looked at half the tree" and returning 0 was the previous design, and it
+  was still a sensor narrowing its own scope while keeping its old verdict.
+- **Containment is decided once, at the boundary.** `resolve_root()` realpath's the caller's
+  path and every manifest is derived from it, so `keep_inside()`/`escapes()` can refuse a
+  symlinked file *or a symlinked directory* that resolves outside the root — refuse, not
+  skip, because skipping prints "every pin matches" about bytes it never opened. Symlinked
+  directories are followed (each realpath entered once) and manifests are keyed by realpath,
+  so a file reachable along two routes is one edge.
 
 ## Numbers to quote when someone says the gate is over-engineering
 
-- Tool fixture: 54 cases, 0 failures; 9/9 source mutations turn at least one direction red.
+- Tool fixture: 77 cases, 0 failures; 9/9 original source mutations turn a direction red,
+  and the discovery redesign's sweep caught 4 of 5 — the survivor is documented in
+  `shell-script-quality`'s sensor-sharpness §5 as the redundant-guard case (a guard whose
+  failure mode is wasted work has no exit code that can see it).
 - `verify-version-sync.sh` fixture: extended 4 → 9 tests; the first run failed on the
   pre-existing mock because a copied-alone verifier cannot find its sibling tool. Second
   neuter sweep: 6/6 mutations caught (the first sweep let 2 through, which is what tests 7

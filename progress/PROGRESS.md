@@ -2077,14 +2077,17 @@ artifacts carry the false metadata today. Delivered: `scripts/workspace-version-
 one parser behind `--list`/`--check`/`--sync`, so the writer and the gate cannot disagree
 about what a pin is; tomllib cross-checks the edge set *and every pin's value* and exits 2 on
 disagreement (the single-quoted `version = '0.3.8'` case is valid TOML a `"` regex never sees);
-discovery runs through `git ls-files` so a new member is audited without editing the tool, and
-falls back to globs only with a stderr warning naming its own blindness. `sync-version.sh` and
+discovery walks the filesystem and cross-checks `[workspace] members`, so a new member is audited before
+anyone tracks it and a prune that would hide a declared member exits 2 rather than reading clean.
+`sync-version.sh` and
 `verify-version-sync.sh` now call it; 18 pins across 11 manifests rewritten to `0.3.9`, the
 `benchmarks` package version bumped, one `Cargo.lock` line, `cargo metadata --locked` clean at
 the root and in `fuzz/`.
 
 **Sharpness was measured by neutering the subject, not by counting cases.** The tool's
-fixture is 54 cases / 0 failures and 9/9 source mutations turn a direction red. The existing
+fixture is 77 cases / 0 failures and 9/9 original source mutations turn a direction red; the
+discovery redesign's own sweep caught 4 of 5 and the survivor is documented as a redundancy,
+not a missing case (see `sensor-sharpness` §5). The existing
 `scripts/test-version-sync.sh` went 4 → 9 tests *after* its first run failed for a reason that
 looked like a version-sync regression: a verifier that copied alone cannot find its new
 sibling tool. Two mutations then walked away green — `exit 2` downgraded to a pass, and the
@@ -2104,3 +2107,36 @@ recipe, mock trees must ship siblings, helper arg-order) and `release-management
 Queue: 10 → 9 actions; `action_last_completed` is now
 `gate_the_member_to_root_version_pins`.
 
+
+## 2026-11-01 (later): the roast queue, and a required check that refused a hardened call
+
+Continued the `pr-roast-triage` pass over the open PR set (#978 and #979 merged in order; verdicts
+in `plans/PR_ROAST_2026_11_01.md`).
+
+**#981's `lint` red was the known flake's sentence, not the known flake.** The annotation contained
+`Unable to authenticate to FlakeHub` — the string the skill files under "re-run, do not fix code" —
+but the nix setup *completed* and `validate.sh` ran to its 15th gate, where the catalog check printed
+a one-line diff: the PR wired `check-nix-git-env.sh` into `.github/workflows/ci.yml` and committed a
+`SCRIPT_CATALOG.md` that does not know that caller. Classification rule written into the roast: read
+the step whose `::error::Process completed with exit code 1.` line follows the failure, never the set
+of warning strings that happen to share the job. Fix = regenerate the catalog on the branch.
+
+**#967's premise is falsified by its own log.** The issue says a dead crates.io token is discovered
+"only after seven compile cycles"; run 41110522627 shows the first `403 Forbidden` at **2.7 s** with
+**zero** compiles before it (six auth failures, then `csm-persistence` failing at 32 s for a separate
+reason). The defect that survives is narrower and still worth fixing: `verify-release` cannot tell a
+rejected publish from an unpublished one, and the publish loop keeps walking the workspace after the
+registry has already said no.
+
+**Codacy is a required context, and `cwd=root` was not the answer.** Ruleset `12897801` lists
+`Codacy Static Code Analysis` among the required checks with `strict: true`, so the external red
+blocks the merge rather than merely informing it. The version-edge gate's remaining two findings were
+bandit B404 (the `subprocess` **import**) and B603 (the call) — unfixable by hardening a call whose
+rule attaches to importing the module. Discovery now walks the filesystem, cross-checked against
+`[workspace] members` so a prune cannot hide a declared member (`target/` and `.qoder/` must be
+pruned: `cargo package` unpacks stale crate copies, and dispatched worktrees are full checkouts whose
+drift nobody can edit). Measured before writing: the walk and `git ls-files` return the same 13
+manifests and the same 26 edges, at 0.13 s; the walk additionally reaches a member that is not yet
+tracked. Fixture 60 → 77 cases; the discovery sweep caught 4/5 neuterings, the survivor being a guard
+redundant with another (its failure mode is wasted work, not a wrong verdict — recorded as a lesson
+rather than papered over with a new green assertion).

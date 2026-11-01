@@ -66,20 +66,29 @@ reading nothing. Two changes:
 - a wrapped step that execs a script the tree cannot read is itself a finding — "cannot
   verify" is not "verified clean".
 
-## 4. Discovery by index, not by list
+## 4. Discovery by walk + declared set, not by list
 
 #964's real lesson: `find crates -name Cargo.toml` is a *claim about the repository*, and
 the repository grew a member (`benchmarks/`) outside it, which then shipped three releases
-behind (`0.3.6`) while every gate said "synchronized". Enumerate through the source of truth
-(`git ls-files -z -- '*Cargo.toml'`), and when you must fall back to globs, **announce the
-fallback on stderr**:
+behind (`0.3.6`) while every gate said "synchronized". Enumerate the filesystem — a walk
+reaches a member before anyone `git add`s it, and needs no git at all — and then ask the
+manifest itself which files *must* have been read: cross-check `[workspace] members`,
+expanded the way cargo expands it, against the discovered set, and refuse (exit 2) on a
+declared member that is missing.
 
 ```
-warning: no git index — manifests came from the glob fallback (Cargo.toml, crates/*,
-crates/*/*, fuzz), so a member outside it is NOT audited
+a declared workspace member has no manifest among those discovered: target/x/Cargo.toml
+— discovery was blind, so this is not a verdict
 ```
 
-A silent fallback is the sensor narrowing its own scope while keeping its old verdict.
+That second half is what makes a prune list honest. `target/` must be pruned (`cargo
+package` unpacks a copy of every published crate there, each with its own stale pins) and
+`.qoder/` must be pruned (dispatched worktrees are full checkouts of this repository, and
+their drift is not editable), so a prune *can* in principle eat a real member — the
+declared-set cross-check is what converts "we decided not to look" from a silent green into
+a refusal. A silent fallback is the sensor narrowing its own scope while keeping its old
+verdict; announcing the fallback on stderr is the weaker version of the same bug, and this
+file used to recommend it.
 
 ## 5. Neuter the subject, not the fixture
 
@@ -105,6 +114,14 @@ Measured results, both sessions:
 - #964's verifier (`verify-version-sync.sh`): the first sweep let **2 of 4** mutations walk
   away green — "exit 2 downgraded to a pass" and "crates-only member glob restored" — so
   two fixture tests were written for exactly those directions, and the second sweep was 6/6.
+- #964's walk discovery (2026-11-01): 4 of 5 caught — `PRUNED_DIRS` emptied, the declared-member
+  coverage cross-check neutered, the manifest realpath key dropped, `followlinks=False`. The
+  survivor is the directory `seen_dirs` guard, and the reason is the rule: **two redundant
+  guards make each other untestable.** Dropping either one still prints the right count,
+  because the other collapses the duplicate path. A guard whose failure mode is *wasted work*
+  rather than a *wrong verdict* has no exit code that can see it — so isolate it with a case
+  only it can pass, or comment the test as insurance. Do not leave a green assertion implying
+  sharpness the guard does not have.
 
 A mutation that the fixture survives is not a gap in the mutation list; it is a case that
 was never written. The escaping mutation is the finding.
