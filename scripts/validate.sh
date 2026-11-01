@@ -434,6 +434,26 @@ else
   exit 1
 fi
 
+# Nix devShell host-helper audit (issue #949). The leak is a *shape*, not a runner:
+# scripts/run-with-libs.sh exports LD_LIBRARY_PATH=<nix-store libs> and everything its
+# command spawns inherits it, including the host `git` that cargo-deny uses for the
+# RustSec advisory-db, which then dies in git-remote-https on GLIBC_ABI_DT_X86_64_PLT.
+# The first diagnosis blamed the Ubuntu-26 runner image and pinned two jobs; the pinned
+# runner failed the identical line and the unpinned `Cargo Deny` job passed it as the
+# control, so this gate reads step bodies (PyYAML, same dependency as the YAML gates
+# above) and never a `runs-on` value. The fixture runs right after it: a grep pattern
+# with one stray paren reported "no unscrubbed host helper" for every input and passed
+# the real tree, which is exactly the rot only a contradicted test catches.
+if [[ -x "${SCRIPT_DIR}/check-nix-git-env.sh" ]]; then
+  echo "==> Nix devShell host-helper audit (no unscrubbed git/curl under nix develop)"
+  "${SCRIPT_DIR}/check-nix-git-env.sh" "$(cd "${SCRIPT_DIR}/.." && pwd)"
+  echo "==> Nix environment fixture (both directions of every rule)"
+  "${SCRIPT_DIR}/test-check-nix-git-env.sh"
+else
+  echo "Error: scripts/check-nix-git-env.sh missing or not executable" >&2
+  exit 1
+fi
+
 # GitHub Actions SHA validation (optional - only if requested)
 # Note: Disabled by default as existing workflows use version tags
 # To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
