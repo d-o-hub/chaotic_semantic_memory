@@ -96,14 +96,6 @@
     cost: 3
     status: queued
 
-  - name: check_fuzz_lock_in_validate
-    github_issue: 948
-    preconditions: []
-    effects:
-      fuzz_lock_checked_locally: true
-    cost: 1
-    status: queued
-
   - name: stop_leaking_nix_ld_library_path
     github_issue: 949
     preconditions: []

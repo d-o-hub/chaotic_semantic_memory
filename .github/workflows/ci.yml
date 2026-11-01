@@ -648,6 +648,8 @@ jobs:
     #     that one stage. An earlier commit pinned this job to ubuntu-24.04 on a runner-image
     #     theory; the pinned runner falsified it by failing the identical line, and the
     #     unpinned `Cargo Deny` job (same label, same devShell, no wrapper) is the control.
+    #     scripts/check-nix-git-env.sh now fails the tree if a host helper reappears on
+    #     either shape, so this paragraph is provenance rather than the only defence.
     #   - The nix toolchain gets no benefit from the host toolchain's dependency cache, so
     #     clippy alone ran 13m57s; job 123009333543 cleared the deny stage at ~29m and was
     #     then cancelled by the 30-minute budget before reaching rustdoc/tests/wasm. 60 is a

@@ -205,7 +205,11 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 10       # 2026-10-31: `make_verify_release_report_every_artifact` (#954) left the
+  queued_actions_count: 9        # 2026-11-01: `check_fuzz_lock_in_validate` (#948) left the queue — it
+                               #   landed as `c4c167b6` (#979) but its block was never removed, so the
+                               #   reconciliation gate called it STALE on every branch's head.
+                               #   Count = `grep -c '^  - name:' plans/ACTIONS.md`.
+                               # 2026-10-31: `make_verify_release_report_every_artifact` (#954) left the
                                #   queue with PR #973, which also implemented #971 and #972 — both filed
                                #   and landed inside that one branch, so neither was ever a queued block
                                #   here and the count moves 11 → 10, not 13 → 10. #974 (verify-release
@@ -453,7 +457,11 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: encode_the_green_release_run_as_not_publish_evidence  # 2026-10-31 (follow-up wave off `44e1c5ba`) —
+  action_last_completed: check_fuzz_lock_in_validate  # 2026-11-01: `#979` merged as `c4c167b6` and closed
+                               #   #948, but its queue block stayed, so `check-goap-queue-issues.sh` called
+                               #   it STALE and failed `lint` on every branch's head — an inherited red on
+                               #   PRs that touch no Rust and no CI. Block deleted, count re-measured 10 → 9.
+                               #   Previous action: `encode_the_green_release_run_as_not_publish_evidence`  — 2026-10-31 (follow-up wave off `44e1c5ba`) —
                                #   `release.yml:34-38` guards `validate` with the same two-clause
                                #   `workflow_run.event == 'push' && workflow_run.conclusion == 'success'` condition
                                #   as the gate, so CI 41184146253's 08:49:08Z **attempt-1 failure** lit gate
