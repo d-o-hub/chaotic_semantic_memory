@@ -206,7 +206,13 @@ world_state:
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
   host_subprocesses_isolated_from_nix_env: true # 2026-11-02: #949 landed as 9d86bda (#981)
-  queued_actions_count: 8        # 2026-11-02: `stop_leaking_nix_ld_library_path` (#949) left the queue — it
+  queued_actions_count: 7        # 2026-11-02: `gate_the_effective_squash_subject_length` (#965) left the queue —
+                               #   the gate shipped as `scripts/check-squash-subject-length.sh` + its
+                               #   373-line fixture in #980 (`1c047e64`), the issue auto-closed on that
+                               #   merge, and the queue block was not removed — so the reconciliation gate
+                               #   turned main red in the very run #980's own merge created (CI 41449158184,
+                               #   job `lint`, 12:59:33Z). Count = `grep -c '^  - name:' plans/ACTIONS.md`.
+                               # 2026-11-02: `stop_leaking_nix_ld_library_path` (#949) left the queue — it
                                #   landed as `9d86bda` (#981) closing #949. Count = `grep -c '^  - name:' plans/ACTIONS.md`.
                                # 2026-11-01: `check_fuzz_lock_in_validate` (#948) left the queue — it
                                #   landed as `c4c167b6` (#979) but its block was never removed, so the
@@ -311,6 +317,12 @@ world_state:
   bm25_posting_length_sort_measured_slower: true # 2026-10-19: #917 closed as no-impact — sorting `query_weights` by `entries.len()` is a semantic no-op on every bm25 corpus in the repo (all posting lists are equal length: `benches/benchmark.rs:711-719`, `benches/bm25_benchmark.rs:19-29`, `selective_100000`), and on a purpose-built skewed corpus (20 000 docs; postings 20 000/2 000/200; query descending) it measures **+8 %** (median 168.3 → 180.0 µs, consistent sign over four time-interleaved A/B pairs, `csm-ref-01`). Parity held: bit-identical scores and identical top-5 on a tie corpus. A resubmission must beat +8 % against on a committed unequal-length benchmark; see `plans/PR_ROAST_2026_10_19.md`. Do not re-queue.
   benchmarks_prove_performance: true              # 2026-09-21: named runner (plans/REFERENCE_RUNNER.md), canonical criterion baseline (plans/evidence/bench/canonical.json, 88 benches + CI), release-scale evidence (plans/evidence/scale_release_2026_09_21: ANN to 200k, memory/storage to 500k), npm package evidence (plans/evidence/wasm_2026_09_21)
   perf_pr_evidence_gate_enforced: true           # 2026-09-23: ci.yml commitlint job runs scripts/check-perf-pr-evidence.py for `perf(...)` PR titles; PR template carries `## Performance Evidence`
+  squash_subject_length_checked_before_merge: true   # 2026-11-02 (#965, landed as #980 `1c047e64`):
+                               #   `scripts/check-squash-subject-length.sh` lints the string GitHub actually
+                               #   commits — `printf '%s (#%s)' "$title" "$N"` — because PR-side commitlint
+                               #   only ever sees branch messages. Wired into the `commitlint` job
+                               #   (ci.yml:179-188) and its 373-line fixture into validate.sh:204. The
+                               #   action stayed queued after the merge, which is what turned main red.
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
 
@@ -460,7 +472,20 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: stop_leaking_nix_ld_library_path  # 2026-11-02: `#981` merged as `9d86bda` and closed
+  action_last_completed: gate_the_effective_squash_subject_length  # 2026-11-02: `#980` merged as
+                               #   `1c047e64` and closed #965, but its queue block stayed, so
+                               #   `check-goap-queue-issues.sh` called it STALE and failed `lint` on main's
+                               #   own merge run (41449158184, 12:59:33Z) — four seconds after the close.
+                               #   Block deleted, count 8 → 7. The gate itself shipped in that PR:
+                               #   `scripts/check-squash-subject-length.sh` reads the string GitHub builds
+                               #   (`<PR title> (#NNN)`, budget `100 - 7`) because branch-side commitlint can
+                               #   only see branch messages, with a 373-line fixture wired into validate.sh
+                               #   and the check invoked from the `commitlint` job. #947's 97-char title
+                               #   squashed to 104 and reddened main after a legal PR (run 41059071360,
+                               #   check-run 124073904392). Rule: an issue auto-closing on merge is the
+                               #   signal to delete its block in the same PR — a green PR gate is not a
+                               #   green main.
+                               #   Previous action: `stop_leaking_nix_ld_library_path`  # 2026-11-02: `#981` merged as `9d86bda` and closed
                                #   #949, but its queue block stayed, so `check-goap-queue-issues.sh` called
                                #   it STALE and failed `lint` on every branch's head. Block deleted, count 9 → 8.
                                #   Previous action: `check_fuzz_lock_in_validate`  # 2026-11-01: `#979` merged as `c4c167b6` and closed

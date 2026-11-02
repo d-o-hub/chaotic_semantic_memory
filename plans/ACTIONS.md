@@ -54,21 +54,6 @@
     # fails the gate for the head it runs on (github-ci-guardrails -> "The queue gate"). A v0.3.9
     # recover=true dispatch is exempt -- it reads the tagged commit's historical gate verdicts.
 
-  - name: gate_the_effective_squash_subject_length
-    github_issue: 965
-    preconditions: []
-    effects:
-      squash_subject_length_checked_before_merge: true
-    cost: 2
-    status: queued
-    # Measured 2026-10-30: #947's PR title was 97 chars (legal) but its squash subject
-    # `…bounded OTLP (#947)` was 104, failing `header-max-length` on main (CI run 41059071360,
-    # `commitlint` job, check-run 124073904392). PR-side commitlint lints branch commits, so no
-    # existing gate sees the string main receives. The red self-heals only on the next merge and
-    # refuses every dependent workflow_run (release, pre-release gate) while it lasts.
-    # Fix: check `printf '%s (#%s)' "$title" "$N" | wc -c` <= 100 before merge, ideally as
-    # `scripts/check-squash-subject-length.sh` wired into CI.
-
   - name: record_and_gate_the_zip_bundled_assumption
     github_issue: 966
     preconditions: []
