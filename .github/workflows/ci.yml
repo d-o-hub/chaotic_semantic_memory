@@ -250,6 +250,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     # Caching strategy:
     # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
     # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
@@ -616,6 +623,13 @@ jobs:
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
 
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
 
     # Caching strategy:
     # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
@@ -671,6 +685,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     # Caching strategy:
     # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
     # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
@@ -739,6 +760,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
       with:
@@ -809,6 +837,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     - name: cargo deny check
       run: nix develop --command cargo deny --locked check
 

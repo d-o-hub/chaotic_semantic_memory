@@ -500,10 +500,11 @@ expect_rc 2 "a manifest symlinked out of the tree refuses instead of auditing ar
 has "the refusal names the escaping file" "resolve outside the repository root" escape
 expect_rc 2 "…and --sync refuses too, because a partial rewrite is still a rewrite" escape --sync 9.9.9
 
-# A `[workspace] members` entry can also point above the root. That list feeds only the
-# read-only coverage cross-check today, so the audit already refuses this tree — by
-# accident, with "discovery was blind". The containment boundary belongs at the join, so
-# it refuses first and says why, and a future caller that does read the list inherits it.
+# A `[workspace] members` entry can also point above the root. That list is file
+# content — the second untrusted input after the root argument — so the entry is refused
+# before it is joined or globbed: a pattern such as `../../*` would otherwise reach
+# outside the tree and only be caught if a hit happened to land. `keep_inside` stays the
+# second boundary for anything the pattern guard cannot see (a symlinked member dir).
 TRAVERSE="$(mk_tree traverse 1.2.3)"
 python3 - "${TRAVERSE}/Cargo.toml" <<'PYTOML'
 import sys
@@ -520,7 +521,29 @@ name = "escaped"
 version = "1.2.3"
 TOML
 expect_rc 2 "a member declared above the root is refused, not audited" traverse --check
-has "the refusal names the traversal, not a blind discovery" "resolve outside the repository root" traverse
+has "the refusal names the traversal before it is joined" "members entry escapes the root: '../escaped'" traverse
+
+# The root argument itself is the first untrusted input. `--sync` writes, so a tree
+# outside the checkout, the working directory and the system temp dir is refused rather
+# than rewritten. Re-pointing TMPDIR moves the only one of the three bases a test can
+# create, which is what makes this direction observable.
+mkdir -p "${WORK}/fake-tmp"
+status=0
+TMPDIR="${WORK}/fake-tmp" python3 "${SUBJECT}" --check "${TRAVERSE}" >"${WORK}/outside-root.out" 2>&1 || status=$?
+if [[ "${status}" == "2" ]] && grep -q "refusing to audit" "${WORK}/outside-root.out"; then
+    ok "a root outside every trusted directory is exit 2, not an audit (exit 2)"
+else
+    no "a root outside every trusted directory was not refused — expected exit 2, got ${status}"
+    sed 's/^/    /' "${WORK}/outside-root.out"
+fi
+status=0
+TMPDIR="${WORK}/fake-tmp" python3 "${SUBJECT}" --sync 9.9.9 "${TRAVERSE}" >"${WORK}/outside-root-sync.out" 2>&1 || status=$?
+if [[ "${status}" == "2" ]] && grep -q "refusing to audit" "${WORK}/outside-root-sync.out"; then
+    ok "…and --sync refuses it instead of rewriting outside the boundary (exit 2)"
+else
+    no "an out-of-boundary --sync was not refused — expected exit 2, got ${status}"
+    sed 's/^/    /' "${WORK}/outside-root-sync.out"
+fi
 
 # ------------------------------------------------------- case 9: the real repository
 echo "== the shipped repository is the positive control =="

@@ -27,9 +27,9 @@ this file exists to kill):
     workspace-version-edges.py --sync <version>      [repo-root] [--dry-run]
 
 Exit: 0 as requested, 1 `--check` found a stale pin, 2 the audit could not run (no
-manifests, no tomllib, a bad version argument, a manifest resolving outside the root, a
-declared `[workspace] members` entry the walk did not reach, or the text parser
-disagreeing with the TOML parser about which edges exist).
+manifests, no tomllib, a bad version argument, a root outside the trusted directories, a
+manifest resolving outside the root, a declared `[workspace] members` entry the walk did
+not reach, or the text parser disagreeing with the TOML parser about which edges exist).
 
 The exit-2 rule is load-bearing. tomllib cross-checks the edge set the line parser
 found, so a manifest form the parser does not understand reports "could not audit"
@@ -45,6 +45,8 @@ import glob
 import os
 import re
 import sys
+import tempfile
+from pathlib import Path
 
 try:
     import tomllib
@@ -52,6 +54,7 @@ except ModuleNotFoundError:  # python < 3.11: no cross-check, so no verdict
     tomllib = None
 
 DEP_LEAVES = ("dependencies", "dev-dependencies", "build-dependencies")
+MANIFEST_NAME = "Cargo.toml"
 # Directories that cannot hold a workspace member. `target` is where `cargo package`
 # unpacks a copy of every published crate — each with its own Cargo.toml and its own
 # stale pins — and `.qoder/worktrees/*` holds full checkout copies of this repository,
@@ -90,10 +93,27 @@ def resolve_root(raw):
     command line (`scripts/validate.sh` passes its own parent, the fixture passes a
     temp tree), and a root that is not a directory is "could not run" — never a verdict
     of no drift.
+
+    That argument is also the tool's only untrusted input, so it is confined to the
+    directories this audit has business in: the checkout the script ships in, the tree
+    it was invoked from, and the system temp dir (the fixture builds its trees there).
+    `--sync` writes, which makes the boundary load-bearing rather than advisory: a root
+    outside all three is exit 2, not a partial rewrite somewhere nobody pointed at. The
+    check is `Path.is_relative_to` against resolved bases, the shape static analysis
+    recognises as containment; `commonpath` is equivalent but reads as unvalidated.
     """
-    root = os.path.realpath(raw)
-    if not os.path.isdir(root):
+    root = Path(raw).resolve()
+    if not root.is_dir():
         refuse(f"not a repository directory: {raw}")
+    if not (
+        root.is_relative_to(Path(__file__).resolve().parent.parent)
+        or root.is_relative_to(Path.cwd().resolve())
+        or root.is_relative_to(Path(tempfile.gettempdir()).resolve())
+    ):
+        refuse(
+            f"refusing to audit {root}: it is outside this checkout, the current working "
+            "directory and the system temp directory"
+        )
     return root
 
 
@@ -106,10 +126,7 @@ def escapes(root, path):
     Escaping is refused rather than silently dropped — a filter that discards an edge
     reports clean.
     """
-    try:
-        return os.path.commonpath((root, os.path.realpath(path))) != root
-    except ValueError:  # no shared ancestor at all (e.g. a different mount root)
-        return True
+    return not Path(path).resolve().is_relative_to(root)
 
 
 def walk_manifests(root):
@@ -132,15 +149,15 @@ def walk_manifests(root):
         for name in sorted(dirnames):
             if name in PRUNED_DIRS:
                 continue
-            real = os.path.realpath(os.path.join(dirpath, name))
+            real = Path(dirpath, name).resolve()
             if real in seen_dirs:
                 continue
             seen_dirs.add(real)
             kept.append(name)
         dirnames[:] = kept
-        if "Cargo.toml" in filenames:
-            path = os.path.join(dirpath, "Cargo.toml")
-            found.setdefault(os.path.realpath(path), path)
+        if MANIFEST_NAME in filenames:
+            path = Path(dirpath, MANIFEST_NAME)
+            found.setdefault(path.resolve(), path)
     return sorted(found.values())
 
 
@@ -154,7 +171,7 @@ def keep_inside(root, paths):
     if outside:
         refuse(
             "manifest(s) resolve outside the repository root; refusing to audit or "
-            f"rewrite them: {', '.join(outside)}"
+            f"rewrite them: {', '.join(str(p) for p in outside)}"
         )
     return paths
 
@@ -171,8 +188,8 @@ def member_manifest_paths(root):
     a build is the list a version audit should trust — and it is the counter-check that
     makes a wrong `PRUNED_DIRS` entry impossible to miss.
     """
-    root_manifest = os.path.join(root, "Cargo.toml")
-    if not os.path.isfile(root_manifest):
+    root_manifest = root / MANIFEST_NAME
+    if not root_manifest.is_file():
         return []
     with open(root_manifest, "rb") as handle:
         document = tomllib.load(handle)
@@ -185,11 +202,15 @@ def member_manifest_paths(root):
     for member in members:
         if not isinstance(member, str):
             refuse(f"[workspace] members holds a non-string: {member!r}")
+        # `members` is file content, so it is the second untrusted input: a glob such as
+        # `../../*` would reach outside the tree before `keep_inside` ever sees a result.
+        if os.path.isabs(member) or ".." in Path(member).parts:
+            refuse(f"[workspace] members entry escapes the root: {member!r}")
         if glob.has_magic(member):
-            hits = (h for h in sorted(glob.glob(os.path.join(root, member))) if os.path.isdir(h))
-            paths += [os.path.join(hit, "Cargo.toml") for hit in hits]
+            hits = sorted(h for h in glob.glob(str(root / member)) if os.path.isdir(h))
+            paths += [Path(hit, MANIFEST_NAME) for hit in hits]
         else:
-            paths.append(os.path.join(root, member, "Cargo.toml"))
+            paths.append(root / member / MANIFEST_NAME)
     return keep_inside(root, paths)
 
 

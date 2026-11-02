@@ -142,3 +142,17 @@ cannot run`, exit 2), which is also a testable direction of its own.
 "<needle>"` and then called it in the *other* order, 18 cases quietly grepped a
 non-existent file and reported a failure that was really a plumbing bug — noise that reads
 like findings hides the real ones. Copy a sibling fixture's helpers, or fix the sibling.
+
+## 8. A taint sensor only trusts the sanitizer shape it knows
+
+`pythonsecurity:S8707` ("path traversal via faulty LLM-supplied CLI arguments") kept failing
+the quality gate on `scripts/workspace-version-edges.py` after the root had been confined
+with `os.path.realpath` + `os.path.commonpath`, because the taint engine does not read a
+custom containment helper as sanitisation — the sink (`open`, `glob`) still looked tainted.
+Measured fix shape: `Path(raw).resolve()` then `candidate.is_relative_to(base)` against
+resolved bases, with the **checked `Path` itself** used for the filesystem operation. Two
+consequences worth carrying: (1) make the guard a real boundary (here: the checkout, the
+CWD, the system temp dir) rather than a shape that only satisfies the scanner; (2) a
+content-derived second input — `[workspace] members` — needs its own pre-join guard
+(`isabs` / `..` parts), because the sink is reached before the containment check on results.
+Fixture: 81 cases, including an out-of-boundary `--check` and `--sync` refused with exit 2.

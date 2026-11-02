@@ -2155,3 +2155,24 @@ retitle the "and and" subject. #983's 291-line `S3776` residue was applied to th
 fixture failures because of a new cwd-containment guard, and discarded — the committed head is 77/77.
 #981's red re-measured as the catalog gate; #980's and #981's Codacy reds are `SC2016`/`SC2086` on
 intentional quoting. No merge executed and no GOAP counter changed.
+
+### 2026-11-02 — #983 to a clean CI surface (lint, Sonar gate, FlakeHub annotations)
+
+The rebased head (`308b036d`) was green except `lint`, `SonarCloud Code Analysis` and a `failure`-level
+annotation on every nix job. Three distinct causes, each measured from the run rather than the badge:
+
+- `lint` died in the docs-link gate on `plans/PR_ROAST_2026_11_01.md:329` — `call *memset` with the GLIBC
+  2.2.5 symbol version parsed as an `@file` import. The symbol version is now written outside the `@`; the
+  gate reports 246 checked, 0 broken.
+- Sonar's security rating was E on two `pythonsecurity:S8707` findings at
+  `scripts/workspace-version-edges.py:177/189` — the `commonpath` containment is not a sanitizer shape the
+  taint engine recognises. `resolve_root` now returns a `Path` checked with `is_relative_to` against the
+  checkout, the CWD and the system temp dir, every filesystem operation uses it, and
+  `[workspace] members` gets a pre-join `isabs` / `..` guard (file content is the second untrusted input).
+  Fixture 79 → 81 cases, adding out-of-boundary `--check` and `--sync` refusals; 81/81 green.
+- Every job that installs nix carried `##[error]Unable to authenticate to FlakeHub` from
+  `magic-nix-cache-action`'s default `use-flakehub: null`. All six jobs now set `use-flakehub: false`, so
+  the action caches in the GitHub Actions cache and stops emitting the annotation.
+
+Local gates: `test-workspace-version-edges.sh` 81/81, `test-version-sync.sh` 9/9, docs-link 0 issues,
+skill-format + catalog, actionlint (10 workflows), nix-git-env audit, script catalog, GOAP queue all pass.

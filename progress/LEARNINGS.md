@@ -647,3 +647,24 @@
   `SC2086` on `set -- ${row}` where the split *is* the parse. Applying the suggested fix breaks the fixture
   each time (the `sed` then matches nothing and the `cmp -s` sharpness guard fires; the `set --` then makes
   `$1` the whole row). Suppress inline with the reason instead — quoting a literal is not a repair.
+- **A gate the scanner cannot read is still a gate; a gate the scanner *can* read must still be a real
+  boundary (2026-11-02, #983).** `pythonsecurity:S8707` kept the quality gate at security E after the root
+  had been confined with `realpath` + `commonpath`, because the taint engine does not treat a custom helper
+  as sanitisation: the `open`/`glob` sinks stayed tainted. The recognised shape is
+  `Path(raw).resolve()` + `candidate.is_relative_to(base)` with the checked `Path` used for the operation.
+  The standing lesson from 2026-11-01 still applies — a cwd-only guard refused every `mktemp` fixture tree
+  and broke 52/77 cases — so the bases are the checkout, the CWD and the system temp dir, and the fixture
+  grew out-of-boundary `--check`/`--sync` cases (81/81). A content-derived second input
+  (`[workspace] members`) needs its own pre-join guard: `glob.glob("../../*")` reaches the sink before any
+  result-containment check runs.
+- **A `failure`-level annotation can sit inside a passing step (2026-11-02, #983).** `magic-nix-cache-action`
+  defaults to `use-flakehub: null`, tries FlakeHub on every nix job, and logs
+  `##[error]Unable to authenticate to FlakeHub` in a step that still exits 0 — so `gh pr checks` is green
+  while every nix job carries a red annotation. Fixed at the config default (`with: use-flakehub: false`)
+  in all six jobs, not filed as an infra flake. "No warnings" means reading
+  `…/check-runs/<job>/annotations` for green jobs too.
+- **The docs-link gate scans fenced code blocks for `@`-tokens (2026-11-02, #983).** A disassembly line
+  `call *memset` with the GLIBC 2.2.5 symbol version was read as an `@file` import and failed `lint` on a
+  docs-only PR. The checker's `@`-skip list covers version tags, SHAs, npm scopes and domains but not ELF
+  symbol versions; write the symbol version outside the `@` (or extend the skip list with a fixture) rather
+  than disabling the check.
