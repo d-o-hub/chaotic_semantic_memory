@@ -434,7 +434,18 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.duckdb == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 35, not 20: this job builds `libduckdb-sys`'s bundled DuckDB from C++
+    # every run, and the workflow-level `CARGO_BUILD_JOBS: 2` caps the `cc`
+    # crate at two translation units. Measured on main, the last eight runs
+    # span 8m29s-13m01s, so a 20-minute ceiling sat ~7 minutes above a *warm*
+    # run; PR #983's run 41455249609 (job 125330035025) restored its rust-cache
+    # successfully at 14:46:13Z, finished Rust at 14:53:59Z, and was then
+    # cancelled at exactly 20m0s with `cc1plus` still compiling. A budget is
+    # the bound a *slow but healthy* run must stay under, not a target; the
+    # cold C++ build is ~20 min by this repo's own measurement. Keep the step
+    # honest and read the step timeline before re-running: `cancelled` with a
+    # compiler alive is budget, a failed step is a verdict.
+    timeout-minutes: 35
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - name: Install Rust
