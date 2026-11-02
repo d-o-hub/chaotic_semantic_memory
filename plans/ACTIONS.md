@@ -96,14 +96,6 @@
     cost: 3
     status: queued
 
-  - name: stop_leaking_nix_ld_library_path
-    github_issue: 949
-    preconditions: []
-    effects:
-      host_subprocesses_isolated_from_nix_env: true
-    cost: 3
-    status: queued
-
   - name: shard_the_mutation_test_context
     github_issue: 951
     preconditions:
