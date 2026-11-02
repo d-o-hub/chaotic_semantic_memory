@@ -195,6 +195,14 @@ echo "==> Mutation gate classification fixture"
 echo "==> Fuzz lock fixture"
 "${SCRIPT_DIR}/test-check-fuzz-lock.sh"
 
+# Squash-subject length (issue #965): the boundary a title has to clear before
+# GitHub appends " (#<n>)", the character-vs-byte unit commitlint actually enforces,
+# and a replay of both ci.yml steps that turn a measurement into a check verdict —
+# the fail-open shape (a skipped `if` branch leaves `$?` at 0) is only reachable
+# through the live step body, so the fixture reads it out of the workflow file.
+echo "==> Squash subject fixture"
+"${SCRIPT_DIR}/test-check-squash-subject-length.sh"
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 
