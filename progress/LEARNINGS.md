@@ -550,3 +550,20 @@
   `success` — 41195178865 on `14687660` is green and published nothing, which is why "the latest release run
   passed" must never be quoted as registry evidence. Generalize: a run-level conclusion certifies *nothing
   failed*, not *anything happened*; the jobs are the record.
+- **A closed issue is a merge step, not a notification (2026-11-02, #980 → main CI 41449158184).** #980 merged at
+  12:59:29Z with the squash-subject gate and `Fixes #965`; main's CI started four seconds later and failed `lint`
+  because `plans/ACTIONS.md` still queued `gate_the_effective_squash_subject_length`. This is the third time in
+  four days (#979/#948, #981/#949, #980/#965): the queue gate can only call a block STALE **after** the merge
+  that closes its issue, so the delete has to happen inside the same PR — and when it is missed, the red lands on
+  main *and* on every unrelated branch. Two consequences worth keeping: (a) run
+  `scripts/check-goap-queue-issues.sh` after a `Fixes #NNN` PR's *merge*, not just before the push, because the
+  pre-merge run sees the issue still OPEN and passes by construction; (b) a green PR check set says nothing about
+  the tree main receives — read main's run for the merge commit before claiming the merge was clean.
+- **A CI timeout is a measurement, not a safety net (2026-11-02, PR #983 job 125330035025).** `Test DuckDB
+  Companion` was cancelled at exactly 20m0s with `cc1plus` still running. The distinction that made the diagnosis
+  cheap: the log showed the rust-cache restore *succeeded* (198 MB at 14:46:13Z), so this was not a cache miss —
+  and main's same job has run 8m29s–13m01s for eight consecutive runs, which puts the 20-minute ceiling only ~7
+  minutes above a normal run. A budget set once against "it usually takes 13" fails on the first PR whose
+  lockfile churn changes the restored artifact set, and it fails as `cancelled`, which `gh pr checks` renders
+  identically to a real failure. Read the job's step timeline before re-running: cancellation with a compiler
+  still alive is budget, a failed step is a verdict.

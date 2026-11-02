@@ -2015,3 +2015,25 @@ re-measured on `4ea6a8e6` it is **16** stale pins across **9** manifests (root's
 are all current, so only member → root and member → sibling edges drift) — matching the issue body I
 re-published the same day. #955's block gained the measured endpoint fact: `.dist.attestations` is served
 only by the abbreviated packument, and `npm view <pkg> dist --json` omits it.
+
+**Main went red four seconds after a green PR merged, and the cause was the queue file that PR forgot.**
+#980 (`1c047e64`, 12:59:29Z) landed `scripts/check-squash-subject-length.sh`, auto-closed #965, and did not delete
+`gate_the_effective_squash_subject_length` from `plans/ACTIONS.md`. Main's own merge-triggered CI run
+41449158184 started at 12:59:33Z and failed `lint` on `check-goap-queue-issues.sh`: *STALE … #965 … CLOSED*.
+The same block failed PR #983's `lint` for a diff that touches no Rust. This is the third instance of one
+mechanism (#948 on #979, #949 on #981, #965 on #980) — the queue's hygiene rule is written in its own header and
+every recent merge has broken it, because deleting the block is the one step no gate can verify until *after*
+the merge that closes the issue. Fixed on main by deleting the block, re-measuring `queued_actions_count` 8 → 7,
+recording `squash_subject_length_checked_before_merge: true` in `world_state` (the action's own effect, now
+observed rather than promised), and naming the completion in `action_last_completed` with the previous one
+demoted to a `Previous action:` note. Nothing in `src/` or `crates/` changed; the red was entirely bookkeeping
+that a green PR gate could not see.
+
+**PR #983's remaining red is a budget, not a defect.** `Test DuckDB Companion` was cancelled at 20m0s — the job's
+`timeout-minutes: 20` — with `cc1plus` still compiling `libduckdb-sys`'s bundled DuckDB. Measured from the run:
+cache restored successfully at 14:46:13Z (198 MB), Rust compilation finished 14:53:59Z, and the bundled C++
+build then consumed the remaining 11 minutes without emitting a `Compiling` line. Main's last eight runs of the
+same job measure 8m29s–13m01s (`CARGO_BUILD_JOBS: 2`), so the 20-minute ceiling sits ~7 minutes above the
+observed warm maximum; the PR's lockfile change (the `benchmarks` member's own version) is enough to shift the
+artifact set and spend a cold build. The fix belongs on that PR's head, where it is measurable: raise the budget,
+do not re-run and hope.
