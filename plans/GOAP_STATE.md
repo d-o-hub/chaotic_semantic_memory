@@ -205,7 +205,10 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 9        # 2026-11-01: `check_fuzz_lock_in_validate` (#948) left the queue — it
+  host_subprocesses_isolated_from_nix_env: true # 2026-11-02: #949 landed as 9d86bda (#981)
+  queued_actions_count: 8        # 2026-11-02: `stop_leaking_nix_ld_library_path` (#949) left the queue — it
+                               #   landed as `9d86bda` (#981) closing #949. Count = `grep -c '^  - name:' plans/ACTIONS.md`.
+                               # 2026-11-01: `check_fuzz_lock_in_validate` (#948) left the queue — it
                                #   landed as `c4c167b6` (#979) but its block was never removed, so the
                                #   reconciliation gate called it STALE on every branch's head.
                                #   Count = `grep -c '^  - name:' plans/ACTIONS.md`.
@@ -457,7 +460,10 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: check_fuzz_lock_in_validate  # 2026-11-01: `#979` merged as `c4c167b6` and closed
+  action_last_completed: stop_leaking_nix_ld_library_path  # 2026-11-02: `#981` merged as `9d86bda` and closed
+                               #   #949, but its queue block stayed, so `check-goap-queue-issues.sh` called
+                               #   it STALE and failed `lint` on every branch's head. Block deleted, count 9 → 8.
+                               #   Previous action: `check_fuzz_lock_in_validate`  # 2026-11-01: `#979` merged as `c4c167b6` and closed
                                #   #948, but its queue block stayed, so `check-goap-queue-issues.sh` called
                                #   it STALE and failed `lint` on every branch's head — an inherited red on
                                #   PRs that touch no Rust and no CI. Block deleted, count re-measured 10 → 9.
