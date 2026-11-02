@@ -34,6 +34,9 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUBJECT="${SCRIPT_DIR}/workspace-version-edges.py"
 WORK="$(mktemp -d)"
+# One copy of the diagnostic indent filter (Sonar shell:S1192); the printed
+# output has to stay greppable, so every failure dump indents identically.
+INDENT='s/^/    /'
 trap 'rm -rf "${WORK}"' EXIT
 
 RUNS=0
@@ -72,7 +75,7 @@ expect_rc() { # expect_rc <want> <description> <case> <args…>
         ok "${desc} (exit ${got})"
     else
         no "${desc} — expected exit ${want}, got ${got}"
-        sed 's/^/    /' "${WORK}/${case_name}.out"
+        sed "${INDENT}" "${WORK}/${case_name}.out"
     fi
 }
 
@@ -84,7 +87,7 @@ has() { # has <description> <needle> <case>
         ok "${desc}"
     else
         no "${desc} — missing [${needle}]"
-        sed 's/^/    /' "${WORK}/${case_name}.out"
+        sed "${INDENT}" "${WORK}/${case_name}.out"
     fi
 }
 
@@ -534,7 +537,7 @@ if [[ "${status}" == "2" ]] && grep -q "refusing to audit" "${WORK}/outside-root
     ok "a root outside every trusted directory is exit 2, not an audit (exit 2)"
 else
     no "a root outside every trusted directory was not refused — expected exit 2, got ${status}"
-    sed 's/^/    /' "${WORK}/outside-root.out"
+    sed "${INDENT}" "${WORK}/outside-root.out"
 fi
 status=0
 TMPDIR="${WORK}/fake-tmp" python3 "${SUBJECT}" --sync 9.9.9 "${TRAVERSE}" >"${WORK}/outside-root-sync.out" 2>&1 || status=$?
@@ -542,7 +545,7 @@ if [[ "${status}" == "2" ]] && grep -q "refusing to audit" "${WORK}/outside-root
     ok "…and --sync refuses it instead of rewriting outside the boundary (exit 2)"
 else
     no "an out-of-boundary --sync was not refused — expected exit 2, got ${status}"
-    sed 's/^/    /' "${WORK}/outside-root-sync.out"
+    sed "${INDENT}" "${WORK}/outside-root-sync.out"
 fi
 
 # ------------------------------------------------------- case 9: the real repository
@@ -552,10 +555,10 @@ status=0
 python3 "${SUBJECT}" --check "${REPO_ROOT}" >"${WORK}/repo.out" 2>&1 || status=$?
 if [[ "${status}" == "0" ]]; then
     ok "--check passes on this repository (walked from the filesystem, git or not)"
-    sed 's/^/    /' "${WORK}/repo.out"
+    sed "${INDENT}" "${WORK}/repo.out"
 else
     no "--check on the real tree exited ${status}, expected 0"
-    sed 's/^/    /' "${WORK}/repo.out"
+    sed "${INDENT}" "${WORK}/repo.out"
 fi
 
 printf '\nworkspace version-edge fixture: %s case(s), %s failure(s)\n' "${RUNS}" "${FAILED}"
