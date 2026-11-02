@@ -2037,3 +2037,142 @@ same job measure 8m29s–13m01s (`CARGO_BUILD_JOBS: 2`), so the 20-minute ceilin
 observed warm maximum; the PR's lockfile change (the `benchmarks` member's own version) is enough to shift the
 artifact set and spend a cold build. The fix belongs on that PR's head, where it is measurable: raise the budget,
 do not re-run and hope.
+## 2026-11-01 — mutation-scope gate merged, the nix audit and the version-pin edge gate built
+
+`main` moved `4ea6a8e6` → `91b78c01` (#976) → `cae70539` (#978). Full PR verdicts in
+`plans/PR_ROAST_2026_11_01.md`; the open queue is now #981 (needs rebase), #980 (conflicting),
+#979 (CI pending on its rebased head) and #977 (draft, still owes its mutant test), and the
+merge order emitted there is #979 → #981 → the #964 PR → #980.
+
+**#978 merged after two of its own claims were checked, not read.** The "deleted rationale
+comments" allegation did not survive hunk inspection — the reasoning moved into the fixture
+that now proves it, and every `#9xx`/ADR tag is still in the file. The "CI proves the fixture
+runs" claim survived but for the wrong reason: the `mutation-test` job is path-filtered and
+never ran for that diff; the green came from the `lint` job invoking the fixture directly. A
+badge says which jobs are green, not which ones exist, and #960's whole subject is jobs that
+report on work they did not do.
+
+**#949 shipped as a sensor, because half of its premise was wrong.** The issue asks for a
+runner-image pin; measured, `scripts/run-with-libs.sh:9` is the tree's only
+`export LD_LIBRARY_PATH`, the flake's `devShell` exports nothing and carries no `git`/`curl`,
+and an **unwrapped** `nix develop --command cargo deny` step is the control that falsified the
+image theory — the `ubuntu-24.04` pins failed the identical line and were reverted. So the
+durable artifact is `scripts/check-nix-git-env.sh`: 14 `nix develop` lines across 6 jobs
+audited, 3 wrapped entrypoints scanned and named in the pass line, per-line `LD_LIBRARY_PATH`
+drop required for any host helper or `cargo deny`, an inventory that ratchets (a new nix-using
+job is a finding until it is audited in the same commit), and exit 2 whenever the audit cannot
+run. Its 37-case fixture replays real step bodies extracted with PyYAML and un-fixes the code
+with sed to prove the bug reappears.
+
+**#964: the issue's number was wrong, and the reason it was wrong is the deliverable.**
+Re-measured on `cae70539`: **26 path edges to workspace members, 18 stale** — not 16. The
+widening was `fuzz/Cargo.toml`'s multi-line `[dependencies.chaotic_semantic_memory]` table
+(17), then `benchmarks/Cargo.toml`, a declared `[workspace]` member that no `crates/*` glob
+reaches and which shipped three releases behind at `0.3.6` (18). Meanwhile
+`scripts/verify-version-sync.sh` printed `✓ All local versions synchronized: 0.3.9` and the
+docs/tests/examples staleness probe matched zero occurrences. Nothing was ever *broken*,
+because `^0.3.8` accepts `0.3.9` and `Cargo.lock` records resolved versions rather than
+requirements — the bill arrives at the first `0.4.x` publish, and 7 of the 9 crates.io
+artifacts carry the false metadata today. Delivered: `scripts/workspace-version-edges.py`,
+one parser behind `--list`/`--check`/`--sync`, so the writer and the gate cannot disagree
+about what a pin is; tomllib cross-checks the edge set *and every pin's value* and exits 2 on
+disagreement (the single-quoted `version = '0.3.8'` case is valid TOML a `"` regex never sees);
+discovery walks the filesystem and cross-checks `[workspace] members`, so a new member is audited before
+anyone tracks it and a prune that would hide a declared member exits 2 rather than reading clean.
+`sync-version.sh` and
+`verify-version-sync.sh` now call it; 18 pins across 11 manifests rewritten to `0.3.9`, the
+`benchmarks` package version bumped, one `Cargo.lock` line, `cargo metadata --locked` clean at
+the root and in `fuzz/`.
+
+**Sharpness was measured by neutering the subject, not by counting cases.** The tool's
+fixture is 77 cases / 0 failures and 9/9 original source mutations turn a direction red; the
+discovery redesign's own sweep caught 4 of 5 and the survivor is documented as a redundancy,
+not a missing case (see `sensor-sharpness` §5). The existing
+`scripts/test-version-sync.sh` went 4 → 9 tests *after* its first run failed for a reason that
+looked like a version-sync regression: a verifier that copied alone cannot find its new
+sibling tool. Two mutations then walked away green — `exit 2` downgraded to a pass, and the
+`crates`-only member glob — so tests 7 and 8 were written for exactly those, and the second
+sweep caught 6/6. An escaping mutation is not a gap in the mutation list; it is a missing case.
+
+**Filed #982** off the same shape of blindness: `sync-version.sh` rewrites doc/test literals by
+substituting `$CURRENT_VERSION`, so anything older than the previous release survives forever —
+seven `"version": "0.3.x"` occurrences across five files sit in `tests/`+`examples/` right now
+(`0.3.2`, `0.3.5`), and `verify-version-sync.sh`'s staleness probe is hardcoded to
+`0\.2\.[0-4]` and matches none of them. Explicitly out of scope for the #964 PR.
+
+Encoded as `shell-script-quality` → new `references/sensor-sharpness.md` (probe both
+directions, three exit codes, empty inventory is a finding, index discovery, neuter-the-subject
+recipe, mock trees must ship siblings, helper arg-order) and `release-management` →
+`references/version-pin-edges.md` with the 16→17→18 table and the `^`-semver explanation.
+Queue: 10 → 9 actions; `action_last_completed` is now
+`gate_the_member_to_root_version_pins`.
+
+
+## 2026-11-01 (later): the roast queue, and a required check that refused a hardened call
+
+Continued the `pr-roast-triage` pass over the open PR set (#978 and #979 merged in order; verdicts
+in `plans/PR_ROAST_2026_11_01.md`).
+
+**#981's `lint` red was the known flake's sentence, not the known flake.** The annotation contained
+`Unable to authenticate to FlakeHub` — the string the skill files under "re-run, do not fix code" —
+but the nix setup *completed* and `validate.sh` ran to its 15th gate, where the catalog check printed
+a one-line diff: the PR wired `check-nix-git-env.sh` into `.github/workflows/ci.yml` and committed a
+`SCRIPT_CATALOG.md` that does not know that caller. Classification rule written into the roast: read
+the step whose `::error::Process completed with exit code 1.` line follows the failure, never the set
+of warning strings that happen to share the job. Fix = regenerate the catalog on the branch.
+
+**#967's premise is falsified by its own log.** The issue says a dead crates.io token is discovered
+"only after seven compile cycles"; run 41110522627 shows the first `403 Forbidden` at **2.7 s** with
+**zero** compiles before it (six auth failures, then `csm-persistence` failing at 32 s for a separate
+reason). The defect that survives is narrower and still worth fixing: `verify-release` cannot tell a
+rejected publish from an unpublished one, and the publish loop keeps walking the workspace after the
+registry has already said no.
+
+**Codacy is a required context, and `cwd=root` was not the answer.** Ruleset `12897801` lists
+`Codacy Static Code Analysis` among the required checks with `strict: true`, so the external red
+blocks the merge rather than merely informing it. The version-edge gate's remaining two findings were
+bandit B404 (the `subprocess` **import**) and B603 (the call) — unfixable by hardening a call whose
+rule attaches to importing the module. Discovery now walks the filesystem, cross-checked against
+`[workspace] members` so a prune cannot hide a declared member (`target/` and `.qoder/` must be
+pruned: `cargo package` unpacks stale crate copies, and dispatched worktrees are full checkouts whose
+drift nobody can edit). Measured before writing: the walk and `git ls-files` return the same 13
+manifests and the same 26 edges, at 0.13 s; the walk additionally reaches a member that is not yet
+tracked. Fixture 60 → 77 cases; the discovery sweep caught 4/5 neuterings, the survivor being a guard
+redundant with another (its failure mode is wasted work, not a wrong verdict — recorded as a lesson
+rather than papered over with a new green assertion).
+
+### 2026-11-01 — roast re-triage after #979, and a measured regression inside #977
+
+`scripts/pr-triage.sh` on `main = c4c167b6`: #983/#981/#980 all `CONFLICTING`, and only in the generated
+files (`SCRIPT_CATALOG.md` ×2, `validate.sh`); #977 `MERGEABLE/BLOCKED` with lint/test in flight.
+Verdicts in `plans/PR_ROAST_2026_11_01.md` (second sitting). #977's zero-init premise was adjudicated by
+disassembly rather than inherited from #783/#893/#950: at `hyperdim_simd.rs` the old bodies do contain
+`call memset(0x500)` (computed-pointer stores defeat DSE), so the mechanism is real — measured −21.5 % /
+−22.7 % on the two AVX2 kernels, 4/4 interleaved rounds, and **+5.3 %, 0/4 on `bind_simd_x86`**, which the
+cited `hvec_bind` benchmark cannot reach on an AVX2 host. Repairs: drop that hunk, split the
+unrelated `flake.nix` input swap (a non-failing FlakeHub warning, proven by #981's 13-minute timeline),
+retitle the "and and" subject. #983's 291-line `S3776` residue was applied to the tree, measured at 52/77
+fixture failures because of a new cwd-containment guard, and discarded — the committed head is 77/77.
+#981's red re-measured as the catalog gate; #980's and #981's Codacy reds are `SC2016`/`SC2086` on
+intentional quoting. No merge executed and no GOAP counter changed.
+
+### 2026-11-02 — #983 to a clean CI surface (lint, Sonar gate, FlakeHub annotations)
+
+The rebased head (`308b036d`) was green except `lint`, `SonarCloud Code Analysis` and a `failure`-level
+annotation on every nix job. Three distinct causes, each measured from the run rather than the badge:
+
+- `lint` died in the docs-link gate on `plans/PR_ROAST_2026_11_01.md:329` — `call *memset` with the GLIBC
+  2.2.5 symbol version parsed as an `@file` import. The symbol version is now written outside the `@`; the
+  gate reports 246 checked, 0 broken.
+- Sonar's security rating was E on two `pythonsecurity:S8707` findings at
+  `scripts/workspace-version-edges.py:177/189` — the `commonpath` containment is not a sanitizer shape the
+  taint engine recognises. `resolve_root` now returns a `Path` checked with `is_relative_to` against the
+  checkout, the CWD and the system temp dir, every filesystem operation uses it, and
+  `[workspace] members` gets a pre-join `isabs` / `..` guard (file content is the second untrusted input).
+  Fixture 79 → 81 cases, adding out-of-boundary `--check` and `--sync` refusals; 81/81 green.
+- Every job that installs nix carried `##[error]Unable to authenticate to FlakeHub` from
+  `magic-nix-cache-action`'s default `use-flakehub: null`. All six jobs now set `use-flakehub: false`, so
+  the action caches in the GitHub Actions cache and stops emitting the annotation.
+
+Local gates: `test-workspace-version-edges.sh` 81/81, `test-version-sync.sh` 9/9, docs-link 0 issues,
+skill-format + catalog, actionlint (10 workflows), nix-git-env audit, script catalog, GOAP queue all pass.

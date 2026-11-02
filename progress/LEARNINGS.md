@@ -567,3 +567,104 @@
   lockfile churn changes the restored artifact set, and it fails as `cancelled`, which `gh pr checks` renders
   identically to a real failure. Read the job's step timeline before re-running: cancellation with a compiler
   still alive is budget, a failed step is a verdict.
+- **A gate that scanned nothing prints the same sentence as a gate that found nothing (2026-11-01, #949 + #964).**
+  Three separate instances in one day, all of them *passes*: glibc `grep -E` treats an unmatched `)` as a literal,
+  so a typo'd pattern matches nothing and "no finding" is permanent; `awk '…END{exit !found}' | grep -q .` can
+  never succeed because the pipeline hides awk's status and grep reads no input; and #949's nix audit reported
+  "no unscrubbed host helper" over a **wrapped-script list that could have been empty**. The fix is not more
+  logging, it is three structural rules: probe every pattern against a known positive *and* a known negative
+  before believing a zero; make the pass line print what it counted (`3 wrapped entrypoint script(s) scanned`,
+  `26 path edge(s) to workspace members`) so a zero is visible in the log and assertable by a fixture; and treat
+  "could not run" as **exit 2**, never 0 and never 1. The exit-2 rule has a trap that reads like a detail:
+  `raise SystemExit("message")` exits **1**, so a Python refusal written that way reports "drift" — a #903-class
+  red release job with the wrong reason — and it needs `SystemExit(2)` said out loud. Bash has the same trap in
+  `if cmd; then …; fi`, which leaves `$?` = 0 when the condition fails: capture with `status=0; cmd || status=$?`.
+  Generalize: an audit's output is only meaningful with its **coverage claim** attached.
+- **Enumerate from the source of truth, and announce every fallback (2026-11-01, #964).** `find crates -name
+  Cargo.toml` is not a query about dependencies, it is a *claim about the repository*, and the repository grew a
+  member (`benchmarks/`, listed in root `[workspace] members`) that the pattern cannot reach — so it shipped
+  three releases behind at `0.3.6` while `verify-version-sync.sh` printed `✓ All local versions synchronized:
+  0.3.9`. Same class, one step smaller: the issue's own count was 16 because it grepped single-line
+  `{ path = …, version = … }` and missed `fuzz/Cargo.toml`'s multi-line `[dependencies.x]` table. The durable
+  form is a pruned filesystem walk *cross-checked against `[workspace] members`*: it audits a new member before
+  anyone `git add`s it, needs no git at all, and exits 2 when the prune would hide a declared member. Printing
+  `warning: no git index — manifests came from the glob fallback …` and returning 0 (this entry's first answer,
+  since corrected in the same PR) is still a sensor narrowing its own scope while keeping its old verdict —
+  **announce-then-pass is the weaker form of silent-then-pass; cross-check the declared set instead.** **Re-measure every count in
+  an issue body before writing the fix, including your own previous number** — 16 → 17 → 18 here, each step a
+  different enumeration method, and each one a claim that had looked measured.
+- **Neuter the subject, not the fixture (2026-11-01, #949/#964).** Writing N green cases proves nothing about
+  whether they can fail; breaking the checker's own source one rule at a time does. #949's gate: 8/8 mutations
+  caught. #964's tool: 9/9, including two a reviewer would never think to break (`refuse` exiting 1 instead of 2,
+  and `--sync` computing its edits then not writing them). #964's *verifier* (`verify-version-sync.sh`) is the
+  instructive one: the first sweep let **2 of 4** mutations walk away green — `exit 2` downgraded to a pass, and
+  the `crates`-only member glob — because no case existed for either. Adding tests 7 and 8 for exactly those
+  directions produced a 6/6 sweep. An escaping mutation is not a gap in the mutation list; it is a missing case,
+  and the mutation list is the cheapest way to find missing cases *after* the fixture is written. Corollary: a
+  fixture that copies a script into a temp tree must copy its **dependencies** too — `test-version-sync.sh`'s
+  first run failed on a missing sibling tool, which reads exactly like a version-sync regression, and the
+  verifier's fail-closed guard for that case became a testable direction of its own.
+- **Two redundant guards make each other untestable (2026-11-01, #964/#983).** The walk's discovery sweep
+  neutered five guards and **four** turned a case red. The survivor was the directory `seen_dirs` skip: with it
+  gone, the manifest-level realpath key still collapses every duplicated path, and with the key gone the
+  directory skip still prevents the descent — so neither is individually observable through an exit code, and
+  the one case written for "counted once" passed under both neuterings. Its real failure mode is *wasted work*
+  (`self -> .` walking `./self/self/…` until `ENAMETOOLONG`), not a wrong verdict. Lesson: when a sweep
+  survives, first ask whether the guard has an observable effect at all before writing another case; then
+  either isolate it with a case only it can pass or comment it as insurance — do not leave a green assertion
+  implying a sharpness it does not have. The manifest key got its own case (a real directory holding a
+  symlinked `Cargo.toml`: 8 edges, not 12) and turned red the moment the key was dropped.
+- **You cannot harden your way out of an import-level lint finding (2026-11-01, #983).** Bandit B404 fires on
+  `import subprocess`; the B603 "check for execution of untrusted input" fires on the call. I moved the
+  caller-supplied root out of the argv (`cwd=root` instead of `-C root`), which is a real fix for a real
+  argument-splice class — and the required `Codacy Static Code Analysis` context still failed with the same two
+  annotations on the same lines. When a rule attaches to a *dependency* rather than a defect, the options are
+  suppression or removal, and on a sensor whose whole job is honesty, suppression is the wrong answer; the
+  subprocess existed only to enumerate manifests, and a filesystem walk did it better (reaching untracked
+  members, needing no git) at 0.13 s. **Re-read the rule's subject before defending the code.**
+
+- **A bench can be blind by dispatch arm, and that is the one blindness no input distribution fixes
+  (2026-11-01, #977).** `hvec_bind` calls `HVec10240::bind`, which on any AVX2 host enters
+  `bind_simd_avx2` and can never reach `bind_simd_x86`. The diff changed five kernels; the AVX2 two won
+  (−21.5 % / −22.7 %, 4/4 interleaved rounds) and the x86 fallback **lost** (+5.3 %, 0/4) because the new
+  body writes a stack buffer and then `memcpy(0x500)`s into the return slot where the old body wrote it
+  directly after the memset. Diff every changed `cfg` arm and disassemble each one; a green claimed delta on
+  the benchmarked arm says nothing about its siblings.
+- **Inherit the measurement method, never the verdict — in either direction (2026-11-01, #977).** The
+  `MaybeUninit` zero-init family had been closed twice (#783, #893, #950) because LLVM had already
+  dead-store-eliminated those initializers. At `hyperdim_simd.rs` it had not: the old bodies still
+  `call memset(0x500)`, because the loop writes through a computed pointer (`res.as_mut_ptr().add(i)`),
+  which defeats the full-coverage proof DSE used on the `copy_nonoverlapping` sites. Run the disassembly
+  on the new site; a prior "no impact" verdict transfers the *method*, not the outcome.
+- **A guard can be a plausible security fix and still be wrong at the boundary it chose (2026-11-01, #983).**
+  Uncommitted residue added `if os.path.commonpath((cwd, root)) != cwd: refuse(...)` to `resolve_root`, plus
+  a rewrite of that function's rationale to justify it. It refuses every tree the fixture builds, because the
+  fixture uses `mktemp -d`: 52 of 77 cases failed, while the committed head was 77/77. Run the fixture against
+  uncommitted work before reading its docstring — and fix the finding where the exposure is (`keep_inside` on
+  the member joins, one line) rather than at the CLI boundary that documented callers depend on.
+- **Codacy counts `info`-severity shellcheck findings, and two of them are intentional code (2026-11-01,
+  #980/#981).** `SC2016` on a single-quoted `sed` program that matches the literal text `${status}`, and
+  `SC2086` on `set -- ${row}` where the split *is* the parse. Applying the suggested fix breaks the fixture
+  each time (the `sed` then matches nothing and the `cmp -s` sharpness guard fires; the `set --` then makes
+  `$1` the whole row). Suppress inline with the reason instead — quoting a literal is not a repair.
+- **A gate the scanner cannot read is still a gate; a gate the scanner *can* read must still be a real
+  boundary (2026-11-02, #983).** `pythonsecurity:S8707` kept the quality gate at security E after the root
+  had been confined with `realpath` + `commonpath`, because the taint engine does not treat a custom helper
+  as sanitisation: the `open`/`glob` sinks stayed tainted. The recognised shape is
+  `Path(raw).resolve()` + `candidate.is_relative_to(base)` with the checked `Path` used for the operation.
+  The standing lesson from 2026-11-01 still applies — a cwd-only guard refused every `mktemp` fixture tree
+  and broke 52/77 cases — so the bases are the checkout, the CWD and the system temp dir, and the fixture
+  grew out-of-boundary `--check`/`--sync` cases (81/81). A content-derived second input
+  (`[workspace] members`) needs its own pre-join guard: `glob.glob("../../*")` reaches the sink before any
+  result-containment check runs.
+- **A `failure`-level annotation can sit inside a passing step (2026-11-02, #983).** `magic-nix-cache-action`
+  defaults to `use-flakehub: null`, tries FlakeHub on every nix job, and logs
+  `##[error]Unable to authenticate to FlakeHub` in a step that still exits 0 — so `gh pr checks` is green
+  while every nix job carries a red annotation. Fixed at the config default (`with: use-flakehub: false`)
+  in all six jobs, not filed as an infra flake. "No warnings" means reading
+  `…/check-runs/<job>/annotations` for green jobs too.
+- **The docs-link gate scans fenced code blocks for `@`-tokens (2026-11-02, #983).** A disassembly line
+  `call *memset` with the GLIBC 2.2.5 symbol version was read as an `@file` import and failed `lint` on a
+  docs-only PR. The checker's `@`-skip list covers version tags, SHAs, npm scopes and domains but not ELF
+  symbol versions; write the symbol version outside the `@` (or extend the skip list with a fixture) rather
+  than disabling the check.

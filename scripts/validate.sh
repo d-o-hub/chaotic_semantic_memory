@@ -366,6 +366,28 @@ else
   exit 1
 fi
 
+# Workspace version-pin edge gate (#964): eighteen intra-workspace `version = "…"` pins
+# drifted across three releases while scripts/verify-version-sync.sh printed
+# "✓ All local versions synchronized: 0.3.9" — it compared member *own* versions and the
+# root→member pins only, and sync-version.sh's rewrite sed was root-only too. Nothing
+# looked at member→member, member→root, [dev-dependencies], [target.'cfg(…)'.dependencies]
+# or the multi-line `[dependencies.x]` form, and the `crates/`-scoped globs never reached
+# benchmarks/Cargo.toml (which shipped at 0.3.6). One parser now answers list/check/sync so
+# the writer and the gate cannot disagree, and it exits 2 — never a verdict — when its line
+# parser and tomllib disagree about a pin. tomllib is Python 3.11+; without it the audit
+# cannot cross-check itself, so that is a skip, not a pass.
+echo "==> Workspace version-pin edge gate (Cargo.toml intra-workspace pins)"
+if python3 -c 'import tomllib' 2>/dev/null; then
+  python3 "${SCRIPT_DIR}/workspace-version-edges.py" --check "$(cd "${SCRIPT_DIR}/.." && pwd)"
+  echo "==> Workspace version-edge fixture"
+  "${SCRIPT_DIR}/test-workspace-version-edges.sh"
+elif [[ "${CSM_VALIDATION_REQUIRED}" == "true" ]]; then
+  echo "ERROR: python3 tomllib (3.11+) is required by the validation gate; use python3.11+." >&2
+  exit 1
+else
+  echo "SKIPPED — NOT A PASS: python3 has no tomllib; intra-workspace version pins went unchecked"
+fi
+
 # LLM context drift gate (#828): docs/architecture/context.yaml carried stale
 # counters for months (skills 19/33, ADRs 16/95, active_wave 11/33, tests
 # 134/1044) and two dead key-file paths, and nothing read the file. The
