@@ -48,9 +48,13 @@ gh api repos/<owner>/<repo>/check-runs/<job_id>/annotations \
 ```
 
 Known infra flakes (re-run, do not "fix code"):
-- `Unable to authenticate to FlakeHub` → Cargo Deny nix setup broken, pre-existing.
 - `hosted runner lost communication` → CodeQL/runner loss, pre-existing.
 - External-only red (Codacy/Sonar) with all GitHub checks green → code issue, real.
+
+**A failure-level annotation can hide inside a passing step (#983, 2026-11-02).**
+`magic-nix-cache-action` defaults to `use-flakehub: null`, tries FlakeHub on every nix job, logs
+`##[error]Unable to authenticate to FlakeHub` and still exits 0 — `gh pr checks` is green while the
+annotation is red. Set `with: use-flakehub: false`; read `check-runs/<job>/annotations` even when green.
 
 ## Step 3 — Duplicate detection (same base blob + same hunk)
 
@@ -69,28 +73,24 @@ Same file + same base blob + same effect = duplicates. Keep exactly one:
 
 Close the losers with reason `superseded by #<keeper>`.
 
-**A live duplicate can hold coverage the keeper lacks — fold, then dominate.** Diff the
-rival's *test* files, not just its source: #834 proved the SIGTERM path on
-`csm mcp serve --transport streamable-http` while the keeper #836 covered only
-`watch`. Take that one dimension into the keeper's own harness and say in the
-roast that the competitor supplied it. Two agents reaching the same design
-independently is also the cheapest confirmation the design is the obvious one.
+**A live duplicate can hold coverage the keeper lacks — fold, then dominate.** Diff the rival's *test*
+files, not just its source: #834 proved the SIGTERM path on `csm mcp serve --transport streamable-http`
+while the keeper #836 covered only `watch`. Take that dimension into the keeper's harness and say the
+competitor supplied it; two agents reaching the same design independently is the cheapest confirmation.
 
-**Closed predecessors are duplicates too — and `gh pr list` cannot see them.**
-A bot re-files the same finding under a new task id, so grep the roast records
-for the *symbol* before writing a fresh verdict:
+**Closed predecessors are duplicates too — and `gh pr list` cannot see them.** A bot re-files the same
+finding under a new task id, so grep the roast records for the *symbol* before writing a fresh verdict:
 
 ```bash
 grep -rn '<symbol_or_function>' plans/PR_ROAST_*.md
 ```
 
-If the idea was already measured and closed (this happened to
-`HVec10240::permute`'s zero-shift branch: #800 measured → closed no-impact, #814
-re-filed the same 3 lines with no evidence), the resubmission inherits the old
-verdict. Close it citing the recorded numbers; do not re-litigate. Rule 17: a
-resubmission must bring the evidence the earlier roast demanded, not restate the
-claim — and check the claim's *mechanism* sentence against the code, since both
-PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
+If the idea was already measured and closed (this happened to `HVec10240::permute`'s zero-shift branch:
+#800 measured → closed no-impact, #814 re-filed the same 3 lines with no evidence), the resubmission
+inherits the old verdict. Close it citing the recorded numbers; do not re-litigate. Rule 17: a
+resubmission must bring the evidence the earlier roast demanded, not restate the claim — and check the
+claim's *mechanism* sentence against the code, since both PRs asserted a zero-copy win that a by-value
+`-> Self` return rules out.
 A predecessor closed **without** a valid measurement passes on the *demand*, not a verdict — and a predecessor closed **with** one still does not export its *framing*: #956 inherited #900's `csm-chaos is invisible to CI` headline long after `ci.yml` grew a `cargo test -p csm-chaos` job. Re-measure every environment claim before reusing it (grep the workflow, the profile, the default-members).
 - **An empty branch is a resubmission to catch by content (2026-10-09, #860).** `gh pr diff` + `changed_files: 0` + empty `git diff <merge-base>..<head> --stat` = the PR merges nothing.
 
@@ -137,14 +137,14 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
   - State all three in the verdict: the benchmark reaches changed code, its input distribution exercises the affected case, and the measured direction/sign supports the claim. A `perf` → `refactor` title change never bypasses this evidence bar.
-  - **A bench can be blind three ways (#800; #909/#891; #917).** By its *arguments*
+  - **A bench can be blind four ways (#800; #909/#891; #917; #977).** By its *arguments*
     (`permute(321)` never reaches the word-aligned path); by the *callee's fast path*
     (`make_candidates` prefills `score = 1.0`, so `rerank`'s `>= 0.99` return starved every
-    `mmr_rerank/*` id); and by a *flat corpus* — #917's `sort_unstable_by_key(entries.len())`
-    ran on every bm25 bench and reordered nothing, because each feeds equal-length posting
-    lists. Reachability shows at the call site; **blindness lives in the data**, so for an
-    ordering or selection claim read the corpus generator's key distribution. Proof recipe:
-    the `bench-blindness` reference.
+    `mmr_rerank/*` id); by a *flat corpus* (#917's sort reordered nothing — every bm25 bench
+    feeds equal-length posting lists); and by a *dispatch arm* (#977: `hvec_bind` enters only
+    the two AVX2 kernels, so the `bind_simd_x86` fallback it regressed +5.3 % is unreachable).
+    Reachability shows at the call site; **blindness lives in the data and in the host**: read
+    the corpus keys and every changed `cfg` arm (`references/bench-blindness.md`).
   - **Separate zero-fill elimination from scheduling effects (PR #783, 2026-09-28).** LLVM
     already removes the overwritten zero-init — an old-only body disassembles to a bare
     `memcpy`, old/new `from_hvec`/`from_bytes` folding to the *same address* — so "no

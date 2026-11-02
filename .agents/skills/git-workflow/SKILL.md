@@ -42,6 +42,10 @@ scripts/harness-check.sh all
 
 ## Pull Request Handoff
 
+Run the one canonical loop in `references/pr-lifecycle.md` (intake → roast → branch off current
+`main` → local gates → PR payload → CI classification → rebase/merge one at a time → close-out).
+It exists because every step below has been skipped at least once and turned `main` red.
+
 - Roast the proposed PR diff using `skill://pr-roast-triage` before creating or
   merging a PR; record the verdict in `plans/PR_ROAST_<date>.md`.
 - Confirm remote CI checks belong to the exact PR head SHA; a green badge or
