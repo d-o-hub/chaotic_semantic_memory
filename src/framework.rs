@@ -17,8 +17,6 @@ use crate::persistence::Persistence;
 use crate::singularity::{Singularity, unix_now_secs};
 use csm_core_lib::error::{MemoryError, Result};
 use csm_core_lib::hyperdim::HVec10240;
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 
 /// Main framework for chaotic semantic memory
 #[derive(Clone)]
@@ -85,19 +83,13 @@ impl ChaoticSemanticFramework {
         }
         let concept = builder.build()?;
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let p_start = std::time::Instant::now();
-        #[cfg(target_arch = "wasm32")]
-        let p_start = Date::now();
+        let p_start = crate::clock::Clock::now();
 
         // ADR-0093: durable commit before in-memory mutation when persistence is enabled.
         self.durable_inject_concept(concept.clone()).await?;
 
         if self.persistence.is_some() {
-            #[cfg(not(target_arch = "wasm32"))]
-            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
-            #[cfg(target_arch = "wasm32")]
-            let elapsed_ms = (Date::now() - p_start) as u64;
+            let elapsed_ms = p_start.elapsed_ms();
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);
@@ -144,18 +136,12 @@ impl ChaoticSemanticFramework {
         }
         let concept = builder.build()?;
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let p_start = std::time::Instant::now();
-        #[cfg(target_arch = "wasm32")]
-        let p_start = Date::now();
+        let p_start = crate::clock::Clock::now();
 
         self.durable_inject_concept(concept.clone()).await?;
 
         if self.persistence.is_some() {
-            #[cfg(not(target_arch = "wasm32"))]
-            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
-            #[cfg(target_arch = "wasm32")]
-            let elapsed_ms = (Date::now() - p_start) as u64;
+            let elapsed_ms = p_start.elapsed_ms();
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);
@@ -185,10 +171,7 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
-        #[cfg(not(target_arch = "wasm32"))]
-        let start = std::time::Instant::now();
-        #[cfg(target_arch = "wasm32")]
-        let start = Date::now();
+        let start = crate::clock::Clock::now();
 
         let filtered = {
             let sing = self.singularity.read().await;
@@ -204,11 +187,7 @@ impl ChaoticSemanticFramework {
             .to_vec()
         };
 
-        #[cfg(not(target_arch = "wasm32"))]
-        // Duration millis to u64 for metrics
-        let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
-        #[cfg(target_arch = "wasm32")]
-        let elapsed_ms = (Date::now() - start) as u64;
+        let elapsed_ms = start.elapsed_ms();
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         let mut events = Vec::new();
@@ -239,10 +218,7 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
         Self::validate_metadata_filter(filter)?;
-        #[cfg(not(target_arch = "wasm32"))]
-        let start = std::time::Instant::now();
-        #[cfg(target_arch = "wasm32")]
-        let start = Date::now();
+        let start = crate::clock::Clock::now();
 
         // Acquire lock, get results, release immediately
         let results = {
@@ -257,11 +233,7 @@ impl ChaoticSemanticFramework {
             )
         };
 
-        #[cfg(not(target_arch = "wasm32"))]
-        // Duration millis to u64 for metrics
-        let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
-        #[cfg(target_arch = "wasm32")]
-        let elapsed_ms = (Date::now() - start) as u64;
+        let elapsed_ms = start.elapsed_ms();
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         let results_vec = results.as_ref().to_vec();
@@ -304,19 +276,13 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(persistence) = &self.persistence {
-            #[cfg(not(target_arch = "wasm32"))]
-            let p_start = std::time::Instant::now();
-            #[cfg(target_arch = "wasm32")]
-            let p_start = Date::now();
+            let p_start = crate::clock::Clock::now();
 
             persistence
                 .save_association(&ns, from, to, strength)
                 .await?;
 
-            #[cfg(not(target_arch = "wasm32"))]
-            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
-            #[cfg(target_arch = "wasm32")]
-            let elapsed_ms = (Date::now() - p_start) as u64;
+            let elapsed_ms = p_start.elapsed_ms();
             self.metrics
                 .observe_persist_latency_ms(elapsed_ms, "save_association");
         }

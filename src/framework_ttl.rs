@@ -7,8 +7,6 @@ use crate::metadata_filter::MetadataFilter;
 use crate::retrieval::hybrid::{HybridResult, RetrievalAbstention};
 use csm_core_lib::error::Result;
 use csm_core_lib::hyperdim::HVec10240;
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 use std::collections::HashMap;
 use tracing::instrument;
 
@@ -122,18 +120,12 @@ impl crate::framework::ChaoticSemanticFramework {
         }
         let concept = builder.build()?;
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let p_start = std::time::Instant::now();
-        #[cfg(target_arch = "wasm32")]
-        let p_start = Date::now();
+        let p_start = crate::clock::Clock::now();
 
         self.durable_inject_concept(concept.clone()).await?;
 
         if self.persistence.is_some() {
-            #[cfg(not(target_arch = "wasm32"))]
-            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
-            #[cfg(target_arch = "wasm32")]
-            let elapsed_ms = (Date::now() - p_start) as u64;
+            let elapsed_ms = p_start.elapsed_ms();
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);

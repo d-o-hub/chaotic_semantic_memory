@@ -51,6 +51,16 @@ set -- "${POSITIONAL[@]}"
 PROFILE="${1:-fast}"
 shift || true
 
+# Issue #951: each CI shard runs one disjoint `--shard i/N` slice and uploads its
+# outcomes; the `mutation-test` aggregator owns the threshold over the union. A
+# shard must never enforce the threshold on its own subset (an all-missed shard
+# would otherwise be rescued by a sibling, or vice versa).
+SHARD="${MUTANTS_SHARD:-}"
+if [[ -n "${SHARD}" && ! "${SHARD}" =~ ^[0-9]+/[0-9]+$ ]]; then
+  echo "error: MUTANTS_SHARD must look like i/N, got '${SHARD}'" >&2
+  exit 2
+fi
+
 # Parallelism:
 # - fast + in-diff (normal case): JOBS=1 to reuse sequential build artifacts across mutants.
 # - fast + full-tree fallback (no diff detected): escalate to MUTANTS_JOBS (default 4) so
@@ -185,6 +195,13 @@ if [[ "${PROFILE}" == "fast" ]]; then
       git -C "${REPO_ROOT}" diff "${DIFF_TARGET}" >"${DIFF_FILE}" 2>/dev/null || true
     fi
     if [[ -s "${DIFF_FILE}" ]]; then
+      # Issue #952: a same-file native/wasm cfg pair in the changed lines puts an
+      # unkillable mutant in this profile's denominator. Fail before the sweep
+      # spends an hour proving it; the fixture proves both directions.
+      if ! python3 "${SCRIPT_DIR}/check_cfg_mutants.py" "${REPO_ROOT}" --diff - < "${DIFF_FILE}"; then
+        echo "error: the diff adds a cfg-split declaration the native --lib profile cannot kill" >&2
+        exit 1
+      fi
       FAST_ARGS+=(--in-diff "${DIFF_FILE}")
       echo "mutation fast: in-diff against ${DIFF_TARGET} ($(wc -l <"${DIFF_FILE}") diff lines)" >&2
       # Scope mutant *generation* to the packages the diff touches. Without this
@@ -334,9 +351,8 @@ else
   FAST_ARGS+=(--build-timeout 180)
 fi
 
-MUTANTS_SHARD="${MUTANTS_SHARD:-}"
-if [[ -n "${MUTANTS_SHARD}" ]]; then
-  FAST_ARGS+=(--shard "${MUTANTS_SHARD}")
+if [[ -n "${SHARD}" ]]; then
+  FAST_ARGS+=(--shard "${SHARD}")
 fi
 
 MUTANTS_ARGS=("${FAST_ARGS[@]}")
@@ -502,18 +518,13 @@ EXCLUDE_ARGS=(
   # tests/mcp_streamable_http_integration.rs and src/mcp/server_tests.rs (which is a
   # #[cfg(test)] module of the ungated half of server.rs), not by --lib mutation here.
   --exclude-re "extract_trace_parent"
-  # Third-party of the same rule, wasm32 instead of a Cargo feature: the js_sys
-  # elapsed/duration shims sit under #[cfg(target_arch = "wasm32")] with the native
-  # std::time::Instant sibling on the line above, so on an x86_64 runner the `now -
-  # start` subtraction is not in the binary and `- -> +` / `- -> /` cannot be killed
-  # by any test. Named by operator so only these four mutants leave the denominator:
-  # each function keeps every other mutant it has. Re-checked against missed.txt on
-  # 4180c6c8: framework.rs:319:43 (x2, in associate) and
-  # framework_ttl_purge.rs:101:48 (x2, in purge_expired_inner).
-  --exclude-re "replace - with [+] in ChaoticSemanticFramework::associate"
-  --exclude-re "replace - with / in ChaoticSemanticFramework::associate"
-  --exclude-re "replace - with [+] in ChaoticSemanticFramework::purge_expired_inner"
-  --exclude-re "replace - with / in ChaoticSemanticFramework::purge_expired_inner"
+  # Issue #952 retired the four wasm32 clock-pair exclusions that used to live
+  # here. The `Date::now() - start` subtraction sat under
+  # #[cfg(target_arch = "wasm32")] next to a native Instant sibling, so the
+  # native --lib profile never compiled it and the mutants were MISSED forever.
+  # `crate::clock::Clock` now owns the one cfg-split source and the subtraction
+  # is native-compiled (`elapsed_ms`), so no exclusion is needed; keeping one
+  # would hide a real mutant in the same function.
   # Fourth of the same rule. `hybrid_result_to_array` (src/wasm_ext.rs:34-35) is under
   # #[cfg(target_arch = "wasm32")] like the two operators above, and its two
   # `-> Result<Array, JsValue> with Ok(Default::default())` mutants were both MISSED on
@@ -649,6 +660,11 @@ if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
       echo "::warning title=Mutation gate::0 mutation-visible lines in the changed Rust sources. Packages inspected: ${MUTATION_PACKAGES[*]}. No mutant was tested — this is NOT a passing mutation result."
       echo "warning: CI mutation check selected production Rust but no changed line carries a mutant; the gate reports no evidence instead of failing the PR" >&2
     fi
+    if [[ -n "${SHARD}" ]]; then
+      # Completeness marker for the aggregator: this shard ran and its slice was
+      # empty by construction, not because the job died.
+      echo "${SHARD}" > "${OUT_DIR}/no-mutants"
+    fi
     exit 0
   fi
 fi
@@ -756,6 +772,15 @@ for arm in "${ARM_NAMES[@]}"; do
 done
 
 echo "wrote ${REPORT_FILE}"
+
+if [[ -n "${SHARD}" ]]; then
+  echo "mutation shard ${SHARD}: evidence written; the mutation-test aggregator owns the union verdict" >&2
+  if [[ "${RESULT}" -eq 0 || "${RESULT}" -eq 2 ]]; then
+    echo "${SHARD}" > "${OUT_DIR}/shard-complete"
+    exit 0
+  fi
+  exit "${RESULT}"
+fi
 
 if [[ "${CI_MODE}" == "true" ]]; then
   SCORE=""

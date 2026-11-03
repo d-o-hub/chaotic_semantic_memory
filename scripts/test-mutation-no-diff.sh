@@ -77,7 +77,7 @@ if [[ "${1:-}" == "mutants" && "${2:-}" == "--list" ]]; then
             echo "error: could not read the diff file" >&2
             exit 3
             ;;
-        mutants | mutants_split)
+        mutants | mutants_split | mutants_missed)
             echo "src/example.rs:12:5: replace example::alpha -> u32 with 0"
             echo "crates/nested/src/lib.rs:4:9: replace + with - in nested::beta"
             exit 0
@@ -95,6 +95,10 @@ if [[ "${1:-}" == "mutants" && "${2:-}" == "--list" ]]; then
 fi
 if [[ "${1:-}" == "mutants" ]]; then
     printf '%s\n' "$*" >>"${FIXTURE_ARGV}"
+    if [[ "${FAKE_LIST_MODE:-empty}" == "mutants_missed" ]]; then
+        echo "2 mutants tested in 20.0s: 1 caught, 1 missed, 0 unviable, 0 timeouts"
+        exit 2
+    fi
     if [[ "${FAKE_LIST_MODE:-empty}" != "mutants_split" ]]; then
         echo "2 mutants tested in 20.0s: 2 caught, 0 missed, 0 unviable, 0 timeouts"
         exit 0
@@ -346,6 +350,101 @@ if grep -qF "generated no mutants" "${TEST_DIR}/probefail.out"; then
     no "a broken probe must not reuse the old zero-mutant message"
 else
     ok "a broken probe does not claim 'generated no mutants'"
+fi
+
+echo
+echo "== shard mode produces evidence and hands the verdict to the aggregator =="
+: >"${TEST_DIR}/argv.txt"
+status=0
+(
+    cd "${TEST_DIR}"
+    FAKE_GIT_MODE=rust \
+        FAKE_LIST_MODE=mutants_missed \
+        FAKE_METADATA_MODE=ok \
+        FAKE_ROOT="${REPO_ROOT}" \
+        FIXTURE_ARGV="${TEST_DIR}/argv.txt" \
+        MUTANTS_SHARD=3/8 \
+        MUTATION_OUTPUT_DIR="${TEST_DIR}/output/shardrun" \
+        DIFF_TARGET=origin/main \
+        PATH="${TEST_DIR}/bin:${PATH}" \
+        bash "${SUBJECT}" --ci fast
+) >"${TEST_DIR}/shardrun.out" 2>&1 || status=$?
+if [[ "${status}" -eq 0 ]]; then
+    ok "a shard with missed mutants exits 0 (the aggregator scores the union)"
+else
+    no "a shard exited ${status}; it must not enforce the threshold on its slice"
+    cat "${TEST_DIR}/shardrun.out"
+fi
+if grep -q -- '--shard 3/8' "${TEST_DIR}/argv.txt"; then
+    ok "the shard selection reaches cargo mutants"
+else
+    no "the shard selection is missing from the cargo mutants argv"
+    cat "${TEST_DIR}/argv.txt"
+fi
+if [[ -f "${TEST_DIR}/output/shardrun/shard-complete" ]] \
+    && [[ "$(cat "${TEST_DIR}/output/shardrun/shard-complete")" == "3/8" ]]; then
+    ok "a completed shard writes its completeness marker"
+else
+    no "a completed shard did not write shard-complete"
+fi
+if grep -q "aggregator owns the union verdict" "${TEST_DIR}/shardrun.out"; then
+    ok "the shard log says the aggregator owns the verdict"
+else
+    no "the shard log does not hand off the verdict"
+    cat "${TEST_DIR}/shardrun.out"
+fi
+if grep -q "CI check failed" "${TEST_DIR}/shardrun.out"; then
+    no "a shard must not print the per-slice threshold failure"
+else
+    ok "no per-slice threshold failure is printed"
+fi
+
+echo
+echo "== malformed shard ids fail before any cargo run =="
+status=0
+(
+    cd "${TEST_DIR}"
+    FAKE_GIT_MODE=rust \
+        FAKE_LIST_MODE=mutants \
+        FAKE_METADATA_MODE=ok \
+        FAKE_ROOT="${REPO_ROOT}" \
+        FIXTURE_ARGV="${TEST_DIR}/argv.txt" \
+        MUTANTS_SHARD=3of8 \
+        MUTATION_OUTPUT_DIR="${TEST_DIR}/output/badshard" \
+        DIFF_TARGET=origin/main \
+        PATH="${TEST_DIR}/bin:${PATH}" \
+        bash "${SUBJECT}" --ci fast
+) >"${TEST_DIR}/badshard.out" 2>&1 || status=$?
+if [[ "${status}" -eq 2 ]] && grep -q "MUTANTS_SHARD must look like i/N" "${TEST_DIR}/badshard.out"; then
+    ok "an invalid shard id is exit 2 with a useful message"
+else
+    no "an invalid shard id was not rejected (exit ${status})"
+    cat "${TEST_DIR}/badshard.out"
+fi
+
+echo
+echo "== an empty shard slice writes no-mutants instead of failing =="
+status=0
+(
+    cd "${TEST_DIR}"
+    FAKE_GIT_MODE=nomutants \
+        FAKE_LIST_MODE=empty \
+        FAKE_METADATA_MODE=ok \
+        FAKE_ROOT="${REPO_ROOT}" \
+        FIXTURE_ARGV="${TEST_DIR}/argv.txt" \
+        MUTANTS_SHARD=4/8 \
+        MUTATION_OUTPUT_DIR="${TEST_DIR}/output/emptyshard" \
+        DIFF_TARGET=origin/main \
+        PATH="${TEST_DIR}/bin:${PATH}" \
+        bash "${SUBJECT}" --ci fast
+) >"${TEST_DIR}/emptyshard.out" 2>&1 || status=$?
+if [[ "${status}" -eq 0 ]] \
+    && [[ -f "${TEST_DIR}/output/emptyshard/no-mutants" ]] \
+    && [[ "$(cat "${TEST_DIR}/output/emptyshard/no-mutants")" == "4/8" ]]; then
+    ok "an empty slice writes its no-mutants marker"
+else
+    no "an empty slice did not record no-mutants (exit ${status})"
+    cat "${TEST_DIR}/emptyshard.out"
 fi
 
 printf '\nmutation zero-mutant fixture: %s case(s), %s failure(s)\n' "${RUNS}" "${FAILED}"

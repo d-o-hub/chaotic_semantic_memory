@@ -59,6 +59,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UNKNOWN`, `STALE` and `NO_VERDICT` can never be rendered as green; a `PASS` is
   labelled "check inventory only" because required contexts remain the merge gate.
 
+### Changed
+- **CI mutation gate (`#951`, `#952`, `#959`)**: the required `mutation-test`
+  job no longer runs the whole in-diff sweep on one runner. A `mutation-shard`
+  matrix runs eight disjoint `--shard i/8` slices under a 45-minute ceiling and
+  uploads its outcomes; the job that keeps the literal required name
+  `mutation-test` downloads them and scores the **union**
+  (`sum(caught) / (sum(total) - sum(unviable))`), never an average of per-shard
+  percentages. Timeout budgets are enforced over the union, and a missing
+  `shard-complete`/`no-mutants` marker fails closed instead of certifying a
+  partial run. The 75% draft threshold is gone: one 85% bar applies to every
+  run, because the ruleset reads the check conclusion, not the threshold that
+  produced it. The persistence-latency `cfg(wasm32)` clock pairs moved to
+  `src/clock.rs` (`Clock::now`/`elapsed_ms`), so the subtraction compiles on
+  native instead of producing unkillable MISSED mutants; the four exclusion
+  regexes that suppressed them were removed. A diff-scoped sensor
+  (`check_cfg_mutants.py`) rejects a new same-file native/wasm declaration pair.
+
 ## [0.3.9] - 2026-10-30
 
 ### Added
