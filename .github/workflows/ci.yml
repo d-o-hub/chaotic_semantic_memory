@@ -243,7 +243,16 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 -> 40 minutes: the 30-min ceiling is reached by a *cold* build before the
+    # cache save can run, and a cancelled post step still reddens a required
+    # context (job 125846663465, 2026-11-03, #987). `Cache cargo` was a miss at
+    # 09:58:25, `Run tests` finished 27m29s later at 10:25:55 with every
+    # `test result: ok`, and `Post Cache cargo` was killed at 10:28:06 — so the
+    # job never saved the cache it had just rebuilt, which makes the next run
+    # cold again. A warm run on main (job 125615751262) measured 20m51s of tests
+    # + 3m14s of cache save = 24m39s; a cold one needs ~31m. 40 keeps ~9m of
+    # headroom without hiding a genuine hang.
+    timeout-minutes: 40
     env:
       PROTOC: /usr/bin/protoc
     steps:
