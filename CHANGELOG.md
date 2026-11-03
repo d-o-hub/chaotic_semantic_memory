@@ -29,6 +29,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   success over drift and `verify-version-sync.sh` runs the same gate. The seven
   surviving import-payload fixtures are annotated with the reason they stay at
   `0.3.2`/`0.3.5`.
+- **Release truth (`release.yml`, #967/#969/#974/#955)**: `verify-release`
+  asserted one crate out of nine, two npm versions without reading provenance,
+  and the GitHub release's existence rather than its assets. It now enumerates
+  all nine crates.io versions (using the real 1/2/3/4+ sparse-index path rules),
+  checks both npm packages' `.dist.attestations.provenance` through the
+  abbreviated packument (the full packument does not serve the field), and
+  asserts the seven expected release assets against the same matrix output that
+  drives `build-cli-matrix`. A missing asset is named individually. The
+  `publish-crates` job probes `GET /api/v1/me` before any packaging, names the
+  HTTP status and crates.io detail, asserts the publisher login, and aborts on
+  the first 401/403 instead of repeating a dead credential per crate. The
+  `|| npm publish` retry is gone, so a failed attested publish is red. A
+  `no-verdict` job and `release-verdict.sh` distinguish published /
+  nothing-to-do / not-a-release / partial for the run summary, so a run whose
+  CI trigger failed can no longer read as a green release that published
+  nothing.
 
 ## [0.3.9] - 2026-10-30
 

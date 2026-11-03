@@ -141,6 +141,12 @@ set_registry_state() {
     FIXTURE_INDEX="$1"
     FIXTURE_NPM_OK="$2"
     FIXTURE_GH_OK="$3"
+    if [[ "${FIXTURE_NPM_OK}" == "yes" ]]; then
+        FIXTURE_NPM_PACKUMENT="${TEST_DIR}/npm_attested.json"
+    else
+        FIXTURE_NPM_PACKUMENT="${TEST_DIR}/npm_unattested.json"
+    fi
+    export FIXTURE_NPM_PACKUMENT
 }
 
 # ---------------------------------------------------------------- extraction
@@ -164,6 +170,16 @@ body = body.replace('${{ needs.validate.outputs.version }}', version)
 body = body.replace('${{ github.repository }}', 'd-o-hub/chaotic_semantic_memory')
 body = body.replace('${{ secrets.GITHUB_TOKEN }}', 'fixture-token')
 body = body.replace('${{ secrets.CARGO_REGISTRY_TOKEN }}', 'fixture-token')
+body = body.replace("${{ vars.CRATES_IO_EXPECTED_LOGIN || 'd-o-hub' }}", 'd-o-hub')
+matrix = [
+    {"runner": "ubuntu-24.04", "target": "x86_64-unknown-linux-gnu", "platform": "linux", "arch": "x64"},
+    {"runner": "ubuntu-24.04", "target": "aarch64-unknown-linux-gnu", "platform": "linux", "arch": "arm64"},
+    {"runner": "macos-latest", "target": "aarch64-apple-darwin", "platform": "darwin", "arch": "arm64"},
+    {"runner": "macos-latest", "target": "x86_64-apple-darwin", "platform": "darwin", "arch": "x64"},
+    {"runner": "windows-latest", "target": "x86_64-pc-windows-msvc", "platform": "win32", "arch": "x64"},
+]
+import json
+body = body.replace('${{ needs.validate.outputs.cli-matrix }}', json.dumps(matrix))
 lines = ['sleep() { :; }   # fixture stub: the 245 s backoff is not the subject']
 lines += body.splitlines()
 open(out, 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
@@ -172,7 +188,10 @@ PY
 
 # un_fix_bare_calls <in-file> <out-file> — restore the #954 shape mechanically.
 un_fix_bare_calls() {
-    sed -E 's|^if ! (check_with_retry .*)$|\1|; s|; then :; fi$||' "$1" > "$2"
+    # Keep the indentation (the probes sit inside a for loop now) and turn
+    # `if ! check_with_retry …; then :; fi` into the bare call #954 shipped, which
+    # `bash -e` ends on the first miss.
+    sed -E 's|^([[:space:]]*)if ! (check_with_retry .*); then :; fi[[:space:]]*$|\1\2|' "$1" > "$2"
 }
 
 # ------------------------------------------------------------------- stubs
@@ -180,6 +199,22 @@ write_stubs() {
     cat > "${STUBS}/curl" <<'STUB'
 #!/usr/bin/env bash
 printf 'curl\n' >> "${FIXTURE_CALLS}"
+out=""
+prev=""
+for arg in "$@"; do
+    if [[ "${prev}" == "-o" ]]; then out="${arg}"; fi
+    prev="${arg}"
+done
+if [[ "$*" == *"/api/v1/me"* ]]; then
+    body="$(cat "${FIXTURE_ME_BODY_FILE}")"
+    [[ -n "${out}" ]] && printf '%s' "${body}" > "${out}"
+    printf '%s' "${FIXTURE_ME_CODE:-200}"
+    exit 0
+fi
+if [[ "$*" == *"registry.npmjs.org"* ]]; then
+    cat "${FIXTURE_NPM_PACKUMENT:-${TEST_DIR}/npm_attested.json}"
+    exit 0
+fi
 if [[ -n "${FIXTURE_INDEX}" && -f "${FIXTURE_INDEX}" ]]; then
     cat "${FIXTURE_INDEX}"
     exit 0
@@ -199,15 +234,23 @@ STUB
     cat > "${STUBS}/gh" <<'STUB'
 #!/usr/bin/env bash
 printf 'gh\n' >> "${FIXTURE_CALLS}"
-if [[ "${FIXTURE_GH_OK}" == "yes" ]]; then
-    printf '{"tagName":"v9.9.9"}\n'
+if [[ "${FIXTURE_GH_OK}" != "yes" ]]; then
+    exit 1
+fi
+if [[ "$*" == *"--json assets"* ]]; then
+    cat "${FIXTURE_GH_ASSETS:-${TEST_DIR}/assets_all.txt}"
     exit 0
 fi
-exit 1
+printf '{"tagName":"v9.9.9"}\n'
 STUB
     cat > "${STUBS}/cargo" <<'STUB'
 #!/usr/bin/env bash
 printf 'cargo\n' >> "${FIXTURE_CALLS}"
+if [[ "${FIXTURE_CARGO_AUTH:-0}" == "1" ]]; then
+    printf 'error: failed to publish\n' >&2
+    printf 'Caused by: status 403 Forbidden: authentication failed\n' >&2
+    exit 1
+fi
 exit "${FIXTURE_CARGO_RC}"
 STUB
     chmod +x "${STUBS}/curl" "${STUBS}/npm" "${STUBS}/gh" "${STUBS}/cargo"
@@ -219,6 +262,7 @@ run_body() {
     : > "${FIXTURE_CALLS}"
     : > "${TEST_DIR}/summary.md"
     PATH="${STUBS}:${PATH}" GITHUB_STEP_SUMMARY="${TEST_DIR}/summary.md" \
+        CARGO_REGISTRY_TOKEN=fixture-token GH_TOKEN=fixture-token \
         bash -e -o pipefail "${body}" > "${TEST_DIR}/stdout.log" 2> "${TEST_DIR}/stderr.log"
     BODY_RC=$?
     SUMMARY="$(cat "${TEST_DIR}/summary.md")"
@@ -231,6 +275,48 @@ stub_tool_calls() {
 }
 
 write_stubs
+
+# Credential/npm/asset defaults for the replay. Every case overrides the field it
+# cares about, so the positive control is explicit rather than incidental.
+FIXTURE_ME_CODE=200
+FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_ok.json"
+FIXTURE_CARGO_AUTH=0
+FIXTURE_NPM_PACKUMENT="${TEST_DIR}/npm_attested.json"
+FIXTURE_GH_ASSETS="${TEST_DIR}/assets_all.txt"
+export FIXTURE_ME_CODE FIXTURE_ME_BODY_FILE FIXTURE_CARGO_AUTH FIXTURE_NPM_PACKUMENT FIXTURE_GH_ASSETS
+
+cat > "${TEST_DIR}/me_ok.json" <<'JSON'
+{"user":{"login":"d-o-hub"}}
+JSON
+cat > "${TEST_DIR}/me_401.json" <<'JSON'
+{"errors":[{"detail":"The given API token does not match the format used by crates.io."}]}
+JSON
+cat > "${TEST_DIR}/me_403.json" <<'JSON'
+{"errors":[{"detail":"this action requires authentication"}]}
+JSON
+cat > "${TEST_DIR}/me_wrong_login.json" <<'JSON'
+{"user":{"login":"someone-else"}}
+JSON
+
+cat > "${TEST_DIR}/npm_attested.json" <<'JSON'
+{"versions":{
+  "9.9.9":{"version":"9.9.9","dist":{"attestations":{"url":"https://registry.npmjs.org/-/npm/v1/attestations/csm@9.9.9","provenance":{"predicateType":"https://slsa.dev/provenance/v1"}}}},
+  "0.3.8":{"version":"0.3.8","dist":{"attestations":{"url":"https://registry.npmjs.org/-/npm/v1/attestations/csm@0.3.8","provenance":{"predicateType":"https://slsa.dev/provenance/v1"}}}},
+  "0.3.4":{"version":"0.3.4","dist":{}}
+}}
+JSON
+cat > "${TEST_DIR}/npm_unattested.json" <<'JSON'
+{"versions":{"9.9.9":{"version":"9.9.9","dist":{}}}}
+JSON
+cat > "${TEST_DIR}/assets_all.txt" <<'ASSETS'
+SHA256SUMS
+csm-linux-x64.tar.gz
+csm-linux-arm64.tar.gz
+csm-darwin-arm64.tar.gz
+csm-darwin-x64.tar.gz
+csm-win32-x64.tar.gz
+chaotic_semantic_memory-9.9.9-wasm.tar.gz
+ASSETS
 
 # Index rows in the shape crates.io actually stores: compact JSON, a quote on
 # both sides of the colon. `spliced_only` holds the exact text the BROKEN pattern
@@ -254,24 +340,27 @@ fi
 set_registry_state "${TEST_DIR}/index_present.json" yes yes
 run_body "${TEST_DIR}/vr.sh"
 expect_eq "all published: step exits 0" "0" "${BODY_RC}"
-expect_eq "all published: four verdict rows" "4" "$(count_in_summary ':')"
-expect_has "all published: crates.io credited" "✅ crates.io: Published"
-expect_has "all published: GitHub release credited" "✅ GitHub Release: Created"
+expect_eq "all published: fourteen verdict rows (9 crates + 4 npm + assets)" "14" "$(count_in_summary ':')"
+expect_has "all published: the root crate is credited" "✅ crates.io/chaotic_semantic_memory: Published"
+expect_has "all published: csm-duckdb is credited" "✅ crates.io/csm-duckdb: Published"
+expect_has "all published: npm version is credited" "✅ npm (@d-o-hub/csm) version: Published"
+expect_has "all published: npm provenance is credited" "✅ npm (@d-o-hub/csm) provenance: Published"
+expect_has "all published: every expected asset is present" "✅ GitHub Release assets: 7/7"
 expect_not_has "all published: no aggregate error" "::error::"
-expect_eq "all published: each registry probed once" "1" "$(stub_tool_calls gh)"
-expect_eq "all published: crates.io probed once" "1" "$(stub_tool_calls curl)"
+expect_eq "all published: one gh call" "1" "$(stub_tool_calls gh)"
+expect_eq "all published: 11 curl probes (9 crates + 2 provenance)" "11" "$(stub_tool_calls curl)"
 
 set_registry_state "${TEST_DIR}/index_absent.json" no no
 run_body "${TEST_DIR}/vr.sh"
 expect_eq "all missing: step exits 1" "1" "${BODY_RC}"
-expect_eq "all missing: FOUR verdict rows, not one" "4" "$(count_in_summary ': Missing')"
-expect_has "all missing: aggregate names crates.io" "Missing: crates.io;"
-expect_has "all missing: aggregate names the wasm package" "npm (@d-o-hub/chaotic_semantic_memory);"
-expect_has "all missing: aggregate names the cli package" "npm (@d-o-hub/csm);"
-expect_has "all missing: aggregate names the github release" "github;"
+expect_eq "all missing: thirteen missing rows" "13" "$(count_in_summary ': Missing')"
+expect_has "all missing: aggregate names a crate" "Missing: crates.io/csm-chaos;"
+expect_has "all missing: aggregate names the wasm npm version" "npm (@d-o-hub/chaotic_semantic_memory) version;"
+expect_has "all missing: aggregate names the cli npm provenance" "npm (@d-o-hub/csm) provenance;"
+expect_has "all missing: aggregate names the github assets" "github-assets;"
 expect_eq "#972: npm probed 8x per package, not once" "16" "$(stub_tool_calls npm)"
-expect_eq "#972: crates.io re-probed 8x" "8" "$(stub_tool_calls curl)"
-expect_eq "all missing: the release check is not retried (single gh call)" "1" "$(stub_tool_calls gh)"
+expect_eq "#972: 9 crates and 2 provenance probes re-query 8x" "88" "$(stub_tool_calls curl)"
+expect_eq "all missing: the release asset check is not retried (single gh call)" "1" "$(stub_tool_calls gh)"
 
 printf '\n== #954 sharpness: the un-fixed body must reproduce the truncation ==\n'
 if ! un_fix_bare_calls "${TEST_DIR}/vr.sh" "${TEST_DIR}/vr_broken.sh"; then
@@ -291,18 +380,18 @@ expect_not_has "un-fixed: the aggregate ::error:: is unreachable" "::error::"
 printf '\n== #971: the index probe matches a row that exists ==\n'
 set_registry_state "${TEST_DIR}/index_present.json" yes yes
 run_body "${TEST_DIR}/vr.sh"
-expect_has "a published version is credited (said Missing for 0.3.8 on main)" "✅ crates.io: Published"
+expect_has "a published version is credited (said Missing for 0.3.8 on main)" "✅ crates.io/csm-memory: Published"
 
 FIXTURE_INDEX="${TEST_DIR}/index_spliced_only.json"
 export FIXTURE_INDEX
 run_body "${TEST_DIR}/vr.sh"
 expect_eq "the bare substring vers:9.9.9 must NOT satisfy the check" "1" "${BODY_RC}"
-expect_has "splice-only index is reported Missing" "❌ crates.io: Missing"
+expect_has "splice-only index is reported Missing" "❌ crates.io/csm-memory: Missing"
 
 set_registry_state "${TEST_DIR}/index_absent.json" yes yes
 run_body "${TEST_DIR}/vr.sh"
-expect_has "a lower published version is still Missing" "❌ crates.io: Missing"
-expect_has "while the npm verdicts are unaffected" "✅ npm (@d-o-hub/csm): Published"
+expect_has "a lower published version is still Missing" "❌ crates.io/csm-memory: Missing"
+expect_has "while the npm verdicts are unaffected" "✅ npm (@d-o-hub/csm) version: Published"
 
 printf '\n== #971: publish-crates no longer re-publishes what is already live ==\n'
 if ! extract_step "${TEST_DIR}/pc.sh" publish-crates "Publish workspace crates" "9.9.9"; then
@@ -344,10 +433,101 @@ fi
 # ShellCheck reads as an accidental non-expansion (SC2016).
 if grep -qF 'check_with_retry "npm (@d-o-hub/csm)" "[ ' "${WORKFLOW}"; then
     fail "verify-release inlines an npm probe (frozen substitution) again"
-elif ! grep -qF 'check_with_retry "npm (@d-o-hub/csm)" "published_on_npm @d-o-hub/csm"' "${WORKFLOW}"; then
-    fail "verify-release no longer calls the npm CLI probe through a named function"
+elif ! grep -qF "check_with_retry \"npm (\${pkg}) version\" \"published_on_npm \${pkg}\"" "${WORKFLOW}"; then
+    fail "verify-release no longer calls the npm version probe through a named function"
+elif ! grep -qF "check_with_retry \"npm (\${pkg}) provenance\" \"npm_attestation_present \${pkg}\"" "${WORKFLOW}"; then
+    fail "verify-release no longer calls the npm provenance probe through a named function"
 else
-    pass "verify-release passes the npm probes by function name"
+    pass "verify-release passes both npm probes by function name"
+fi
+# Issue #955: the abbreviated packument is the only endpoint that serves
+# .dist.attestations; npm view reads the full packument and cannot see it.
+if grep -qF "Accept: application/vnd.npm.install-v1+json" "${WORKFLOW}"; then
+    pass "the provenance probe requests the abbreviated packument"
+else
+    fail "the provenance probe does not request the abbreviated packument"
+fi
+
+
+printf '\n== #967: the crates.io credential is probed before any cargo ==\n'
+if ! extract_step "${TEST_DIR}/pc_auth.sh" publish-crates "Probe the crates.io credential" "9.9.9"; then
+    printf 'ERROR: could not extract the credential preflight step\n' >&2
+    exit 2
+fi
+FIXTURE_ME_CODE=200
+FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_ok.json"
+export FIXTURE_ME_CODE FIXTURE_ME_BODY_FILE
+run_body "${TEST_DIR}/pc_auth.sh"
+expect_eq "a valid token exits 0" "0" "${BODY_RC}"
+expect_has "the probe names the authenticated login" "authenticated as d-o-hub"
+expect_not_has "the token value is never printed" "fixture-token"
+
+FIXTURE_ME_CODE=401
+FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_401.json"
+run_body "${TEST_DIR}/pc_auth.sh"
+expect_eq "a 401 exits 1" "1" "${BODY_RC}"
+expect_has "the HTTP status is named" "HTTP 401"
+expect_has "crates.io's detail is surfaced" "token does not match the format"
+
+FIXTURE_ME_CODE=403
+FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_403.json"
+run_body "${TEST_DIR}/pc_auth.sh"
+expect_eq "missing auth exits 1" "1" "${BODY_RC}"
+expect_has "missing auth keeps the detail" "requires authentication"
+
+FIXTURE_ME_CODE=200
+FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_wrong_login.json"
+run_body "${TEST_DIR}/pc_auth.sh"
+expect_eq "a valid token for the wrong account exits 1" "1" "${BODY_RC}"
+expect_has "the wrong login is named" "authenticated as 'someone-else'"
+
+printf '\n== #967: an authentication failure aborts the publish loop ==\n'
+set_registry_state "${TEST_DIR}/index_absent.json" yes yes
+FIXTURE_CARGO_AUTH=1
+export FIXTURE_CARGO_AUTH
+: > "${TEST_DIR}/argv.txt"
+run_body "${TEST_DIR}/pc.sh"
+expect_eq "the auth failure reds the step" "1" "${BODY_RC}"
+expect_eq "it aborts after one crate, not seven" "1" "$(stub_tool_calls cargo)"
+expect_has "the annotation names the credential class" "credential rejected while publishing"
+expect_not_has "it does not reach the aggregate publish-failed message" "Publish failed for:"
+FIXTURE_CARGO_AUTH=0
+export FIXTURE_CARGO_AUTH
+
+printf '\n== #974: a missing release asset is named ==\n'
+set_registry_state "${TEST_DIR}/index_present.json" yes yes
+grep -v '^csm-darwin-x64.tar.gz$' "${TEST_DIR}/assets_all.txt" > "${TEST_DIR}/assets_missing.txt"
+FIXTURE_GH_ASSETS="${TEST_DIR}/assets_missing.txt"
+export FIXTURE_GH_ASSETS
+run_body "${TEST_DIR}/vr.sh"
+expect_eq "a missing asset reds the step" "1" "${BODY_RC}"
+expect_has "the summary names the missing asset" "GitHub Release assets: missing"
+expect_has "the aggregate names the asset" "asset:csm-darwin-x64.tar.gz;"
+FIXTURE_GH_ASSETS="${TEST_DIR}/assets_all.txt"
+export FIXTURE_GH_ASSETS
+
+set_registry_state "${TEST_DIR}/index_present.json" yes no
+run_body "${TEST_DIR}/vr.sh"
+expect_eq "an unreadable release reds the step" "1" "${BODY_RC}"
+expect_has "the aggregate names the missing asset set" "github-assets;"
+set_registry_state "${TEST_DIR}/index_present.json" yes yes
+
+printf '\n== #955: provenance probe positive controls (0.3.8 attested, 0.3.4 not) ==\n'
+awk '/^npm_attestation_present\(\) \{/{f=1} f{print} f&&/^\}$/{exit}' "${TEST_DIR}/vr.sh" > "${TEST_DIR}/npm_probe.sh"
+cat >> "${TEST_DIR}/npm_probe.sh" <<'PROBE'
+VERSION=0.3.8
+if npm_attestation_present @d-o-hub/csm; then echo "0.3.8 attested"; else echo "0.3.8 unattested"; fi
+VERSION=0.3.4
+if npm_attestation_present @d-o-hub/csm; then echo "0.3.4 attested"; else echo "0.3.4 unattested"; fi
+PROBE
+PROBE_OUT="$(PATH="${STUBS}:${PATH}" FIXTURE_CALLS="${TEST_DIR}/calls" \
+    FIXTURE_NPM_PACKUMENT="${TEST_DIR}/npm_attested.json" \
+    bash "${TEST_DIR}/npm_probe.sh" 2>&1)"
+if grep -qF '0.3.8 attested' <<< "${PROBE_OUT}" && grep -qF '0.3.4 unattested' <<< "${PROBE_OUT}"; then
+    pass "the provenance probe reproduces the two known answers"
+else
+    fail "the provenance probe does not reproduce the positive controls"
+    printf '%s\n' "${PROBE_OUT}" >&2
 fi
 
 printf '\n----\n'

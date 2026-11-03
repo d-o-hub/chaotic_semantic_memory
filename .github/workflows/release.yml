@@ -46,6 +46,7 @@ jobs:
       release-ref: ${{ steps.tag.outputs.release-ref }}
       release-sha: ${{ steps.target_sha.outputs.sha }}
       is-recovery: ${{ steps.tag.outputs.is-recovery }}
+      cli-matrix: ${{ steps.cli_matrix.outputs.json }}
     steps:
     - name: Determine target commit SHA
       id: target_sha
@@ -72,6 +73,13 @@ jobs:
       with:
         fetch-depth: 0
         ref: ${{ steps.target_sha.outputs.sha }}
+
+    - name: Compute the CLI release matrix
+      id: cli_matrix
+      # Issue #974: one source for the platform list. The build matrix and the
+      # verifier's expected asset set both read this output, so adding a target
+      # cannot leave the verifier checking a stale hardcoded copy.
+      run: echo "json=$(bash scripts/release-cli-matrix.sh --json)" >> "$GITHUB_OUTPUT"
 
     - name: Verify CI and Pre-Release Gate are green for target commit
       run: |
@@ -247,27 +255,7 @@ jobs:
   build-cli-matrix:
     strategy:
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            platform: linux
-            arch: x64
-          - runner: ubuntu-24.04
-            target: aarch64-unknown-linux-gnu
-            platform: linux
-            arch: arm64
-          - runner: macos-latest
-            target: aarch64-apple-darwin
-            platform: darwin
-            arch: arm64
-          - runner: macos-latest
-            target: x86_64-apple-darwin
-            platform: darwin
-            arch: x64
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform: win32
-            arch: x64
+        include: ${{ fromJSON(needs.validate.outputs.cli-matrix) }}
     runs-on: ${{ matrix.runner }}
     needs: validate
     if: needs.validate.outputs.release-needed == 'true'
@@ -365,6 +353,35 @@ jobs:
         cache: false
         toolchain: stable
 
+    - name: Probe the crates.io credential before publishing
+      run: |
+        set -euo pipefail
+        # Issue #967: one call distinguishes missing, malformed and wrong-account
+        # before a single crate is packaged. The 403 arrived 142 s into the loop at
+        # v0.3.9 and was then repeated per crate; this is the pre-flight that makes
+        # the credential a one-line diagnosis.
+        RESPONSE="$(mktemp)"
+        CODE="$(curl -sS -o "${RESPONSE}" -w '%{http_code}' \
+          -H "Authorization: ${CARGO_REGISTRY_TOKEN}" \
+          -H 'User-Agent: chaotic_semantic_memory-release' \
+          https://crates.io/api/v1/me || echo 000)"
+        if [ "${CODE}" != "200" ]; then
+          DETAIL="$(jq -r '.errors[0].detail // empty' "${RESPONSE}" 2>/dev/null || true)"
+          echo "::error title=Crates.io token::pre-flight failed (HTTP ${CODE}): ${DETAIL:-no detail}"
+          rm -f "${RESPONSE}"
+          exit 1
+        fi
+        LOGIN="$(jq -r '.user.login // empty' "${RESPONSE}")"
+        EXPECTED="${{ vars.CRATES_IO_EXPECTED_LOGIN || 'd-o-hub' }}"
+        rm -f "${RESPONSE}"
+        if [ "${LOGIN}" != "${EXPECTED}" ]; then
+          echo "::error title=Crates.io token::authenticated as '${LOGIN}', expected '${EXPECTED}'"
+          exit 1
+        fi
+        echo "crates.io token pre-flight: authenticated as ${LOGIN}"
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
     - name: Publish workspace crates incrementally
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
@@ -376,8 +393,9 @@ jobs:
         # escaped quotes is the whole fix, and every index probe in this file uses the same form so
         # the next one does not re-derive the splice.
         version_published() {
-          local p1="${1:0:2}" p2="${1:2:2}"
-          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -qF "\"vers\":\"$VERSION\""
+          local crate="$1" path
+          path="$(bash scripts/crates-io-index-path.sh "${crate}")"
+          curl -sL "https://index.crates.io/${path}" | grep -qF "\"vers\":\"$VERSION\""
         }
 
         CRATES="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
@@ -395,6 +413,10 @@ jobs:
           else
             echo "  ❌ $crate@$VERSION publish failed:"
             tail -20 /tmp/publish.log
+            if grep -qiE 'authentication failed|403 Forbidden|401 Unauthorized' /tmp/publish.log; then
+              echo "::error title=Crates.io token::credential rejected while publishing ${crate}; aborting instead of repeating it per crate"
+              exit 1
+            fi
             FAILED="$FAILED $crate"
           fi
           sleep 15
@@ -410,8 +432,8 @@ jobs:
     - name: Publish root crate to crates.io
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        p1="ch" p2="ao"
-        if curl -sL "https://index.crates.io/$p1/$p2/chaotic_semantic_memory" | grep -qF "\"vers\":\"$VERSION\""; then
+        CRATE_PATH="$(bash scripts/crates-io-index-path.sh chaotic_semantic_memory)"
+        if curl -sL "https://index.crates.io/${CRATE_PATH}" | grep -qF "\"vers\":\"$VERSION\""; then
           echo "⏭️ chaotic_semantic_memory@$VERSION already on crates.io, skipping"
         else
           echo "Publishing chaotic_semantic_memory@$VERSION..."
@@ -423,14 +445,15 @@ jobs:
     - name: Publish csm-duckdb
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        p1="cs" p2="m-"
-        if curl -sL "https://index.crates.io/cs/m-/csm-duckdb" | grep -qF "\"vers\":\"$VERSION\""; then
+        DUCKDB_PATH="$(bash scripts/crates-io-index-path.sh csm-duckdb)"
+        ROOT_PATH="$(bash scripts/crates-io-index-path.sh chaotic_semantic_memory)"
+        if curl -sL "https://index.crates.io/${DUCKDB_PATH}" | grep -qF "\"vers\":\"$VERSION\""; then
           echo "⏭️ csm-duckdb@$VERSION already on crates.io, skipping"
           return 0 2>/dev/null || exit 0
         fi
         echo "Waiting for chaotic_semantic_memory@$VERSION in sparse index..."
         for attempt in $(seq 1 30); do
-          if curl -sL "https://index.crates.io/ch/ao/chaotic_semantic_memory" | grep -qF "\"vers\":\"$VERSION\""; then
+          if curl -sL "https://index.crates.io/${ROOT_PATH}" | grep -qF "\"vers\":\"$VERSION\""; then
             echo "✅ chaotic_semantic_memory@$VERSION visible"
             break
           fi
@@ -576,7 +599,11 @@ jobs:
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd wasm
-        npm publish --provenance --access public || npm publish --access public
+        # Issue #955: no fallback publish. publishConfig.provenance makes the
+        # retry harmless to the artifact but buries the first error; if provenance
+        # ever stops being configured, the retry silently becomes an unattested
+        # publish. A failed attested publish is a red job.
+        npm publish --provenance --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -617,8 +644,11 @@ jobs:
           tar -xzf "$archive" -C cli-npm/bin
           COUNT=$((COUNT + 1))
         done
-        if [ "$COUNT" -lt 5 ]; then
-          echo "::error::Missing platform binaries! Expected 5, found $COUNT."
+        # Issue #974: the expected count comes from the same matrix output that
+        # drives build-cli-matrix; a hardcoded 5 would drift when a target changes.
+        EXPECTED_COUNT="$(jq 'length' <<< '${{ needs.validate.outputs.cli-matrix }}')"
+        if [ "$COUNT" -lt "$EXPECTED_COUNT" ]; then
+          echo "::error::Missing platform binaries! Expected ${EXPECTED_COUNT}, found $COUNT."
           return 1 2>/dev/null || exit 1
         fi
 
@@ -645,7 +675,11 @@ jobs:
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd cli-npm
-        npm publish --provenance --access public || npm publish --access public
+        # Issue #955: no fallback publish. publishConfig.provenance makes the
+        # retry harmless to the artifact but buries the first error; if provenance
+        # ever stops being configured, the retry silently becomes an unattested
+        # publish. A failed attested publish is a red job.
+        npm publish --provenance --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -688,28 +722,76 @@ jobs:
         # the pattern this step shipped, '"vers":"$VERSION"', is collapsed by the outer quotes into
         # 'vers:0.3.9', which the sparse index does not contain (#971). Same splice as the four
         # publish-side probes above, reached from the other direction.
+        crates_io_path() { bash scripts/crates-io-index-path.sh "$1"; }
         published_on_crates_io() {
-          curl -sL "https://index.crates.io/ch/ao/chaotic_semantic_memory" | grep -qF "\"vers\":\"$VERSION\""
+          local crate="$1" path
+          path="$(crates_io_path "${crate}")"
+          curl -sL "https://index.crates.io/${path}" | grep -qF "\"vers\":\"$VERSION\""
         }
         published_on_npm() {
           [ "$(npm view "$1" version 2>/dev/null || echo none)" = "$VERSION" ]
         }
+        npm_attestation_present() {
+          local pkg="$1" encoded doc
+          # Issue #955: `.dist.attestations` is served only by the abbreviated
+          # packument. `npm view <pkg> dist --json` reads the full packument and
+          # returns no attestations key at all, so a probe written that way says
+          # "missing" for an attested release. One segment short was the original
+          # bug; this query names the field and the endpoint.
+          encoded="${pkg/\//%2f}"
+          doc="$(curl -sSL -H 'Accept: application/vnd.npm.install-v1+json' \
+            "https://registry.npmjs.org/${encoded}")"
+          # Measured on the live registry 2026-11-03: the abbreviated packument
+          # serves `dist.attestations = {url, provenance: {predicateType}}`.
+          # There is no `provenance.url` field; a probe written against that
+          # invented path reports "missing" for an attested release, which is the
+          # same one-segment-short class as the original bug.
+          jq -e --arg v "$VERSION" \
+            '(.versions[$v].version == $v)
+              and (.versions[$v].dist.attestations.url != null)
+              and (.versions[$v].dist.attestations.provenance.predicateType != null)' \
+            <<< "${doc}" >/dev/null
+        }
 
-        # `if ! …; then :; fi` is load-bearing, not stylistic. GitHub's default run shell is
-        # `bash -e {0}`, and check_with_retry returns 1 on a miss, so a bare call ended the step at the
-        # first missing artifact: later registries were never probed, their ❌ rows never reached
-        # $GITHUB_STEP_SUMMARY, and the aggregate ::error:: below was unreachable (#954). A condition
-        # context is what suppresses -e for the call *and its body*. `|| true` would also work but
-        # reads as discarding a real error, which is precisely what ERRORS exists to collect.
-        if ! check_with_retry "crates.io" "published_on_crates_io"; then :; fi
-        if ! check_with_retry "npm (@d-o-hub/chaotic_semantic_memory)" "published_on_npm @d-o-hub/chaotic_semantic_memory"; then :; fi
-        if ! check_with_retry "npm (@d-o-hub/csm)" "published_on_npm @d-o-hub/csm"; then :; fi
+        # Issue #974: every published crate, not only the root. The set is the
+        # publish order plus csm-duckdb; csm-cli/csm-wasm are workspace members
+        # that are never published to crates.io.
+        CRATES_PUBLISHED="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence chaotic_semantic_memory csm-duckdb"
+        for crate in ${CRATES_PUBLISHED}; do
+          if ! check_with_retry "crates.io/${crate}" "published_on_crates_io ${crate}"; then :; fi
+        done
+        for pkg in @d-o-hub/chaotic_semantic_memory @d-o-hub/csm; do
+          if ! check_with_retry "npm (${pkg}) version" "published_on_npm ${pkg}"; then :; fi
+          if ! check_with_retry "npm (${pkg}) provenance" "npm_attestation_present ${pkg}"; then :; fi
+        done
 
-        if gh release view "v${VERSION}" --repo ${{ github.repository }} >/dev/null 2>&1; then
-          echo "✅ GitHub Release: Created" >> $GITHUB_STEP_SUMMARY
+        # Issue #974: the release's assets, not its existence. The CLI list comes
+        # from the same job output that drives build-cli-matrix, so adding a
+        # target cannot leave a hardcoded copy behind.
+        CLI_MATRIX='${{ needs.validate.outputs.cli-matrix }}'
+        EXPECTED_ASSETS="SHA256SUMS chaotic_semantic_memory-${VERSION}-wasm.tar.gz"
+        while IFS=$'\t' read -r platform arch; do
+          [ -n "${platform}" ] || continue
+          EXPECTED_ASSETS="${EXPECTED_ASSETS} csm-${platform}-${arch}.tar.gz"
+        done < <(jq -r '.[] | [.platform, .arch] | @tsv' <<< "${CLI_MATRIX}")
+        EXPECTED_COUNT="$(wc -w <<< "${EXPECTED_ASSETS}" | tr -d ' ')"
+        ASSETS="$(gh release view "v${VERSION}" --repo ${{ github.repository }} --json assets --jq '.assets[].name' 2>/dev/null || true)"
+        if [ -z "${ASSETS}" ]; then
+          ERRORS="${ERRORS}github-assets; "
+          echo "❌ GitHub Release assets: missing (no release or no assets)" >> $GITHUB_STEP_SUMMARY
         else
-          ERRORS="${ERRORS}github; "
-          echo "❌ GitHub Release: Missing" >> $GITHUB_STEP_SUMMARY
+          MISSING_ASSETS=""
+          for asset in ${EXPECTED_ASSETS}; do
+            if ! grep -qxF "${asset}" <<< "${ASSETS}"; then
+              MISSING_ASSETS="${MISSING_ASSETS} ${asset}"
+              ERRORS="${ERRORS}asset:${asset}; "
+            fi
+          done
+          if [ -n "${MISSING_ASSETS}" ]; then
+            echo "❌ GitHub Release assets: missing${MISSING_ASSETS}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ GitHub Release assets: ${EXPECTED_COUNT}/${EXPECTED_COUNT}" >> $GITHUB_STEP_SUMMARY
+          fi
         fi
 
         if [ -n "$ERRORS" ]; then
@@ -719,13 +801,48 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  no-verdict:
+    # Issue #969: a run whose trigger was not a successful CI push must say so.
+    # Without this job, `validate` and every dependent job skip and only `notify`
+    # executes — GitHub renders that all-skipped-plus-one-green shape as success,
+    # which is exactly how release run 41186134783 published nothing and looked
+    # green. The sibling pre-release gate got this treatment in #903.
+    runs-on: ubuntu-24.04
+    needs: [validate]
+    if: always() && needs.validate.result != 'success'
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Explain the missing release verdict
+      run: |
+        bash scripts/release-no-verdict.sh \
+          "${{ github.event_name }}" \
+          "${{ github.event.workflow_run.event || 'dispatch' }}" \
+          "${{ github.event.workflow_run.conclusion || 'n/a' }}"
+
   notify:
     runs-on: ubuntu-24.04
-    needs: [validate, build-cli-matrix, build-wasm, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli, verify-release]
+    # Issue #969: render the verdict from explicit sibling results, not a fixed
+    # sentence. `if: always()` alone is what let a partial or absent release read
+    # as routine; the results are read in scripts/release-verdict.sh.
+    needs: [validate, build-cli-matrix, build-wasm, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli, verify-release, no-verdict]
     if: always()
+    permissions:
+      contents: read
     steps:
-    - name: Release summary
-      run: |
-        echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
-        VERSION="${{ needs.validate.outputs.version }}"
-        echo "Release pipeline finished for v${VERSION}." >> $GITHUB_STEP_SUMMARY
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Release verdict
+      run: bash scripts/release-verdict.sh >> "$GITHUB_STEP_SUMMARY"
+      env:
+        VERSION: ${{ needs.validate.outputs.version }}
+        EVENT_NAME: ${{ github.event_name }}
+        RELEASE_NEEDED: ${{ needs.validate.outputs.release-needed }}
+        VALIDATE_RESULT: ${{ needs.validate.result }}
+        BUILD_CLI_RESULT: ${{ needs.build-cli-matrix.result }}
+        BUILD_WASM_RESULT: ${{ needs.build-wasm.result }}
+        PUBLISH_CRATES_RESULT: ${{ needs.publish-crates.result }}
+        NPM_WASM_RESULT: ${{ needs.publish-npm-wasm.result }}
+        NPM_CLI_RESULT: ${{ needs.publish-npm-cli.result }}
+        RELEASE_RESULT: ${{ needs.create-github-release.result }}
+        VERIFY_RESULT: ${{ needs.verify-release.result }}

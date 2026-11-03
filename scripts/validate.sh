@@ -321,12 +321,26 @@ fi
 # fixture is their only test surface. It extracts the live step bodies and replays them
 # under GitHub's own `bash -e`, with the registries stubbed.
 if [[ -x "${SCRIPT_DIR}/test-verify-release-step.sh" ]]; then
-  echo "==> Release verification fixture (every verdict collected, truthful, re-probed)"
+  echo "==> Release verification fixture (every artifact, provenance, assets)"
   "${SCRIPT_DIR}/test-verify-release-step.sh"
 else
   echo "Error: scripts/test-verify-release-step.sh missing or not executable"
   exit 1
 fi
+
+# Release verdict and index-path fixtures (issues #969/#974). The verdict script
+# is the only place the four not-a-release / nothing-to-do / published / partial
+# states are distinguished; the index-path fixture pins the 1/2/3-character
+# crates.io layout measured on the live sparse index.
+for fixture in test-release-verdict.sh test-crates-io-index-path.sh; do
+  if [[ -x "${SCRIPT_DIR}/${fixture}" ]]; then
+    echo "==> Fixture: scripts/${fixture}"
+    "${SCRIPT_DIR}/${fixture}"
+  else
+    echo "Error: scripts/${fixture} missing or not executable" >&2
+    exit 1
+  fi
+done
 
 # Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
