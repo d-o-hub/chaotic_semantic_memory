@@ -31,7 +31,7 @@ world_state:
 
   # ── Canonical metrics (update in place with a date comment) ──
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
-  main_head: "cb1d134d"              # 2026-11-03: `git rev-parse --short=8 origin/main`
+  main_head: "fdc40ef4"              # 2026-11-04: `git rev-parse --short=8 origin/main`
   tests_count: 1188                  # 2026-11-03: `scripts/coverage-report.sh` inventory (tests/ 554,
                                      #   src/ 284, crates/*/src 330, crates/*/tests 20); the full suite
                                      #   reports more passes because a fn can register in several targets
@@ -75,7 +75,7 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 4            # `grep -c '^  - name:' plans/ACTIONS.md` (#951 #952 #959 #961)
+  queued_actions_count: 3            # `grep -c '^  - name:' plans/ACTIONS.md` (#951 #952 #959)
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -157,6 +157,7 @@ world_state:
   dependabot_alerts_open: 3                       # 2026-11-03 measured: lru + libsql-sqlite3-parser x2
   npm_attestations_verified_and_retry_dropped: true  # 2026-11-03 (#955): both packages' provenance is
                                                   #   read from the abbreviated packument; no retry publish
+  chaos_input_dim_rejected_not_clamped: true      # 2026-11-03 (#961): MAX_INPUT_DIM + fallible try_new
   zip_bundled_assumption_gated: true              # 2026-11-03 (#966): stale zip ignores removed; gate ties any
                                                   #   future ignore to zip-in-lock + csm-duckdb/bundled
 
@@ -171,10 +172,10 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: verify_npm_attestations_in_the_release_report  # 2026-11-03 (#955):
+  action_last_completed: bound_chaotic_lsh_and_voronoi_lsh_input_dim  # 2026-11-04 (#961):
+                               #   one shared MAX_INPUT_DIM (4096) bounds both projectors; try_new
+                               #   rejects zero/oversized dimensions with InputDimensionError, new
+                               #   clamps and exposes input_dim(). Previous action:
+                               #   verify_npm_attestations_in_the_release_report — 2026-11-03 (#955):
                                #   verify-release checks .dist.attestations via the abbreviated
-                               #   packument (url + provenance.predicateType) and the fail-open npm
-                               #   retry is gone. Previous action: record_and_gate_the_zip_bundled_assumption — 2026-11-03 (#966): the
-                               #   libduckdb-sys 1.20000.1 update dropped zip, so the three
-                               #   RUSTSEC-2026-0367/0368/0369 ignores were removed rather than
-                               #   carried; check-bundled-ignore-reason.sh now gates the pair.
+                               #   packument and the fail-open npm retry is gone.

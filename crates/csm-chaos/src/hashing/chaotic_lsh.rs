@@ -3,6 +3,7 @@
 //! Projects continuous vectors into binary hypervectors using 2D-SLHM trajectories.
 //! SIMD-accelerated on x86_64 (AVX2) and aarch64 (NEON) with scalar fallback.
 
+use super::{InputDimensionError, clamped_input_dim, validate_input_dim};
 use crate::maps::hyperchaotic::Slhm2d;
 use alloc::vec::Vec;
 
@@ -15,7 +16,41 @@ pub struct ChaoticLsh {
 
 impl ChaoticLsh {
     /// Create a new ChaoticLsh with given seed values and input dimension.
+    ///
+    /// `input_dim` is clamped into `1..=`[`MAX_INPUT_DIM`], because the
+    /// projection table grows linearly with it (160 MiB at the cap). A clamped
+    /// instance reports the dimension it actually uses through
+    /// [`Self::input_dim`], and [`Self::project`] returns an all-zero
+    /// hypervector when the input length does not match it.
+    ///
+    /// Prefer [`Self::try_new`] when the dimension comes from an untrusted
+    /// caller: it rejects an out-of-range request instead of substituting a
+    /// different shape, so an oversized caller can never receive all-zero codes
+    /// without an error.
+    #[must_use]
     pub fn new(x: f64, y: f64, a: f64, input_dim: usize) -> Self {
+        Self::with_dimension(x, y, a, clamped_input_dim(input_dim))
+    }
+
+    /// Create a new ChaoticLsh, rejecting an out-of-range input dimension.
+    ///
+    /// Unlike [`Self::new`], this never silently substitutes a different
+    /// dimension. The accepted range is `1..=`[`MAX_INPUT_DIM`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InputDimensionError`] when `input_dim` is zero or greater than
+    /// [`MAX_INPUT_DIM`].
+    pub fn try_new(x: f64, y: f64, a: f64, input_dim: usize) -> Result<Self, InputDimensionError> {
+        Ok(Self::with_dimension(
+            x,
+            y,
+            a,
+            validate_input_dim(input_dim)?,
+        ))
+    }
+
+    fn with_dimension(x: f64, y: f64, a: f64, input_dim: usize) -> Self {
         let mut map = Slhm2d::new(x, y, a);
         let mut projection_matrix = Vec::with_capacity(10240 * input_dim);
 
@@ -31,6 +66,15 @@ impl ChaoticLsh {
             projection_matrix,
             input_dim,
         }
+    }
+
+    /// The input dimension this projector actually uses.
+    ///
+    /// A caller that passed an oversized dimension to [`Self::new`] can compare
+    /// this against its own vector length and detect the substitution.
+    #[must_use]
+    pub const fn input_dim(&self) -> usize {
+        self.input_dim
     }
 
     /// Scalar dot-product projection (reference implementation).
@@ -382,68 +426,5 @@ impl ChaoticLsh {
 }
 
 #[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    use super::*;
-
-    #[test]
-    fn test_chaotic_lsh_locality() {
-        let input_dim = 4;
-        let lsh = ChaoticLsh::new(0.123, 0.456, 0.99, input_dim);
-
-        let v1 = [1.0, 0.5, -0.2, 0.8];
-        let v2 = [1.0, 0.5, -0.2, 0.81];
-        let v3 = [-1.0, -0.5, 0.2, -0.8];
-
-        let h1 = lsh.project(&v1);
-        let h2 = lsh.project(&v2);
-        let h3 = lsh.project(&v3);
-
-        fn hamming(a: &[u64; 160], b: &[u64; 160]) -> u32 {
-            let mut dist = 0u32;
-            for i in 0..160 {
-                dist += (a[i] ^ b[i]).count_ones();
-            }
-            dist
-        }
-
-        fn cosine_similarity(a: &[u64; 160], b: &[u64; 160]) -> f32 {
-            let dist = hamming(a, b);
-            #[allow(clippy::cast_precision_loss)]
-            (1.0 - (dist as f32 / 5120.0))
-        }
-
-        let sim_12 = cosine_similarity(&h1, &h2);
-        let sim_13 = cosine_similarity(&h1, &h3);
-
-        assert!(
-            sim_12 > 0.8,
-            "Similar vectors should have high similarity: {sim_12}"
-        );
-        assert!(
-            sim_13 < 0.6,
-            "Different vectors should have low similarity: {sim_13}"
-        );
-    }
-
-    #[test]
-    fn test_simd_scalar_parity() {
-        let lsh = ChaoticLsh::new(0.5, 0.7, 0.95, 8);
-        let input = [0.1, -0.3, 0.5, 0.7, -0.2, 0.4, -0.6, 0.8];
-        let scalar = lsh.project_scalar(&input);
-        let result = lsh.project(&input);
-        assert_eq!(scalar, result);
-    }
-
-    #[test]
-    fn test_scalar_projection_includes_input_remainder() {
-        let mut lsh = ChaoticLsh::new(0.5, 0.7, 0.95, 5);
-        for row in lsh.projection_matrix.as_chunks_mut::<5>().0 {
-            row.fill(0.0);
-            row[4] = 1.0;
-        }
-
-        let input = [0.0, 0.0, 0.0, 0.0, 1.0];
-        assert_eq!(lsh.project_scalar(&input), [u64::MAX; 160]);
-    }
-}
+#[path = "chaotic_lsh_tests.rs"]
+mod tests;

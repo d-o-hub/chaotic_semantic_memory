@@ -7,6 +7,7 @@
 //!
 //! SIMD-accelerated on x86_64 (AVX2) and aarch64 (NEON) with scalar fallback.
 
+use super::{InputDimensionError, clamped_input_dim, validate_input_dim};
 use crate::maps::hyperchaotic::Slhm2d;
 use alloc::vec::Vec;
 
@@ -23,7 +24,39 @@ pub struct VoronoiLsh {
 impl VoronoiLsh {
     /// Create a new `VoronoiLsh` with chaotic generation for its Voronoi partitions.
     /// Each bit requires two centroids; the bit is set if the input is closer to centroid A than centroid B.
+    ///
+    /// `input_dim` is clamped into `1..=`[`MAX_INPUT_DIM`], because the
+    /// centroid table grows linearly with it (320 MiB at the cap). A clamped
+    /// instance reports the dimension it actually uses through
+    /// [`Self::input_dim`], and [`Self::project`] returns an all-zero
+    /// hypervector when the input length does not match it.
+    ///
+    /// Prefer [`Self::try_new`] when the dimension comes from an untrusted
+    /// caller: it rejects an out-of-range request instead of substituting a
+    /// different shape.
+    #[must_use]
     pub fn new(x: f64, y: f64, a: f64, input_dim: usize) -> Self {
+        Self::with_dimension(x, y, a, clamped_input_dim(input_dim))
+    }
+
+    /// Create a new `VoronoiLsh`, rejecting an out-of-range input dimension.
+    ///
+    /// The accepted range is `1..=`[`MAX_INPUT_DIM`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InputDimensionError`] when `input_dim` is zero or greater than
+    /// [`MAX_INPUT_DIM`].
+    pub fn try_new(x: f64, y: f64, a: f64, input_dim: usize) -> Result<Self, InputDimensionError> {
+        Ok(Self::with_dimension(
+            x,
+            y,
+            a,
+            validate_input_dim(input_dim)?,
+        ))
+    }
+
+    fn with_dimension(x: f64, y: f64, a: f64, input_dim: usize) -> Self {
         let mut map = Slhm2d::new(x, y, a);
         // 10240 bits * 2 centroids per bit * input_dim
         let total_floats = 10240 * 2 * input_dim;
@@ -38,6 +71,15 @@ impl VoronoiLsh {
             centroids,
             input_dim,
         }
+    }
+
+    /// The input dimension this projector actually uses.
+    ///
+    /// A caller that passed an oversized dimension to [`Self::new`] can compare
+    /// this against its own vector length and detect the substitution.
+    #[must_use]
+    pub const fn input_dim(&self) -> usize {
+        self.input_dim
     }
 
     /// Scalar Voronoi projection (reference implementation).
@@ -238,6 +280,33 @@ impl VoronoiLsh {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
+    use crate::hashing::MAX_INPUT_DIM;
+
+    #[test]
+    fn try_new_rejects_zero_and_oversized_dimensions() {
+        assert!(VoronoiLsh::try_new(0.5, 0.7, 0.95, 0).is_err());
+        assert!(VoronoiLsh::try_new(0.5, 0.7, 0.95, MAX_INPUT_DIM + 1).is_err());
+        assert_eq!(
+            VoronoiLsh::try_new(0.5, 0.7, 0.95, 8)
+                .expect("an in-range dimension is accepted")
+                .input_dim(),
+            8
+        );
+    }
+
+    #[test]
+    fn new_reports_the_dimension_it_actually_uses() {
+        let lsh = VoronoiLsh::new(0.5, 0.7, 0.95, 0);
+        assert_eq!(lsh.input_dim(), 1);
+    }
+
+    #[test]
+    fn shape_mismatch_returns_an_all_zero_hypervector() {
+        let lsh = VoronoiLsh::new(0.5, 0.7, 0.95, 4);
+        assert_eq!(lsh.project(&[1.0; 5]), [0u64; 160]);
+        assert_eq!(lsh.project_scalar(&[1.0; 5]), [0u64; 160]);
+        assert_eq!(lsh.project_simd(&[1.0; 5]), [0u64; 160]);
+    }
 
     #[test]
     fn test_voronoi_lsh_locality() {

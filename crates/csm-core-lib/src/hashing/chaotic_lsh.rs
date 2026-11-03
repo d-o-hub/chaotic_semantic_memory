@@ -11,10 +11,37 @@ pub struct ChaoticLsh {
 
 impl ChaoticLsh {
     /// Create a new ChaoticLsh with given seed values and input dimension.
+    ///
+    /// The dimension is clamped to the owner crate's `MAX_INPUT_DIM`; use
+    /// [`Self::try_new`] to reject an out-of-range request instead.
+    #[must_use]
     pub fn new(x: f64, y: f64, a: f64, input_dim: usize) -> Self {
         Self {
             inner: RawChaoticLsh::new(x, y, a, input_dim),
         }
+    }
+
+    /// Create a new ChaoticLsh, rejecting an out-of-range input dimension.
+    ///
+    /// # Errors
+    ///
+    /// Returns the owner crate's [`csm_chaos::hashing::InputDimensionError`]
+    /// when `input_dim` is zero or too large.
+    pub fn try_new(
+        x: f64,
+        y: f64,
+        a: f64,
+        input_dim: usize,
+    ) -> Result<Self, csm_chaos::hashing::InputDimensionError> {
+        Ok(Self {
+            inner: RawChaoticLsh::try_new(x, y, a, input_dim)?,
+        })
+    }
+
+    /// The input dimension this projector actually uses.
+    #[must_use]
+    pub const fn input_dim(&self) -> usize {
+        self.inner.input_dim()
     }
 
     /// Scalar dot-product projection.

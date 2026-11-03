@@ -16,14 +16,6 @@
 > reconciliation snapshot the file. Do not re-add completed entries.
 
 ```yaml
-  - name: bound_chaotic_lsh_and_voronoi_lsh_input_dim
-    github_issue: 961
-    preconditions: []
-    effects:
-      chaos_input_dim_rejected_not_clamped: true
-    cost: 3
-    status: queued
-
   - name: shard_the_mutation_test_context
     github_issue: 951
     preconditions:
