@@ -337,6 +337,17 @@ world_state:
                                #   action stayed queued after the merge, which is what turned main red.
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
+  dependency_bumps_checked_against_pinned_msrv: true  # 2026-11-03: #988 (fuzz uuid 1.26.1 → 1.29.0)
+                               #   could never compile — uuid >= 1.27 declares rust_version 1.89.0 in the
+                               #   crates.io index (1.26.1 says 1.85.0) while `rust-toolchain.toml` pins
+                               #   1.88.0, and job 125320036721 failed on exactly that (`rustc 1.88.0 is
+                               #   not supported by … uuid@1.29.0`). Its `lint` red was the inherited #965
+                               #   queue block, retired by #990. Closed with the measurement; both cargo
+                               #   ecosystems now ignore uuid *minor* updates (patches still arrive) with
+                               #   the removal condition — MSRV >= 1.89 — written in the config. Note
+                               #   `scripts/check-fuzz-lock.sh` cannot see this class: `cargo metadata
+                               #   --locked` accepts an MSRV-incompatible lock (measured rc=0); only
+                               #   `cargo check --manifest-path fuzz/Cargo.toml --locked` does.
 
   # ── Landed invariants worth checking before changes ───────────
   retrieval_implementation_owner_unique: true     # 2026-07-23: csm-retrieval owns contracts

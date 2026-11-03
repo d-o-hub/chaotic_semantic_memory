@@ -668,3 +668,17 @@
   docs-only PR. The checker's `@`-skip list covers version tags, SHAs, npm scopes and domains but not ELF
   symbol versions; write the symbol version outside the `@` (or extend the skip list with a fixture) rather
   than disabling the check.
+- **A pinned `rust-toolchain.toml` turns a dependency's `rust_version` into a hard gate, and `cargo metadata
+  --locked` cannot see it (2026-11-03, #988).** uuid 1.27.0+ declares `rust_version = 1.89.0` while this
+  repo pins 1.88.0, so Dependabot's fuzz bump to 1.29.0 could only ever produce
+  `rustc 1.88.0 is not supported by … uuid@1.29.0`. Read the ceiling from the registry index
+  (`curl -s https://index.crates.io/uu/id/uuid | tail -5`), not from a release note, then either bump the
+  MSRV in its own PR or add a commented `ignore` for that dependency's **minor** updates (patches still
+  arrive) and close the bump with the job id. The local lock probe is blind here: `check-fuzz-lock.sh` runs
+  `cargo metadata --locked`, which read the incompatible lock without complaint (rc=0); only
+  `cargo check --manifest-path fuzz/Cargo.toml --locked` fails.
+- **Two reds on one lockfile-only PR are two causes (2026-11-03, #988).** `lint` was the inherited stale
+  queue block (#965, retired by #990) and `Fuzz Workspace Build` was the real MSRV refusal. A rebase clears
+  the first and leaves the second, so "it went green except one" after a rebase is the useful state — read
+  each job's log before deciding whether the PR can ever land, and never read a rebased head's remaining red
+  as a regression the diff caused.
