@@ -124,6 +124,7 @@ echo "-------------------------------------------------------------------"
 echo ""
 echo "The import/export format supports metadata in the JSON payload:"
 echo ""
+# version-fixture: illustrative import payload; the importer accepts any version string
 cat << 'JSON_EXAMPLE'
 {
   "version": "0.3.2",

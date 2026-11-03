@@ -166,7 +166,7 @@ scripts/check-llms-sync.sh
 # `test-version-sync.sh` exercises the checker that `.github/workflows/
 # version-integrity.yml:32` runs — the fixture has no CI coverage of its own
 # otherwise, and it was not even executable (mode 664) until it was wired.
-for fixture in test-llms-sync.sh test-version-sync.sh; do
+for fixture in test-llms-sync.sh test-version-sync.sh test-check-version-literals.sh; do
   if [[ -x "${SCRIPT_DIR}/${fixture}" ]]; then
     echo "==> Fixture: scripts/${fixture}"
     "${SCRIPT_DIR}/${fixture}"

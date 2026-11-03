@@ -43,6 +43,7 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}Edge Case 1: Empty Import${NC}"
 echo "  Creating and importing an empty concepts/associations file..."
+# version-fixture: import payload; the importer accepts any version string
 echo '  {"version": "0.3.2","exported_at":0,"concepts":[],"associations":[]}' > "$IMPORT_FILE"
 echo "  Command: csm import $IMPORT_FILE"
 ./target/debug/csm import "$IMPORT_FILE" --output-format json

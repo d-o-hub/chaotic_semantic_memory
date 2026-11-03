@@ -61,6 +61,7 @@ async fn legacy_protocol_uses_streamable_http_sessions() {
             "params": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
+                // version-fixture: MCP clientInfo, not the memory export payload
                 "clientInfo": { "name": "test-client", "version": "1.0.0" }
             }
         }))

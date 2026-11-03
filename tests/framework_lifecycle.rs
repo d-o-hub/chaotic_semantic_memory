@@ -80,6 +80,7 @@ async fn framework_import_rejects_associations_without_endpoints_and_changes_not
     let import_path = import_file.path().to_str().unwrap().to_string();
 
     let payload = serde_json::json!({
+        // version-fixture: import payload; the importer accepts any version string
         "version": "0.3.2",
         "exported_at": 1u64,
         "concepts": [],
@@ -177,6 +178,7 @@ async fn binary_import_export_preserves_ttl_and_canonical_links() {
     let export_path = export_file.path().to_str().unwrap().to_string();
 
     let payload = serde_json::json!({
+        // version-fixture: import payload; the importer accepts any version string
         "version": "0.3.2",
         "exported_at": 1u64,
         "concepts": [{

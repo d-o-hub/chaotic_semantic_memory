@@ -44,6 +44,7 @@ echo "  Creating valid import JSON..."
 
 # Create a valid export format JSON with empty concepts/associations
 # This demonstrates the import structure without serialization issues
+# version-fixture: import payload; the importer accepts any version string
 cat > "$VALID_IMPORT_FILE" << 'EOF'
 {
   "version": "0.3.2",
@@ -99,6 +100,7 @@ echo "  - Handle the error gracefully in automation pipelines"
 echo ""
 echo "Import file format:"
 echo '  {'
+# version-fixture: illustrative import payload; the importer accepts any version string
 echo '    "version": "0.3.2",'
 echo '    "exported_at": <unix_timestamp>,'
 echo '    "concepts": [...],'

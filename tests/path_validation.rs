@@ -68,6 +68,7 @@ async fn import_json_rejects_an_invalid_association_strength() {
     let v3_b64 = v3_b64.trim_matches('"');
 
     let payload_json = serde_json::json!({
+        // version-fixture: import payload; the importer accepts any version string
         "version": "0.3.5",
         "exported_at": 12345,
         "concepts": [
