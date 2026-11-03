@@ -129,3 +129,45 @@ guaranteed tie-break change. On a corpus built to expose it (`alpha` 2 000 / `be
 `1084339543` in both. Write the objection only after measuring it, and record the
 non-finding so the next reviewer does not re-raise it.
 
+
+# Fourth cause: the dispatch arm (2026-11-01, #977)
+
+The three causes above are all about the *input*: wrong arguments, a prefilled fast-path
+score, or a corpus whose keys never reorder. This one is about the *host*: a diff that
+changes several `cfg`/feature arms of one dispatcher, measured through a benchmark that can
+only enter one of them.
+
+#977 rewrote five kernels in `crates/csm-core-lib/src/hyperdim_simd.rs` —
+`and_simd_avx2`, `bind_simd_avx2`, `bind_simd_x86`, `and_simd_neon`, `bind_simd_neon` — and
+cited `hvec_bind` (`benches/benchmark.rs:87`), which is `a.bind(black_box(&other))`:
+
+- `hyperdim.rs:268` — `is_x86_feature_detected!("avx2")` → `bind_simd_avx2`;
+- `hyperdim.rs:272/280` — otherwise → `bind_simd_x86`;
+- aarch64 → `bind_simd_neon`.
+
+On any AVX2 host — every CI runner and every `canonical.json` reference CPU — the benchmark
+enters `bind_simd_avx2` and **cannot** reach `bind_simd_x86`. No corpus or query shape
+changes that, so the data-side checks in the sections above all pass while the diff
+regresses the arm the evidence cannot see.
+
+Disassembly of both arms (`rustc 1.88.0`, `-O -C codegen-units=1`, `#[no_mangle]
+#[inline(never)]`, old and new linked into one binary) shows why the two arms move in
+opposite directions:
+
+```
+and_avx2_old / bind_avx2_old   call memset(0x500) then write all 1 280 B, then memcpy into sret
+and_avx2_new / bind_avx2_new   no memset, then memcpy into sret        → −21.5 % / −22.7 %, 4/4
+bind_x86_old                   call memset(0x500) then write straight into sret
+bind_x86_new                   no memset, stack stores then memcpy(0x500) → +5.3 %, 0/4
+```
+
+The AVX2 arms already paid the `memcpy`; the x86 arm did not, so removing its `memset` and
+adding a 1 280-byte copy back is a net loss. A variant that keeps initialization at the
+destination (`MaybeUninit::<V>::uninit()` + `ptr::write` + `assume_init`) did not recover it
+reliably either (−1.3 / +2.5 / −0.1 / +4.8 % against the PR form — no consistent sign).
+
+Rule: **when a PR changes more than one arm of a dispatcher, enumerate the arms and
+measure or disassemble each one.** Reading the call site proves the benchmark reaches *a*
+changed line, not that it reaches the line that regressed. And when the arms differ
+structurally — one keeps the return-slot store, another round-trips through a stack buffer —
+the disassembly is what explains a sign split that the timings alone would read as noise.

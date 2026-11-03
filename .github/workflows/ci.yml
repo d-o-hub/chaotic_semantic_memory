@@ -158,6 +158,41 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose
+      # The step above lints the title; main receives `<title> (#<number>)`, and
+      # `header-max-length: 100` is only ever enforced on that longer string, after
+      # the merge, on a protected branch. #947: title 97 chars (passed above),
+      # subject 104 -> main run 41059071360 red, and the dependent workflow_run
+      # release gate refused with zero jobs (issue #965). Bot PRs warn instead of
+      # failing: three dependabot grouped subjects over 100 chars have already
+      # landed (max 116, #673), dependabot rewrites its own title on every push so
+      # an owner cannot durably retitle, and the title step above is already
+      # bot-exempt. Reads the title from this run's payload, so a later retitle is
+      # not re-measured -- the mandatory pre-merge rebase re-runs it.
+      - name: Check the effective squash subject length
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          status=0
+          bash scripts/check-squash-subject-length.sh "${PR_NUMBER}" "${PR_TITLE}" || status=$?
+          if [[ ${status} -eq 0 ]]; then
+            exit 0
+          fi
+          # Only a measured over-length is downgraded for a bot. Anything else --
+          # exit 2 (bad arguments, no python3) or an unexpected code -- propagates as
+          # a red check, because a failed measurement must never read as a pass; that
+          # is the shape that let #947's subject land on main.
+          if [[ ${status} -ne 1 ]]; then
+            echo "error: squash-subject check exited ${status}; this is not a verdict on the title" >&2
+            exit "${status}"
+          fi
+          if [[ "${PR_AUTHOR}" == "dependabot[bot]" ]]; then
+            echo "::warning title=Squash subject::over header-max-length; merging will make main red until the next merge"
+            exit 0
+          fi
+          exit "${status}"
       # ADR-0095 evidence tier: a `perf(...)` PR must document its baseline,
       # measurement artifact and before/after numbers (see
       # scripts/check-perf-pr-evidence.py). `always()` so the evidence verdict
@@ -172,6 +207,39 @@ jobs:
       - name: Validate branch commits with commitlint
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         run: npx commitlint --from ${{ github.event.before }} --to ${{ github.event.after }} --verbose
+      # When this lint goes red on main, the job annotation said only "Process
+      # completed with exit code 1" and every log line read "UNKNOWN STEP" (run
+      # 41059071360) -- commitlint's own rule report was in the log body, not the
+      # annotation, so nothing named the offending commit. Re-measure the same
+      # range and emit one annotation per bad subject. The limit and the unit match
+      # commitlint: 100 *characters*, not bytes (#947's subject is 104 chars and 106
+      # bytes, because the em dash counts once), so the length comes from the same
+      # python3 probe the pre-merge check uses rather than from `${#}`, which counts
+      # bytes under LC_ALL=C. `if: failure()` so a passing push never reaches this,
+      # and the zero-count branch says so out loud instead of letting silence read
+      # as a verdict.
+      - name: Name the failing subject on a red main lint
+        if: ${{ failure() && github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' }}
+        env:
+          LINT_FROM: ${{ github.event.before }}
+          LINT_TO: ${{ github.event.after }}
+        run: |
+          bad=0
+          total=0
+          while IFS= read -r subject; do
+            total=$((total + 1))
+            len=$(printf '%s' "$subject" | python3 -c 'import sys; print(len(sys.stdin.buffer.read().decode("utf-8")))')
+            if (( len > 100 )); then
+              bad=$((bad + 1))
+              echo "::error title=header-max-length on main::${len} chars, limit 100: ${subject}"
+            fi
+          done < <(git log --format=%s "${LINT_FROM}..${LINT_TO}")
+          if (( bad == 0 )); then
+            echo "none of the ${total} subject(s) in the pushed range exceeds header-max-length;"
+            echo "the commitlint failure came from another rule (type, scope, body) -- see the lint step above"
+          else
+            echo "${bad} of ${total} subject(s) over the limit; the range stays red until the next merge starts at it"
+          fi
 
   test:
     runs-on: ubuntu-latest
@@ -182,6 +250,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     # Caching strategy:
     # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
     # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
@@ -219,7 +294,7 @@ jobs:
         cache: false
         toolchain: stable
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: stable-smoke
     - name: Test retrieval owners on current stable
@@ -359,7 +434,18 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.duckdb == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 35, not 20: this job builds `libduckdb-sys`'s bundled DuckDB from C++
+    # every run, and the workflow-level `CARGO_BUILD_JOBS: 2` caps the `cc`
+    # crate at two translation units. Measured on main, the last eight runs
+    # span 8m29s-13m01s, so a 20-minute ceiling sat ~7 minutes above a *warm*
+    # run; PR #983's run 41455249609 (job 125330035025) restored its rust-cache
+    # successfully at 14:46:13Z, finished Rust at 14:53:59Z, and was then
+    # cancelled at exactly 20m0s with `cc1plus` still compiling. A budget is
+    # the bound a *slow but healthy* run must stay under, not a target; the
+    # cold C++ build is ~20 min by this repo's own measurement. Keep the step
+    # honest and read the step timeline before re-running: `cancelled` with a
+    # compiler alive is budget, a failed step is a verdict.
+    timeout-minutes: 35
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - name: Install Rust
@@ -548,6 +634,13 @@ jobs:
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
 
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
 
     # Caching strategy:
     # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
@@ -603,6 +696,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     # Caching strategy:
     # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
     # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
@@ -671,6 +771,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
       with:
@@ -741,6 +848,13 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      # The default `use-flakehub: null` means "no preference": the action tries
+      # FlakeHub on every nix job, finds no netrc credentials, and emits a
+      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
+      # run 41420926560 in every job that installs nix). This repository has no
+      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
+      with:
+        use-flakehub: false
     - name: cargo deny check
       run: nix develop --command cargo deny --locked check
 

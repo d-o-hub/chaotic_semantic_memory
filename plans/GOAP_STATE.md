@@ -201,17 +201,35 @@ world_state:
                                #   16 `npm view` calls against the 2 the design implies; the probes are now
                                #   functions, so an attempt really does re-query the registry and the
                                #   backoff can observe propagation.
+  host_subprocesses_isolated_from_nix_env: true  # 2026-11-01 (#949, PR #981, merged as `9d86bda0`): every
+                               #   `nix develop` step body is audited for a host `git`/`curl` that would
+                               #   inherit the devShell's library path. The issue's own remedy (pinning the
+                               #   runner image) was falsified — an unwrapped `nix develop --command cargo
+                               #   deny` failed identically on two `ubuntu-24.04` pins, and the leak site was
+                               #   already scrubbed — so what shipped is the sensor: 37-case fixture,
+                               #   both-direction probes, exit 2 when a wrapped script cannot be read.
+                               #   2026-11-02: the PR head is CI-clean — the root is confined with a
+                               #   Path.is_relative_to boundary the Sonar taint engine recognises (81-case
+                               #   fixture, up from 77), `members` entries are guarded before a join, the
+                               #   docs-link false positive on the GLIBC 2.2.5 symbol version is gone, and all six nix jobs
+                               #   set `use-flakehub: false` so the action stops logging a failure-level
+                               #   auth annotation from inside a passing step.
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  host_subprocesses_isolated_from_nix_env: true # 2026-11-02: #949 landed as 9d86bda (#981)
-  queued_actions_count: 8        # 2026-11-02: `stop_leaking_nix_ld_library_path` (#949) left the queue — it
-                               #   landed as `9d86bda` (#981) closing #949. Count = `grep -c '^  - name:' plans/ACTIONS.md`.
+  queued_actions_count: 6        # 2026-11-02: `gate_the_member_to_root_version_pins` (#964) left the queue with
+                               #   the version-edge gate in this PR, and
+                               #   `gate_the_effective_squash_subject_length` (#965) left it when #980
+                               #   (`1c047e64`) shipped the squash-subject gate and auto-closed the issue —
+                               #   its block survived that merge and turned main red in the run the merge
+                               #   itself created (CI 41449158184, `lint`), so the deletion landed
+                               #   separately as #990. `stop_leaking_nix_ld_library_path` (#949) left it
+                               #   earlier when #981 merged as `9d86bda0` and closed the issue.
+                               #   Count = `grep -c '^  - name:' plans/ACTIONS.md`.
                                # 2026-11-01: `check_fuzz_lock_in_validate` (#948) left the queue — it
                                #   landed as `c4c167b6` (#979) but its block was never removed, so the
                                #   reconciliation gate called it STALE on every branch's head.
-                               #   Count = `grep -c '^  - name:' plans/ACTIONS.md`.
                                # 2026-10-31: `make_verify_release_report_every_artifact` (#954) left the
                                #   queue with PR #973, which also implemented #971 and #972 — both filed
                                #   and landed inside that one branch, so neither was ever a queued block
@@ -311,8 +329,25 @@ world_state:
   bm25_posting_length_sort_measured_slower: true # 2026-10-19: #917 closed as no-impact — sorting `query_weights` by `entries.len()` is a semantic no-op on every bm25 corpus in the repo (all posting lists are equal length: `benches/benchmark.rs:711-719`, `benches/bm25_benchmark.rs:19-29`, `selective_100000`), and on a purpose-built skewed corpus (20 000 docs; postings 20 000/2 000/200; query descending) it measures **+8 %** (median 168.3 → 180.0 µs, consistent sign over four time-interleaved A/B pairs, `csm-ref-01`). Parity held: bit-identical scores and identical top-5 on a tie corpus. A resubmission must beat +8 % against on a committed unequal-length benchmark; see `plans/PR_ROAST_2026_10_19.md`. Do not re-queue.
   benchmarks_prove_performance: true              # 2026-09-21: named runner (plans/REFERENCE_RUNNER.md), canonical criterion baseline (plans/evidence/bench/canonical.json, 88 benches + CI), release-scale evidence (plans/evidence/scale_release_2026_09_21: ANN to 200k, memory/storage to 500k), npm package evidence (plans/evidence/wasm_2026_09_21)
   perf_pr_evidence_gate_enforced: true           # 2026-09-23: ci.yml commitlint job runs scripts/check-perf-pr-evidence.py for `perf(...)` PR titles; PR template carries `## Performance Evidence`
+  squash_subject_length_checked_before_merge: true   # 2026-11-02 (#965, landed as #980 `1c047e64`):
+                               #   `scripts/check-squash-subject-length.sh` lints the string GitHub actually
+                               #   commits — `printf '%s (#%s)' "$title" "$N"` — because PR-side commitlint
+                               #   only ever sees branch messages. Wired into the `commitlint` job
+                               #   (ci.yml:179-188) and its 373-line fixture into validate.sh:204. The
+                               #   action stayed queued after the merge, which is what turned main red.
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
+  dependency_bumps_checked_against_pinned_msrv: true  # 2026-11-03: #988 (fuzz uuid 1.26.1 → 1.29.0)
+                               #   could never compile — uuid >= 1.27 declares rust_version 1.89.0 in the
+                               #   crates.io index (1.26.1 says 1.85.0) while `rust-toolchain.toml` pins
+                               #   1.88.0, and job 125320036721 failed on exactly that (`rustc 1.88.0 is
+                               #   not supported by … uuid@1.29.0`). Its `lint` red was the inherited #965
+                               #   queue block, retired by #990. Closed with the measurement; both cargo
+                               #   ecosystems now ignore uuid *minor* updates (patches still arrive) with
+                               #   the removal condition — MSRV >= 1.89 — written in the config. Note
+                               #   `scripts/check-fuzz-lock.sh` cannot see this class: `cargo metadata
+                               #   --locked` accepts an MSRV-incompatible lock (measured rc=0); only
+                               #   `cargo check --manifest-path fuzz/Cargo.toml --locked` does.
 
   # ── Landed invariants worth checking before changes ───────────
   retrieval_implementation_owner_unique: true     # 2026-07-23: csm-retrieval owns contracts
@@ -460,14 +495,41 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: stop_leaking_nix_ld_library_path  # 2026-11-02: `#981` merged as `9d86bda` and closed
-                               #   #949, but its queue block stayed, so `check-goap-queue-issues.sh` called
-                               #   it STALE and failed `lint` on every branch's head. Block deleted, count 9 → 8.
-                               #   Previous action: `check_fuzz_lock_in_validate`  # 2026-11-01: `#979` merged as `c4c167b6` and closed
-                               #   #948, but its queue block stayed, so `check-goap-queue-issues.sh` called
-                               #   it STALE and failed `lint` on every branch's head — an inherited red on
-                               #   PRs that touch no Rust and no CI. Block deleted, count re-measured 10 → 9.
-                               #   Previous action: `encode_the_green_release_run_as_not_publish_evidence`  — 2026-10-31 (follow-up wave off `44e1c5ba`) —
+  action_last_completed: gate_the_member_to_root_version_pins  # 2026-11-01 (#964, branch `fix/version-edge-sync`) —
+                               #   re-measured the issue's own count first: **26 path edges to workspace
+                               #   members, 18 stale** on `cae70539` (the issue said 16; the widening was
+                               #   `fuzz/Cargo.toml`'s multi-line `[dependencies.x]` table, then
+                               #   `benchmarks/Cargo.toml`, a declared member that no `crates/*` glob reaches
+                               #   and which shipped three releases behind at 0.3.6), while
+                               #   `scripts/verify-version-sync.sh` printed `✓ All local versions
+                               #   synchronized: 0.3.9` over all of it. Nothing was ever *broken* because
+                               #   `^0.3.8` accepts 0.3.9 and Cargo.lock records resolved versions, not
+                               #   requirements — the cost is deferred to the first 0.4.x publish. Delivered
+                               #   `scripts/workspace-version-edges.py` (one parser behind --list/--check/
+                               #   --sync, tomllib cross-checking the edge set *and each pin's value*, exit 2
+                               #   for "could not audit", filesystem discovery cross-checked against
+                               #   `[workspace] members`), rewired `sync-version.sh` +
+                               #   `verify-version-sync.sh` onto it, fixed the 18 pins + the `crates/`-only
+                               #   member glob, and proved sharpness by neutering the subjects: 81 fixture
+                               #   cases / 5 discovery mutations, 9 verifier tests / 6 mutations caught.
+                               #   Follow-up filed as **#982**: the same blindness survives in the
+                               #   docs/tests/examples sweep, which substitutes `$CURRENT_VERSION` and so
+                               #   cannot see the seven older literals sitting in `tests/`+`examples/`
+                               #   today. Lessons encoded in `shell-script-quality` (+ new
+                               #   `references/sensor-sharpness.md`) and
+                               #   `release-management/references/version-pin-edges.md`.
+                               #   Previous action: `gate_the_effective_squash_subject_length` (#965) —
+                               #   #980 (`1c047e64`) shipped the gate; its block survived that merge and
+                               #   reddened main, so the deletion landed separately as #990 and the count
+                               #   moved 8 → 7 there.
+                               #   Previous action: `check_fuzz_lock_in_validate` (#948) — it landed as
+                               #   `c4c167b6` (#979) and its block was removed on main by #981 before this
+                               #   branch was rebased, so the count recorded here is 6 after this PR's own
+                               #   block leaves.
+                               #   Previous action: `stop_leaking_nix_ld_library_path` (#949) — closed by
+                               #   #981 (`9d86bda0`); its effect is recorded in world_state above and #951's
+                               #   precondition is satisfied.
+                               #   Previous action: `encode_the_green_release_run_as_not_publish_evidence`  # 2026-10-31 (follow-up wave off `44e1c5ba`) —
                                #   `release.yml:34-38` guards `validate` with the same two-clause
                                #   `workflow_run.event == 'push' && workflow_run.conclusion == 'success'` condition
                                #   as the gate, so CI 41184146253's 08:49:08Z **attempt-1 failure** lit gate

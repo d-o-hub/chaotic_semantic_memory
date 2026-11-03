@@ -195,6 +195,14 @@ echo "==> Mutation gate classification fixture"
 echo "==> Fuzz lock fixture"
 "${SCRIPT_DIR}/test-check-fuzz-lock.sh"
 
+# Squash-subject length (issue #965): the boundary a title has to clear before
+# GitHub appends " (#<n>)", the character-vs-byte unit commitlint actually enforces,
+# and a replay of both ci.yml steps that turn a measurement into a check verdict —
+# the fail-open shape (a skipped `if` branch leaves `$?` at 0) is only reachable
+# through the live step body, so the fixture reads it out of the workflow file.
+echo "==> Squash subject fixture"
+"${SCRIPT_DIR}/test-check-squash-subject-length.sh"
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 
@@ -356,6 +364,28 @@ if [[ -x "${SCRIPT_DIR}/check-shared-conventions.sh" ]]; then
 else
   echo "Error: scripts/check-shared-conventions.sh missing or not executable"
   exit 1
+fi
+
+# Workspace version-pin edge gate (#964): eighteen intra-workspace `version = "…"` pins
+# drifted across three releases while scripts/verify-version-sync.sh printed
+# "✓ All local versions synchronized: 0.3.9" — it compared member *own* versions and the
+# root→member pins only, and sync-version.sh's rewrite sed was root-only too. Nothing
+# looked at member→member, member→root, [dev-dependencies], [target.'cfg(…)'.dependencies]
+# or the multi-line `[dependencies.x]` form, and the `crates/`-scoped globs never reached
+# benchmarks/Cargo.toml (which shipped at 0.3.6). One parser now answers list/check/sync so
+# the writer and the gate cannot disagree, and it exits 2 — never a verdict — when its line
+# parser and tomllib disagree about a pin. tomllib is Python 3.11+; without it the audit
+# cannot cross-check itself, so that is a skip, not a pass.
+echo "==> Workspace version-pin edge gate (Cargo.toml intra-workspace pins)"
+if python3 -c 'import tomllib' 2>/dev/null; then
+  python3 "${SCRIPT_DIR}/workspace-version-edges.py" --check "$(cd "${SCRIPT_DIR}/.." && pwd)"
+  echo "==> Workspace version-edge fixture"
+  "${SCRIPT_DIR}/test-workspace-version-edges.sh"
+elif [[ "${CSM_VALIDATION_REQUIRED}" == "true" ]]; then
+  echo "ERROR: python3 tomllib (3.11+) is required by the validation gate; use python3.11+." >&2
+  exit 1
+else
+  echo "SKIPPED — NOT A PASS: python3 has no tomllib; intra-workspace version pins went unchecked"
 fi
 
 # LLM context drift gate (#828): docs/architecture/context.yaml carried stale

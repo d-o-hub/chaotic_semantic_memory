@@ -1772,7 +1772,7 @@ dependencies = [
 
 [[package]]
 name = "do-chaotic-semantic-memory-bench"
-version = "0.3.6"
+version = "0.3.9"
 dependencies = [
  "anyhow",
  "chaotic_semantic_memory",
