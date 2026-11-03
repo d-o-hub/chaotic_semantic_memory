@@ -170,7 +170,7 @@ cost two follow-up comments to correct the record:
    `map(..).collect()` → `with_capacity` + push hunk is measured in this very file at
    `progress/LEARNINGS.md:159` (#776: both forms `1 alloc / n × 1 280 B` at n = 1/3/10, "**expect this
    hunk in most 'avoid intermediate allocations' bot PRs**"), was ordered dropped in
-   `plans/PR_ROAST_2026_10_15.md` repair 1 (#889), and #897's commit message says it is
+   `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_15.md` repair 1 (#889), and #897's commit message says it is
    "deliberately not included". A hunk with a recorded verdict **inherits it — do not re-litigate it,
    and do not ask for it back as a second PR.**
 3. **It explained the magnitude before I measured anything.** #889 recorded the post-#897 profile as

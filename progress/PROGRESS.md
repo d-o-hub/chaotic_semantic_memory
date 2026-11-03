@@ -1,5 +1,20 @@
 # PROGRESS
 
+## 2026-11-03: compacted the plans working set (ADR-0103)
+
+`plans/GOAP_STATE.md` 638 → 124 lines and `plans/ACTIONS.md` 55 KiB → 96 lines;
+the active queue stays at 6 actions. Verbatim snapshots of both files plus 39
+completed dated records (36 `PR_ROAST_2026_09/10_*`, two superseded
+recommendation backlogs, the persistence dedupe analysis, the test-surface
+audit) moved to `plans/.archive/2026-11-03-historical/` — nothing deleted.
+Metrics re-measured instead of carried forward: `main_head` `cb1d134d`,
+`tests_count` 1188, `dependabot_alerts_open` 3; ADRs 99 registry / 98 ids with
+ADR-0103. The archive manifest now enumerates 172 files (172 on disk), and the
+queue gate still reconciles 6 queued actions with 6 open issues. Gates run:
+`check-archive-manifest.sh`, `check-goap-queue-issues.sh`,
+`check-adr-parity.sh`, `validate_llm_context.py`, `check-docs-links.sh`,
+`validate-changelog.sh`, script-catalog and skill-format.
+
 ## 2026-10-30: drained the queue by roasting, and roasted my own PR before merging it
 
 `main` at `3953e818` (#947, the audit-follow-up wave, squash-merged 12:55:38Z). Full verdicts in

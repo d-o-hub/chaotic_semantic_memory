@@ -372,7 +372,7 @@ EXCLUDE_ARGS=(
   --exclude "src/persistence_wasm.rs"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
   # Hybrid merge equivalent mutants (2026-09-13, PR #693; proof in
-  # plans/PR_ROAST_2026_09_12.md): select_nth(top_k - 1) + truncate(top_k)
+  # plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_12.md): select_nth(top_k - 1) + truncate(top_k)
   # makes `- -> /` (top_k/1 == the pre-2026-09 form) and `> -> >=` (wider
   # partition, same post-truncate top-K set) produce identical output for
   # every input — unkillable by any test. The killable `top_k - 1 -> top_k + 1`
