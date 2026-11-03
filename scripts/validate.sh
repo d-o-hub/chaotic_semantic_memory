@@ -203,6 +203,17 @@ echo "==> Fuzz lock fixture"
 echo "==> Squash subject fixture"
 "${SCRIPT_DIR}/test-check-squash-subject-length.sh"
 
+# CI path selection (issue #992). `detect-changes` used to be an untested block
+# of workflow regexes; the classifier and its 35-case contract now live in the
+# tree, including a real git diff and a check that ci.yml calls it.
+if [[ -x "${SCRIPT_DIR}/test-ci-change-selection.sh" ]]; then
+  echo "==> CI path-selection fixture (MCP CLI/tests, docs-only, fallbacks)"
+  "${SCRIPT_DIR}/test-ci-change-selection.sh"
+else
+  echo "Error: scripts/test-ci-change-selection.sh missing or not executable" >&2
+  exit 1
+fi
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 

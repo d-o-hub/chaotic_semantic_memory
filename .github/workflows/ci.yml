@@ -21,8 +21,14 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # Path change detection so expensive / specialized jobs can skip when irrelevant.
-  # Push to main always runs full coverage (DIFF empty → all true) to protect the trunk.
+  # Path selection contract (issue #992). `scripts/ci-change-selection.sh` owns
+  # the rules and `scripts/test-ci-change-selection.sh` owns the contract; this
+  # step only collects NUL-separated paths and falls back to --all when the base
+  # or diff is unavailable. A Rust/manifest/build-input change enables every
+  # specialised job because their transitive compile graph cannot be derived
+  # from a path; docs/plans/skills-only diffs skip them; an unclassified path is
+  # conservative. This proves direct-path applicability only — it does not prove
+  # semantic dependency independence. Push to main keeps full coverage.
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -41,100 +47,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch origin "${{ github.base_ref }}" --depth=50
-            BASE="origin/${{ github.base_ref }}"
-            DIFF=$(git diff --name-only "${BASE}...HEAD" || true)
-          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
-            && [ -n "${{ github.event.before }}" ]; then
-            DIFF=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" || true)
-          else
-            # First push / unknown base: run everything
-            DIFF=""
-          fi
+          PATHS0="${RUNNER_TEMP}/changed-paths0"
+          : > "${PATHS0}"
 
-          # Empty DIFF (e.g. first push) → enable all specialized jobs
-          if [ -z "${DIFF}" ]; then
-            for k in duckdb wasm fuzz mcp cli_cross mutation rust_src; do
-              echo "${k}=true" >> "$GITHUB_OUTPUT"
-            done
-            echo "detect-changes: empty DIFF → all jobs enabled"
-            exit 0
-          fi
-
-          echo "Changed files:"
-          echo "${DIFF}"
-
-          match() {
-            local pattern=$1
-            echo "${DIFF}" | grep -qE "${pattern}"
+          emit_all() {
+            echo "detect-changes: $1; enabling every job" >&2
+            scripts/ci-change-selection.sh --all --github-output
           }
 
-          # Always true on push to main for trunk protection of optional crates
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "duckdb=true" >> "$GITHUB_OUTPUT"
-            echo "wasm=true" >> "$GITHUB_OUTPUT"
-            echo "fuzz=true" >> "$GITHUB_OUTPUT"
-            echo "mcp=true" >> "$GITHUB_OUTPUT"
-            echo "cli_cross=true" >> "$GITHUB_OUTPUT"
-            echo "mutation=false" >> "$GITHUB_OUTPUT"  # mutation is PR-only
-            if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$'; then
-              echo "rust_src=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "rust_src=false" >> "$GITHUB_OUTPUT"
+          EVENT="${{ github.event_name }}"
+          if [ "${EVENT}" = "pull_request" ]; then
+            # A missing/failed base is not "nothing changed": fall back to all-true.
+            if ! git fetch origin "${{ github.base_ref }}" --depth=50; then
+              emit_all "base fetch failed"
+              exit 0
             fi
-            exit 0
-          fi
-
-          # PR: path-filtered specialized jobs
-          if match '^(crates/csm-duckdb/|Cargo\.(toml|lock)$)'; then
-            echo "duckdb=true" >> "$GITHUB_OUTPUT"
+            BASE="origin/${{ github.base_ref }}"
+            if ! git diff --name-only -z "${BASE}...HEAD" > "${PATHS0}"; then
+              emit_all "git diff against ${BASE} failed"
+              exit 0
+            fi
+            scripts/ci-change-selection.sh --paths0 "${PATHS0}" --github-output
+          elif [ "${EVENT}" = "push" ] \
+            && [ -n "${{ github.event.before }}" ] \
+            && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            if ! git diff --name-only -z "${{ github.event.before }}" "${{ github.sha }}" > "${PATHS0}"; then
+              emit_all "push diff failed"
+              exit 0
+            fi
+            scripts/ci-change-selection.sh --paths0 "${PATHS0}" --trunk --github-output
           else
-            echo "duckdb=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Any root `src/**` change can alter the generated WASM bindings
-          # (crates/csm-wasm depends on the root crate with feature `wasm`), and
-          # the checker/build/size-gate scripts and this workflow must exercise
-          # the gate they define.
-          if match '^(crates/csm-wasm/|crates/.*\.rs$|crates/.*Cargo\.(toml|lock)$|src/|wasm/|scripts/(build-wasm|check-wasm-freshness|wasm_size_gate)\.sh$|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
-            echo "wasm=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "wasm=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if match '^(fuzz/|Cargo\.(toml|lock)$)'; then
-            echo "fuzz=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "fuzz=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if match '^(src/mcp/|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
-            echo "mcp=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "mcp=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Cross-platform CLI (macOS/Windows): only when CLI surface or build wiring changes
-          if match '^(src/bin/|src/cli/|crates/csm-cli/|cli-npm/|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
-            echo "cli_cross=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cli_cross=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Mutation evidence is required only for changed production Rust modules.
-          # Tests, manifests, and tooling changes do not create mutants themselves.
-          if echo "${DIFF}" | grep -E '^(src/.*\.rs|crates/[^/]+/src/.*\.rs)$' \
-            | grep -Ev '(^|/)(tests/|tests\.rs$|[^/]*_tests\.rs$)' >/dev/null; then
-            echo "mutation=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "mutation=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$'; then
-            echo "rust_src=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "rust_src=false" >> "$GITHUB_OUTPUT"
+            emit_all "first push or unknown base"
           fi
 
   commitlint:

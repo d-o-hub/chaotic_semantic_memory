@@ -30,6 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   surviving import-payload fixtures are annotated with the reason they stay at
   `0.3.2`/`0.3.5`.
 
+### Changed
+- **CI (`detect-changes`, #992)**: the PR path filter was a block of shell
+  regexes inside `ci.yml` with no contract test. It selected the dedicated MCP
+  feature job only for `src/mcp/**`, so a change to `src/cli/mcp.rs` or
+  `tests/mcp*_integration.rs` could skip it. `scripts/ci-change-selection.sh`
+  now owns the seven outputs; a Rust/manifest/build-input change enables every
+  specialised job (their transitive compile graph cannot be derived from a
+  path), docs/plans/skills-only diffs skip them, an unclassified path is
+  conservative, and a missing base or failed diff falls back to `--all` rather
+  than a false skip. Mutation stays limited to production Rust. The 35-case
+  fixture includes a real `git diff` and a workflow-wiring check.
+
 ## [0.3.9] - 2026-10-30
 
 ### Added
