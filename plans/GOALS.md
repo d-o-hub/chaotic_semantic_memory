@@ -115,7 +115,7 @@ release_and_validation_goals:
     - benchmark_report_contract_complete: true
     - pages_fallback_renders_html: true
 
-# Wave 33 targets (from plans/RECOMMENDATIONS_2026_07_20.md)
+# Wave 33 targets (from plans/.archive/2026-11-03-historical/RECOMMENDATIONS_2026_07_20.md)
 wave_33_goals:
   name: "Docs Truth, Ownership, Missing Behavior, Evidence"
   note: "Completed 2026-10-20 with the audit follow-up set; see ACTIONS.md completion record"

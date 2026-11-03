@@ -1,8 +1,8 @@
 # Plans Archive Manifest
 
-**Archive dates:** 2026-07-20, 2026-08-08  
+**Archive dates:** 2026-07-20, 2026-08-08, 2026-11-03  
 **Policy:** Non-destructive (ADR-0096; extended by ADR-0097 for state-file snapshots)  
-**Locations:** `plans/.archive/` (superseded ADR copies), `plans/.archive/2026-07-20-historical/`, `plans/.archive/2026-08-08-historical/`
+**Locations:** `plans/.archive/` (superseded ADR copies), `plans/.archive/2026-07-20-historical/`, `plans/.archive/2026-08-08-historical/`, `plans/.archive/2026-11-03-historical/`
 
 Historical completed analysis, wave handoffs, one-shot GOAP plans, and
 pre-compaction state-file snapshots were moved out of the active `plans/`
@@ -11,7 +11,7 @@ root so agents load a compact current state. Nothing was deleted.
 ## How this file is kept honest
 
 This manifest is the complete index of `plans/.archive/`: every file on disk
-under that directory has exactly one row below (131 rows), named by its
+under that directory has exactly one row below (172 rows), named by its
 repo-relative path in backticks. `scripts/check-archive-manifest.sh` — wired
 into `./scripts/validate.sh` as `==> Plan archive manifest completeness` —
 fails when a file exists on disk without a row here, or when a row names a file
@@ -208,6 +208,51 @@ own H1. Restore path if needed:
 | `plans/.archive/2026-07-20-historical/handoffs/W8_D_to_All_github_standards.md` | Wave 8 Group D: 2026 GitHub Standards |
 | `plans/.archive/2026-07-20-historical/handoffs/W9_CLI_design.md` | CLI Module Design Document |
 | `plans/.archive/2026-07-20-historical/handoffs/W9_CLI_edge_cases.md` | CLI Edge Cases Documentation |
+
+
+## 2026-11-03 compaction (41 files)
+
+| `plans/.archive/2026-11-03-historical/ACTIONS_2026_11_03.md` | Pre-compaction active queue snapshot (ADR-0103) |
+| `plans/.archive/2026-11-03-historical/DEDUPE_PERSISTENCE_OWNER_BODIES_2026_08_13.md` | Completed persistence-owner dedupe analysis |
+| `plans/.archive/2026-11-03-historical/GOAP_STATE_2026_11_03.md` | Pre-compaction GOAP state snapshot (ADR-0103) |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_04.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_07.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_08.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_10.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_11.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_12.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_15.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_18.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_20.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_22.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_24.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_25.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_27.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_28.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_29.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_30.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_01.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_02.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_03.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_04.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_05.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_08.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_09.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_12.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_15.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_16.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_17.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_18.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_19.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_20.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_21.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_28.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_29.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_30.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_31.md` | Completed PR roast record |
+| `plans/.archive/2026-11-03-historical/RECOMMENDATIONS_2026_07_20.md` | Superseded recommendations backlog |
+| `plans/.archive/2026-11-03-historical/RECOMMENDATIONS_2026_09_29.md` | Superseded recommendations backlog |
+| `plans/.archive/2026-11-03-historical/TEST_SURFACE_AUDIT_2026_09_18.md` | Completed test-surface audit |
 
 ## Redirect rule for agents
 

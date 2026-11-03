@@ -14,7 +14,7 @@ produced all-zero caught/missed rows for files whose mutants were caught
 (cargo-mutants 27.1.0 serializes the variant names `CaughtMutant` /
 `MissedMutant`), and the non-empty `stats` suppressed the fallback, so a bad
 parse still printed a plausible table. The review that found it is
-plans/PR_ROAST_2026_10_09.md.
+plans/.archive/2026-11-03-historical/PR_ROAST_2026_10_09.md.
 
 Schema (cargo-mutants 27.1.0, field `cargo_mutants_version`):
 - each outcome: `scenario` is the string "Baseline" or {"Mutant": {...}},
