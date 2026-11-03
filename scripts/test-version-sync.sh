@@ -24,6 +24,9 @@ mkdir -p wasm cli-npm tests examples scripts
 # The verifier audits intra-workspace pins through scripts/workspace-version-edges.py
 # (issue #964), so the mock project carries it the same way it carries the verifier.
 cp "${SCRIPT_DIR}/workspace-version-edges.py" scripts/
+# The docs/tests/examples literal gate (issue #982) is invoked by the verifier too;
+# a verifier copied without it must fail closed (exit 2) rather than skip the check.
+cp "${SCRIPT_DIR}/check-version-literals.py" scripts/
 cat > Cargo.toml <<EOF
 [package]
 name = "test"

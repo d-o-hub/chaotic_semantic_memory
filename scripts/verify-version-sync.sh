@@ -82,21 +82,22 @@ if [ -n "$CRATE_VERSION_MISMATCHES" ]; then
     FAILED=1
 fi
 
-if [ $FAILED -ne 0 ]; then
-    exit 1
+# Check every version literal in tests/examples/docs against the live version.
+# The block this replaces grepped only `"0\.2\.[0-4]"`, so the seven `0.3.x`
+# literals left behind by `sync-version.sh`'s previous-literal substitution were
+# invisible to it (issue #982). The enumerator derives its comparison from
+# Cargo.toml, so it cannot be outgrown by the version it is checking.
+echo ""
+echo "Checking version literals in tests/examples/docs..."
+if [[ ! -f scripts/check-version-literals.py ]]; then
+    echo "ERROR: scripts/check-version-literals.py is missing — the literal gate cannot run" >&2
+    exit 2
+fi
+if ! python3 scripts/check-version-literals.py .; then
+    FAILED=1
 fi
 
-# Check for hardcoded old versions in test fixtures
-echo ""
-echo "Checking for hardcoded versions in tests/examples..."
-
-OLD_VERSIONS=$(grep -r '"version":.*"0\.2\.[0-4]"' tests/ examples/ 2>/dev/null || true)
-
-if [ -n "$OLD_VERSIONS" ]; then
-    echo "WARNING: Found old version references (should be $CARGO_VERSION):"
-    echo "$OLD_VERSIONS"
-    echo ""
-    echo "Update these to the current version: $CARGO_VERSION"
+if [ $FAILED -ne 0 ]; then
     exit 1
 fi
 

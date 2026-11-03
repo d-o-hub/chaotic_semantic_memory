@@ -117,4 +117,20 @@ if [ -f "scripts/gen-llms-txt.sh" ]; then
     bash scripts/gen-llms-txt.sh || echo "Warning: llms.txt generation failed"
 fi
 
+# 8. Fail if a docs/tests/examples literal is still not the target version.
+# Steps 3 replaces only $CURRENT_VERSION, so a literal that was already older
+# than the pre-release manifest was invisible (issue #982). This enumerator reads
+# the live version and accepts only current values or an explicit
+# `version-fixture:` annotation, so the sweep cannot report success over drift.
+if [ -f "scripts/check-version-literals.py" ]; then
+    if ! python3 scripts/check-version-literals.py .; then
+        echo "Error: version literals in tests/, examples/ or docs/ are not $VERSION." >&2
+        echo "  Update them, or annotate a deliberately-older fixture with 'version-fixture:'." >&2
+        exit 2
+    fi
+else
+    echo "Error: scripts/check-version-literals.py is missing; the literal gate cannot run." >&2
+    exit 2
+fi
+
 echo "Version sync complete: target version is $VERSION"

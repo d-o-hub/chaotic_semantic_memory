@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the package or if `bundled` disappears while an ignore remains, and requires
   the GHSA record with a re-check trigger.
 
+### Fixed
+- **Release tooling (`scripts`, #982)**: `sync-version.sh` rewrote only
+  `$CURRENT_VERSION` — the value read before the release — so a `"version"`
+  literal that was already older was invisible to the sweep, and
+  `verify-version-sync.sh` looked for a hardcoded `0.2.[0-4]` pattern that
+  matched none of the seven `0.3.x` fixtures. `scripts/check-version-literals.py`
+  now enumerates every semver literal in `tests/`, `examples/`, `README.md` and
+  `book/src/` against the live manifest and accepts only the current version or
+  an explicit `version-fixture:` annotation; `sync-version.sh` refuses to report
+  success over drift and `verify-version-sync.sh` runs the same gate. The seven
+  surviving import-payload fixtures are annotated with the reason they stay at
+  `0.3.2`/`0.3.5`.
+
 ## [0.3.9] - 2026-10-30
 
 ### Added
