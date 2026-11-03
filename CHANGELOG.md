@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- **Supply chain (`deny.toml`, #966)**: the critical `GHSA-m665-v7pm-7grj` /
+  `CVE-2026-115905` (`zip <= 9.0.4`) was resolved on 2026-11-03 when
+  `libduckdb-sys` 1.20000.1 dropped its `zip` build-dependency. The
+  `RUSTSEC-2026-0367/0368/0369` ignores that rested on `csm-duckdb` enabling
+  `duckdb/bundled` were removed from both policy files;
+  `scripts/check-bundled-ignore-reason.sh` now fails if a zip ignore outlives
+  the package or if `bundled` disappears while an ignore remains, and requires
+  the GHSA record with a re-check trigger.
+
 ## [0.3.9] - 2026-10-30
 
 ### Added

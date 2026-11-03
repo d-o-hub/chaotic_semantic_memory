@@ -536,5 +536,19 @@ else
   echo "Error: scripts/check-audit-ignore-parity.sh missing or not executable"
   exit 1
 fi
+# The zip advisory ignores are only safe while `zip` is locked as a build-dependency
+# and csm-duckdb still enables `duckdb/bundled` (issue #966). `cargo deny` can see
+# neither fact, and GHSA-m665-v7pm-7grj had no RustSec id at filing time. The gate
+# also requires the GHSA record and its re-check trigger, so a future removal of
+# either safety fact cannot leave the ignore silently justified.
+if [[ -x "${SCRIPT_DIR}/check-bundled-ignore-reason.sh" ]]; then
+  echo "==> Bundled advisory-ignore reason (zip lock + duckdb/bundled, fail-closed)"
+  "${SCRIPT_DIR}/check-bundled-ignore-reason.sh"
+  echo "==> Bundled advisory-ignore fixture (all failure directions)"
+  "${SCRIPT_DIR}/test-check-bundled-ignore-reason.sh"
+else
+  echo "Error: scripts/check-bundled-ignore-reason.sh missing or not executable" >&2
+  exit 1
+fi
 
 echo "Validation complete."
