@@ -28,6 +28,16 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # uuid >= 1.27 declares `rust_version = 1.89.0` in the crates.io index
+      # (measured 2026-11-03: 1.27.0, 1.28.0 and 1.29.0 all say 1.89.0, while
+      # 1.26.1 says 1.85.0), and rust-toolchain.toml pins 1.88.0 — so the update
+      # cannot build here and its auto-PR can never go green (#988: `rustc
+      # 1.88.0 is not supported by the following package: uuid@1.29.0 requires
+      # rustc 1.89.0`, job 125320036721). Ignoring the update *type* rather than
+      # the name keeps 1.26.x patch releases arriving. Remove this ignore — and
+      # re-open #988 — when the MSRV moves to 1.89 or newer.
+      - dependency-name: "uuid"
+        update-types: ["version-update:semver-minor"]
       # libsql-sqlite3-parser: GHSA-8m95-fffc-h4c5 (crash on invalid UTF-8) has
       # no patched release — 0.13.0 is the max on crates.io and the parser
       # version is pinned by libsql upstream (see deny.toml). Without this
@@ -53,6 +63,14 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Same MSRV ceiling as the root ecosystem: uuid >= 1.27 requires rustc
+      # 1.89 and rust-toolchain.toml pins 1.88.0, so a fuzz-lock bump to 1.29.0
+      # is what made #988's `Fuzz Workspace Build` fail with `rustc 1.88.0 is
+      # not supported by the following package: uuid@1.29.0 requires rustc
+      # 1.89.0` (job 125320036721). Keep 1.26.x patch updates; drop this when
+      # the MSRV moves to 1.89 or newer.
+      - dependency-name: "uuid"
+        update-types: ["version-update:semver-minor"]
       # libsql-sqlite3-parser: GHSA-8m95-fffc-h4c5 pinned by libsql upstream.
       # Without this ignore the weekly security job errors with
       # "dependency is up to date but still vulnerable" (run 35156838934).

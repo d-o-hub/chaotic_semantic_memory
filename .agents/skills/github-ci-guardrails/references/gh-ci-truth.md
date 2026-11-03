@@ -170,6 +170,31 @@ The one way a recovery *can* be blocked by the queue is self-inflicted: re-runni
 fires `workflow_run` again, which creates a new gate run for that SHA and evaluates today's open-PR list.
 Green history is a single re-run away from a refusal — do not re-run CI for a tag you are about to recover.
 
+## A Dependabot red: an inherited failure and a fatal one in the same PR (measured 2026-11-03, #988)
+
+Two failing checks on a lockfile-only PR are usually two different causes, and only one is the bump.
+#988 (fuzz `uuid` 1.26.1 → 1.29.0) reported `lint` red on the stale #965 queue block — **inherited**,
+already fixed on `main` by #990, so the rebase clears it — and `Fuzz Workspace Build` red on
+`error: rustc 1.88.0 is not supported by the following package: uuid@1.29.0 requires rustc 1.89.0`
+(job 125320036721). Check the repo's pinned `rust-toolchain.toml` before calling a dependency PR flaky:
+that pin turns every upstream `rust_version` into a hard gate the branch cannot fix.
+
+Measure the ceiling from the registry index, not from a release note:
+
+```bash
+curl -s https://index.crates.io/uu/id/uuid | tail -5
+# 1.27.0 / 1.28.0 / 1.29.0 declare rust_version 1.89.0; 1.26.1 declares 1.85.0
+```
+
+Then pick one: bump the MSRV in its own PR, or (the cheaper default) add a commented `ignore` for that
+dependency's **minor** updates to `.github/dependabot.yml` — `update-types: ["version-update:semver-minor"]`
+keeps patch releases flowing — and close the PR with the job id in the comment. Record the ceiling and the
+removal condition in the config itself, since the ignore will outlive this conversation.
+
+A local probe does **not** clear this class: `scripts/check-fuzz-lock.sh` runs `cargo metadata --locked`,
+which reads an MSRV-incompatible lock without complaint (measured rc=0 on #988's tree). The gate is the
+compiling job, `cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked`.
+
 ## After green: land and verify
 
 1. `git fetch origin main` — the branch base must equal current `main`.

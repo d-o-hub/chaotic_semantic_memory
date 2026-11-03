@@ -2176,3 +2176,33 @@ annotation on every nix job. Three distinct causes, each measured from the run r
 
 Local gates: `test-workspace-version-edges.sh` 81/81, `test-version-sync.sh` 9/9, docs-link 0 issues,
 skill-format + catalog, actionlint (10 workflows), nix-git-env audit, script catalog, GOAP queue all pass.
+
+### 2026-11-03 — `main` green after the merge train; #988 closed as an MSRV-impossible bump
+
+`main` is `b364c224` (`ci(deps): bump taiki-e/install-action … (#985)`) and CI run **41544233472** on that
+head is **success**; `681b355e` (#983's squash) was green in 41497589247. Run **41484915346** on `dc45e4a3`
+still shows `failure`, and both causes are environmental: `test` attempt 1 (job 125412582187) died with
+`System.IO.IOException: No space left on device` writing the runner's `_diag` log while every step before
+`Run tests` was `success` — re-ran the failed job, attempt 2 (job 125440749952) passed; and
+`Build CLI (macos-arm64)` (job 125454243685) was `cancelled` with **zero** steps started, i.e. runner
+allocation. Nothing in the tree changed for either. This is the third disk-full of the day, all on
+different jobs, so it is the infra row of the PR-lifecycle classification, not a defect.
+
+**#983 landed as `681b355e`**, verified on the merged tree: `check-goap-queue-issues.sh` →
+`ok: 6 action(s), 6 tracked issue(s), 6 effect key(s)`, `queued_actions_count: 6` equals the queue length,
+exactly one `action_last_completed` and it is not queued. Its PR had no human review threads; Codacy
+"Up to standards" and Sonar "Quality Gate Passed" were the only comments.
+
+**#988 (fuzz `uuid` 1.26.1 → 1.29.0) was closed with a measured verdict, not a shrug.** Its two reds were
+different classes: `lint` (job 125310066544) was the **inherited** `STALE: … #965 … CLOSED` queue block
+retired on `main` by #990, while `Fuzz Workspace Build` (job 125320036721) was **fatal** —
+`error: rustc 1.88.0 is not supported by … uuid@1.29.0 requires rustc 1.89.0`. Ceiling measured from
+`https://index.crates.io/uu/id/uuid` on the day: 1.27.0/1.28.0/1.29.0 declare `rust_version = 1.89.0`,
+1.26.1 declares 1.85.0, and `rust-toolchain.toml` pins 1.88.0 — so no commit in this repo can compile it,
+and pinning back to 1.26.1 leaves an empty diff. `scripts/check-fuzz-lock.sh` cannot see the class:
+`cargo metadata --locked` accepted the incompatible lock (rc=0 in a worktree at the PR head, rustc 1.88.0);
+only the compiling job does. Both cargo ecosystems of `.github/dependabot.yml` now ignore `uuid` **minor**
+updates (patches still arrive), with the removal condition — MSRV ≥ 1.89 — and the job id in the comment.
+Verdict recorded in `plans/PR_ROAST_2026_11_03.md`; the classification rule was added to
+`github-ci-guardrails/references/gh-ci-truth.md`. #986 (rust-cache 2.9.3) and #987 (arrow 60.1.0) are green
+and were deliberately left for their own merge cycle.
