@@ -25,7 +25,7 @@ impl VoronoiLsh {
     /// Create a new `VoronoiLsh` with chaotic generation for its Voronoi partitions.
     /// Each bit requires two centroids; the bit is set if the input is closer to centroid A than centroid B.
     ///
-    /// `input_dim` is clamped into `1..=`[`MAX_INPUT_DIM`], because the
+    /// `input_dim` is clamped into `1..=`[`crate::hashing::MAX_INPUT_DIM`], because the
     /// centroid table grows linearly with it (320 MiB at the cap). A clamped
     /// instance reports the dimension it actually uses through
     /// [`Self::input_dim`], and [`Self::project`] returns an all-zero
@@ -41,12 +41,12 @@ impl VoronoiLsh {
 
     /// Create a new `VoronoiLsh`, rejecting an out-of-range input dimension.
     ///
-    /// The accepted range is `1..=`[`MAX_INPUT_DIM`].
+    /// The accepted range is `1..=`[`crate::hashing::MAX_INPUT_DIM`].
     ///
     /// # Errors
     ///
     /// Returns [`InputDimensionError`] when `input_dim` is zero or greater than
-    /// [`MAX_INPUT_DIM`].
+    /// [`crate::hashing::MAX_INPUT_DIM`].
     pub fn try_new(x: f64, y: f64, a: f64, input_dim: usize) -> Result<Self, InputDimensionError> {
         Ok(Self::with_dimension(
             x,

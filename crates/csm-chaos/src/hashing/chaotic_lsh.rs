@@ -17,7 +17,7 @@ pub struct ChaoticLsh {
 impl ChaoticLsh {
     /// Create a new ChaoticLsh with given seed values and input dimension.
     ///
-    /// `input_dim` is clamped into `1..=`[`MAX_INPUT_DIM`], because the
+    /// `input_dim` is clamped into `1..=`[`crate::hashing::MAX_INPUT_DIM`], because the
     /// projection table grows linearly with it (160 MiB at the cap). A clamped
     /// instance reports the dimension it actually uses through
     /// [`Self::input_dim`], and [`Self::project`] returns an all-zero
@@ -35,12 +35,12 @@ impl ChaoticLsh {
     /// Create a new ChaoticLsh, rejecting an out-of-range input dimension.
     ///
     /// Unlike [`Self::new`], this never silently substitutes a different
-    /// dimension. The accepted range is `1..=`[`MAX_INPUT_DIM`].
+    /// dimension. The accepted range is `1..=`[`crate::hashing::MAX_INPUT_DIM`].
     ///
     /// # Errors
     ///
     /// Returns [`InputDimensionError`] when `input_dim` is zero or greater than
-    /// [`MAX_INPUT_DIM`].
+    /// [`crate::hashing::MAX_INPUT_DIM`].
     pub fn try_new(x: f64, y: f64, a: f64, input_dim: usize) -> Result<Self, InputDimensionError> {
         Ok(Self::with_dimension(
             x,
