@@ -5,10 +5,12 @@
 # Deliberately minimal: vulnerabilities still fail the audit (that is the job's point),
 # unmaintained notices keep printing as warnings.
 #
-# RUSTSEC-2026-0367/0368/0369 are present because cargo-audit scans the whole lockfile.
-# In this workspace, csm-duckdb enables `duckdb/bundled`; libduckdb-sys calls the
-# vulnerable ZipArchive::extract path only in its non-bundled build_linked module.
-# No repository build sets DUCKDB_DOWNLOAD_LIB.
+# GHSA-m665-v7pm-7grj / CVE-2026-115905 (critical, zip <= 9.0.4) was resolved on
+# 2026-11-03 when libduckdb-sys 1.20000.1 dropped its zip build-dependency.
+# `zip` is no longer in Cargo.lock, so the RUSTSEC-2026-0367/0368/0369 ignores
+# were removed above. If zip returns, csm-duckdb enabling `duckdb/bundled` is
+# what keeps the vulnerable build_linked ZipArchive::extract path uncompiled;
+# scripts/check-bundled-ignore-reason.sh gates exactly that pair.
 
 [advisories]
 ignore = [
@@ -18,9 +20,6 @@ ignore = [
     "RUSTSEC-2026-0009", # time 0.3.45 pinned by tantivy; no user-facing RFC2822 parsing
     "RUSTSEC-2026-0002", # lru 0.12.5 pinned by tantivy; informational unsoundness
     "RUSTSEC-2026-0258", # h2 0.3.27 pinned by hyper 0.14 (libsql chain); no 0.3.x patch
-    "RUSTSEC-2026-0367", # zip 6 build-dep; vulnerable extraction path is not built with bundled
-    "RUSTSEC-2026-0368", # zip 6 build-dep; vulnerable extraction path is not built with bundled
-    "RUSTSEC-2026-0369", # zip 6 build-dep; vulnerable extraction path is not built with bundled
     "RUSTSEC-2026-0391", # zstd 0.13.3 pinned by tantivy's zstd 0.13; with_context never called (bulk API only)
     "RUSTSEC-2026-0398", # zstd-safe 7.2.4 behind tantivy pin; seekable decompress never called
     "RUSTSEC-2026-0403", # zstd-safe 7.2.4 behind tantivy pin; DCtx::decompress_stream never called

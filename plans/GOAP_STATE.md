@@ -75,7 +75,7 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 6            # `grep -c '^  - name:' plans/ACTIONS.md` (#951 #952 #955 #959 #961 #966)
+  queued_actions_count: 5            # `grep -c '^  - name:' plans/ACTIONS.md` (#951 #952 #955 #959 #961)
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -155,6 +155,8 @@ world_state:
   harness_msrv_current: "1.88"
   adr_0095_accepted: true                         # plans/adr/0095-evidence-driven-quality-gates.md
   dependabot_alerts_open: 3                       # 2026-11-03 measured: lru + libsql-sqlite3-parser x2
+  zip_bundled_assumption_gated: true              # 2026-11-03 (#966): stale zip ignores removed; gate ties any
+                                                  #   future ignore to zip-in-lock + csm-duckdb/bundled
 
   # ── GOAP bookkeeping ─────────────────────────────────────────
   goap_reconciliations_complete:
@@ -167,4 +169,7 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: gate_the_member_to_root_version_pins  # 2026-11-01 (#964): 26 member pins, 18 stale
+  action_last_completed: record_and_gate_the_zip_bundled_assumption  # 2026-11-03 (#966): the
+                               #   libduckdb-sys 1.20000.1 update dropped zip, so the three
+                               #   RUSTSEC-2026-0367/0368/0369 ignores were removed rather than
+                               #   carried; check-bundled-ignore-reason.sh now gates the pair.
