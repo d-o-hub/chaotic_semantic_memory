@@ -375,11 +375,14 @@ else
     no "a shard exited ${status}; it must not enforce the threshold on its slice"
     cat "${TEST_DIR}/shardrun.out"
 fi
-if grep -q -- '--shard 3/8' "${TEST_DIR}/argv.txt"; then
-    ok "the shard selection reaches cargo mutants"
+if grep -q -- '--shard 2/8' "${TEST_DIR}/argv.txt"; then
+    ok "the 1-based shard id reaches cargo mutants as its 0-based slice"
 else
-    no "the shard selection is missing from the cargo mutants argv"
+    no "the shard translation is missing from the cargo mutants argv (want --shard 2/8)"
     cat "${TEST_DIR}/argv.txt"
+fi
+if grep -q -- '--shard 3/8' "${TEST_DIR}/argv.txt"; then
+    no "the 1-based id must not reach cargo mutants verbatim: 3/8 is the fourth slice"
 fi
 if [[ -f "${TEST_DIR}/output/shardrun/shard-complete" ]] \
     && [[ "$(cat "${TEST_DIR}/output/shardrun/shard-complete")" == "3/8" ]]; then
@@ -421,6 +424,45 @@ else
     no "an invalid shard id was not rejected (exit ${status})"
     cat "${TEST_DIR}/badshard.out"
 fi
+
+echo
+echo "== shard boundaries: 1 and N translate, 0 and N+1 fail before any cargo run =="
+for pair in 1/8:0/8 8/8:7/8 0/8:refuse 9/8:refuse; do
+    id="${pair%%:*}"
+    want="${pair#*:}"
+    : >"${TEST_DIR}/argv.txt"
+    status=0
+    (
+        cd "${TEST_DIR}"
+        FAKE_GIT_MODE=rust \
+            FAKE_LIST_MODE=mutants \
+            FAKE_METADATA_MODE=ok \
+            FAKE_ROOT="${REPO_ROOT}" \
+            FIXTURE_ARGV="${TEST_DIR}/argv.txt" \
+            MUTANTS_SHARD="${id}" \
+            MUTATION_OUTPUT_DIR="${TEST_DIR}/output/boundary" \
+            DIFF_TARGET=origin/main \
+            PATH="${TEST_DIR}/bin:${PATH}" \
+            bash "${SUBJECT}" --ci fast
+    ) >"${TEST_DIR}/boundary.out" 2>&1 || status=$?
+    if [[ "${want}" == "refuse" ]]; then
+        if [[ "${status}" -eq 2 ]] && grep -q "MUTANTS_SHARD" "${TEST_DIR}/boundary.out"; then
+            ok "MUTANTS_SHARD=${id} is refused with exit 2"
+        else
+            no "MUTANTS_SHARD=${id} was not refused (exit ${status})"
+            cat "${TEST_DIR}/boundary.out"
+        fi
+        if [[ -s "${TEST_DIR}/argv.txt" ]]; then
+            no "MUTANTS_SHARD=${id} reached cargo before the boundary check"
+            cat "${TEST_DIR}/argv.txt"
+        fi
+    elif grep -q -- "--shard ${want}\b" "${TEST_DIR}/argv.txt"; then
+        ok "MUTANTS_SHARD=${id} reaches cargo mutants as --shard ${want}"
+    else
+        no "MUTANTS_SHARD=${id} did not reach cargo mutants as --shard ${want}"
+        cat "${TEST_DIR}/argv.txt"
+    fi
+done
 
 echo
 echo "== an empty shard slice writes no-mutants instead of failing =="

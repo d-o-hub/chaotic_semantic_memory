@@ -51,14 +51,31 @@ set -- "${POSITIONAL[@]}"
 PROFILE="${1:-fast}"
 shift || true
 
-# Issue #951: each CI shard runs one disjoint `--shard i/N` slice and uploads its
-# outcomes; the `mutation-test` aggregator owns the threshold over the union. A
-# shard must never enforce the threshold on its own subset (an all-missed shard
-# would otherwise be rescued by a sibling, or vice versa).
+# Issue #951: each CI shard runs one disjoint slice and uploads its outcomes; the
+# `mutation-test` aggregator owns the threshold over the union. A shard must never
+# enforce the threshold on its own subset (an all-missed shard would otherwise be
+# rescued by a sibling, or vice versa).
+#
+# MUTANTS_SHARD is 1-based because the completeness markers and the aggregator's
+# `1..N` completeness check are. cargo-mutants is not: it numbers shards `0..N-1`
+# and rejects `k == N`, so a pass-through `8/8` dies in its argument parser while
+# `1/8` selects its *second* slice — shard 0's mutants then belong to no job that
+# runs, and the union scores a denominator that never contained them. Translate
+# only at the call site below; the marker keeps the caller's id.
 SHARD="${MUTANTS_SHARD:-}"
-if [[ -n "${SHARD}" && ! "${SHARD}" =~ ^[0-9]+/[0-9]+$ ]]; then
-  echo "error: MUTANTS_SHARD must look like i/N, got '${SHARD}'" >&2
-  exit 2
+SHARD_INDEX=0
+SHARD_TOTAL=0
+if [[ -n "${SHARD}" ]]; then
+  if [[ ! "${SHARD}" =~ ^([0-9]+)/([0-9]+)$ ]]; then
+    echo "error: MUTANTS_SHARD must look like i/N, got '${SHARD}'" >&2
+    exit 2
+  fi
+  SHARD_INDEX=$((10#"${BASH_REMATCH[1]}"))
+  SHARD_TOTAL=$((10#"${BASH_REMATCH[2]}"))
+  if (( SHARD_TOTAL < 1 || SHARD_INDEX < 1 || SHARD_INDEX > SHARD_TOTAL )); then
+    echo "error: MUTANTS_SHARD '${SHARD}' is outside 1..${SHARD_TOTAL} of ${SHARD_TOTAL}" >&2
+    exit 2
+  fi
 fi
 
 # Parallelism:
@@ -352,7 +369,7 @@ else
 fi
 
 if [[ -n "${SHARD}" ]]; then
-  FAST_ARGS+=(--shard "${SHARD}")
+  FAST_ARGS+=(--shard "$((SHARD_INDEX - 1))/${SHARD_TOTAL}")
 fi
 
 MUTANTS_ARGS=("${FAST_ARGS[@]}")
