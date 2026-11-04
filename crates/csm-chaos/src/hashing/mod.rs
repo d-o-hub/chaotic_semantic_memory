@@ -89,7 +89,7 @@ mod tests {
         let zero = validate_input_dim(0).unwrap_err();
         assert_eq!(zero.requested, 0);
         assert_eq!(zero.max, MAX_INPUT_DIM);
-        assert!(zero.to_string().contains("1..="));
+        assert!(alloc::format!("{zero}").contains("1..="));
 
         let oversized = validate_input_dim(MAX_INPUT_DIM + 1).unwrap_err();
         assert_eq!(oversized.requested, MAX_INPUT_DIM + 1);
