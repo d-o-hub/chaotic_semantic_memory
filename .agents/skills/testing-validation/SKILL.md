@@ -46,6 +46,18 @@ the job: grep `tests/**` for the old behaviour's *name shape* (`*_skips_*`,
 asserting the reported entity/field/value so a later relaxation fails on the
 reason rather than on a bare error match.
 
+A `--features` run does not certify the **default** build of a `no_std` crate.
+`csm-chaos` ships `default = []`, so `#![cfg_attr(not(feature = "std"), no_std)]`
+is in force unless `std` is asked for, and the alloc `ToString` is then absent
+from the prelude: `cargo test -p csm-chaos --lib --features experimental-voronoi-lsh,std`
+stayed green while the default-feature lib test — the one CI's per-crate job and
+the mutation gate compile — would not build (#961, PR #998: `to_string()` on a
+`Display`-only error, one cause red on `Test Workspace Crates (csm-chaos)`,
+`lint` and `mutation-test` at once). For any crate whose `Cargo.toml` has
+`default = []` plus a `no_std` cfg, state the feature set in the PR's
+`## Verification` block as *default first*, then `--features std`, then
+`--all-features`.
+
 ## Benchmark Validation
 
 ```bash

@@ -75,11 +75,14 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 3            # `grep -c '^  - name:' plans/ACTIONS.md` (#951 #952 #959)
+  queued_actions_count: 4            # `grep -c '^  - name:' plans/ACTIONS.md` (#951 #952 #959 #1002)
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
+  github_action_pins_validated_in_ci: false       # #1002: validate-github-actions-shas.sh is opt-in and
+                                                  #   no workflow sets CSM_VALIDATE_GITHUB_ACTIONS_SHAS,
+                                                  #   so #1000's nonexistent download-artifact pin reached a runner
 
   # ── Landed invariants that constrain future changes ───────────
   no_missing_implementations: true            # no TODO/unimplemented! in src/ crates/

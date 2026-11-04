@@ -42,6 +42,15 @@
       mutation_threshold_independent_of_draft_flag: true
     cost: 2
     status: queued
+
+  - name: validate_pinned_action_shas_in_ci
+    github_issue: 1002
+    preconditions:
+      fixture_suites_wired_into_validate: true
+    effects:
+      github_action_pins_validated_in_ci: true
+    cost: 2
+    status: queued
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the
@@ -53,3 +62,9 @@ independent of everything. #951/#952/#959 are **strictly sequential**: all three
 guarantee a conflict and a bot resolution that reverts one of them (`AGENTS.md` Rule 10).
 `repair_the_release_gate_race` (#953) is not queued — it landed as PR #962 and is recorded as
 `action_last_completed` in the 2026-11-03 archive snapshot.
+
+A second ci.yml collision set, added 2026-11-04 from `plans/PR_ROAST_2026_11_04.md`: #1000 edits the
+`mutation-test`/`mutation-shard` jobs and #1002 edits the `lint` job's `validate.sh` step, while the
+re-creation of #992 centralizes **every** job's path selection in the same file. Order them
+#1000 → #1002 → #992, or the third one conflicts with both. #992 is not listed above because it is
+tracked as a re-created PR, not a fresh action; its acceptance criteria live in the roast record.
