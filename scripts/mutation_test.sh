@@ -284,10 +284,17 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # (measured on the #977 head: `--package=csm-core-lib@0.3.9
   # --features=chaotic_semantic_memory/mcp` → "does not contain this feature" →
   # "cargo build failed in an unmutated tree, so no mutants were tested").
+  # The package scope lives on the *arm*, not here: cargo-mutants already forwards its
+  # own `-p` selection into every `cargo test --package=X` it builds, so repeating the
+  # union on the test side is redundant — and with feature arms it is actively wrong.
+  # Measured on the #998 diff: the `feat-csm-chaos` arm ran
+  # `--all-features … -- --lib -p csm-core-lib -p csm-retrieval -p chaotic_semantic_memory
+  # -p csm-chaos`, which activates the features of all four packages at once, and its
+  # unmutated baseline hit `*** result: Timeout` (exit 4, "cargo test failed in an
+  # unmutated tree, so no mutants were tested") in both feature arms. Scoped to the arm
+  # the same baseline builds in seconds. This is #1005's fault — the test-side scope is
+  # arm-agnostic — seen from the arm side.
   TEST_ARGS+=(--lib)
-  for mutation_pkg in "${MUTATION_PACKAGES[@]}"; do
-    TEST_ARGS+=(-p "${mutation_pkg}")
-  done
 
   # `mcp` is not in the crate's `default` feature set (Cargo.toml:
   # default = ["cli", "persistence", "parallel"]) and both
@@ -559,15 +566,49 @@ EXCLUDE_ARGS=(
 # Arm split: cargo-mutants runs one `cargo test --no-run --package=X` per selected
 # package, and a package-qualified `--features pkg/feat` is invalid in the command
 # built for any other package. So `chaotic_semantic_memory/mcp` can only be passed
-# when the root package stands alone. At most two arms exist: `root` (with the mcp
-# feature, because src/mcp/** is cfg(feature = "mcp") and invisible without it) and
-# `crates` (every other selected package, without it, because no crate gates code on
-# mcp). The nightly `full` profile keeps its single historical arm.
+# when the root package stands alone. A package whose own code sits behind its own
+# features needs an arm of its own for the same reason: an unqualified
+# `--features chaotic-hashing` is invalid in `cargo test --package=csm-retrieval`,
+# and `--all-features` cannot be scoped to one package inside a multi-package
+# selection. Three kinds of arm exist in the fast profile: `root` (mcp, because
+# `src/mcp/**` is `cfg(feature = "mcp")`), one `feat-<pkg>` arm per entry of
+# MUTATION_FEATURE_ARMS, and `crates` (everything else, no features). The nightly
+# `full` profile keeps its single historical arm.
+#
+# Why `--all-features` rather than the one gating feature: that is what the crate's
+# own CI build already uses (`ci.yml:373` runs `cargo test -p csm-chaos
+# --all-features`, and its comment says it is "the one place they are compiled and
+# tested"), so the mutation job was the only build that still could not see the
+# module. Hand-picking breaks too: `--features experimental-voronoi-lsh` alone
+# leaves csm-chaos `no_std` (`#![cfg_attr(not(feature = "std"), no_std)]`,
+# `default = []`), and the module's own unit tests then fail to compile on `vec!`.
+# Measured on the #998 diff with cargo-mutants 27.1.0, `-- --lib`:
+#   -p csm-chaos                    -> 12 caught, 1 unviable, 3 MISSED
+#   -p csm-chaos --all-features     -> 14 caught, 2 unviable, 0 MISSED
+#   -p csm-core-lib                 -> 3 MISSED
+#   -p csm-core-lib --all-features  -> 2 caught, 1 unviable, 2 MISSED
+# `voronoi_lsh` is `#[cfg(feature = "experimental-voronoi-lsh")]`
+# (`crates/csm-chaos/src/hashing/mod.rs:2`) and the whole `chaotic_lsh` wrapper is
+# `#![cfg(feature = "chaotic-hashing")]`; cargo-mutants lists mutants from source
+# text, so it kept generating them, built a program without them, passed every
+# test, and called the result MISSED. The last row's 2 are not blindness —
+# csm-core-lib's tests never read the wrapper's `input_dim()`, which #998's
+# `71f04548` fixes. The score is caught/(total-unviable) summed over arms, so
+# enabling features can only add killable mutants and move unbuildable ones out of
+# the denominator; it cannot lower the bar by hiding a miss.
+declare -A MUTATION_FEATURE_ARMS=(
+  [csm-chaos]="--all-features"
+  [csm-core-lib]="--all-features"
+)
+
 ROOT_SELECTED=false
 CRATE_PKGS=()
+FEATURE_ARM_PKGS=()
 for mutation_pkg in "${MUTATION_PACKAGES[@]}"; do
   if [[ "${mutation_pkg}" == "${ROOT_PACKAGE}" ]]; then
     ROOT_SELECTED=true
+  elif [[ -n "${MUTATION_FEATURE_ARMS[${mutation_pkg}]:-}" ]]; then
+    FEATURE_ARM_PKGS+=("${mutation_pkg}")
   else
     CRATE_PKGS+=("${mutation_pkg}")
   fi
@@ -582,22 +623,38 @@ else
   if [[ ${#CRATE_PKGS[@]} -gt 0 ]]; then
     ARM_NAMES+=(crates)
   fi
+  if [[ ${#FEATURE_ARM_PKGS[@]} -gt 0 ]]; then
+    feat_arm_pkg=""
+    for feat_arm_pkg in "${FEATURE_ARM_PKGS[@]}"; do
+      ARM_NAMES+=("feat-${feat_arm_pkg}")
+    done
+  fi
 fi
 
-# Populates ARM_PKGS (flat `-p` args) and ARM_FEATURE for one arm.
+# Populates ARM_PKGS (flat `-p` args) and ARM_FEATURE_ARGS (the arm's feature flags)
+# for one arm.
 configure_arm() {
   ARM_PKGS=()
-  ARM_FEATURE=""
+  ARM_FEATURE_ARGS=()
   case "$1" in
     root)
       ARM_PKGS=(-p "${ROOT_PACKAGE}")
-      ARM_FEATURE="${MCP_FEATURE:-}"
+      if [[ -n "${MCP_FEATURE:-}" ]]; then
+        ARM_FEATURE_ARGS=(--features "${MCP_FEATURE}")
+      fi
       ;;
     crates)
       local crate_pkg
       for crate_pkg in "${CRATE_PKGS[@]}"; do
         ARM_PKGS+=(-p "${crate_pkg}")
       done
+      ;;
+    feat-*)
+      local feat_pkg="${1#feat-}"
+      local -a feat_args=()
+      read -r -a feat_args <<< "${MUTATION_FEATURE_ARMS[${feat_pkg}]}"
+      ARM_PKGS=(-p "${feat_pkg}")
+      ARM_FEATURE_ARGS=("${feat_args[@]}")
       ;;
     full) ;;
   esac
@@ -627,8 +684,8 @@ if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
   for arm in "${ARM_NAMES[@]}"; do
     configure_arm "${arm}"
     ARM_ARGS=("${FAST_ARGS[@]}" "${ARM_PKGS[@]}")
-    if [[ -n "${ARM_FEATURE}" ]]; then
-      ARM_ARGS+=(--features "${ARM_FEATURE}")
+    if [[ ${#ARM_FEATURE_ARGS[@]} -gt 0 ]]; then
+      ARM_ARGS+=("${ARM_FEATURE_ARGS[@]}")
     fi
     # Name it `…-<arm>-latest.log`, not `…latest.log.<arm>`: .gitignore:46 ignores
     # `/progress/mutation/*.log`, and a suffix-anchored glob does not match a file
@@ -704,8 +761,8 @@ for arm in "${ARM_NAMES[@]}"; do
     continue
   fi
   ARM_ARGS=("${MUTANTS_ARGS[@]}" "${ARM_PKGS[@]}")
-  if [[ -n "${ARM_FEATURE}" ]]; then
-    ARM_ARGS+=(--features "${ARM_FEATURE}")
+  if [[ ${#ARM_FEATURE_ARGS[@]} -gt 0 ]]; then
+    ARM_ARGS+=("${ARM_FEATURE_ARGS[@]}")
   fi
   ARM_OUT_DIR="${OUT_DIR}/${PROFILE}-${TIMESTAMP}-${arm}"
   ARM_LOG="${ARM_OUT_DIR}.log"
@@ -716,7 +773,7 @@ for arm in "${ARM_NAMES[@]}"; do
   fi
   {
     echo ""
-    echo "===== mutation arm: ${arm} (packages: ${ARM_PKGS[*]:-workspace default}, feature: ${ARM_FEATURE:-none}) ====="
+    echo "===== mutation arm: ${arm} (packages: ${ARM_PKGS[*]:-workspace default}, features: ${ARM_FEATURE_ARGS[*]:-none}) ====="
     printf '%q ' "${RUN_CMD[@]}"
     echo ""
   } | tee -a "${LOG_FILE}"
@@ -757,9 +814,17 @@ set -e
   echo "- Timestamp (UTC): ${TIMESTAMP}"
   echo "- Profile: ${PROFILE}"
   if [[ "${PROFILE}" == "fast" ]]; then
-    echo "- Target Set: lib target only (--lib -p ${MUTATION_PACKAGES[*]})"
+    echo "- Target Set: lib target only (--lib); the package scope lives on each arm, not the test command"
     echo "- Arms: ${ARM_RESULTS[*]}"
-    echo "- Preflight: ${ARM_NAMES[*]} = ${ARM_COUNTS[*]:-n/a}"
+    # `${ARM_COUNTS[*]}` walks a hash map, so it does not follow `${ARM_NAMES[*]}`:
+    # with three arms the line read `root crates feat-csm-core-lib = 0 1 0` while the
+    # real counts were 1 0 0 — a report that sends a reader to the wrong arm. Built
+    # in ARM_NAMES order so the labels and the numbers describe the same arms.
+    PREFLIGHT_COUNTS=""
+    for arm in "${ARM_NAMES[@]}"; do
+      PREFLIGHT_COUNTS+="${PREFLIGHT_COUNTS:+ }${ARM_COUNTS[${arm}]:-n/a}"
+    done
+    echo "- Preflight: ${ARM_NAMES[*]} = ${PREFLIGHT_COUNTS}"
   else
     echo "- Target Set: full cargo test suite; discovery is the root package (see the full-profile note above)"
   fi
