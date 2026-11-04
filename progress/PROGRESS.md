@@ -2263,3 +2263,34 @@ fixed in `784a8531` (gate 15/15, fixture 12/12 locally). Its last red, `mutation
 (`Os { code: 39, kind: DirectoryNotEmpty }`), and that job is `skipping` on every PR because
 `detect-changes` path-filters it. `ci_all_checks_passed` is now `false` in `plans/GOAP_STATE.md` with the
 run id, and will be restored only by a green push run.
+
+**#1000 round 2 (2026-11-04)**: its re-run `41819291464` on `29778307` went red twice more. `lint` failed
+`scripts/check-nix-git-env.sh` with two LEAKs — the audited inventory still named `ci.yml::mutation-test`
+(which after the split no longer enters a devShell) and the job that does, `ci.yml::mutation-shard`, was
+unaudited; re-derived the six-job inventory from the workflows instead of swapping the two names by hand, and
+mirrored the split in `test-check-nix-git-env.sh`'s mock tree (37 cases, 0 failed) so the stale-entry rule keeps
+teeth (`61d4cc3c`). `mutation-shard (7)` again failed in 1m51s with **no logs retrievable at all**
+(`gh api .../jobs/<id>/logs` → `BlobNotFound`, even after the run completed), while shards 1/2/4/6/8 passed and
+the aggregator correctly failed closed on the missing marker.
+
+**#1006 (feature-scoped mutation arms)**: the six MISSED mutants on #998's gate split 4/2 under measurement —
+four were the gate never compiling them, two were a real missing assertion (fixed on #998 by
+`71f04548`). The blindness is fixed by giving `csm-chaos` and `csm-core-lib` their own arm with
+`--all-features` (`MUTATION_FEATURE_ARMS`), because a package-qualified feature cannot ride in a multi-package
+arm at all. Two things only measurement surfaced: (1) `--features experimental-voronoi-lsh` alone leaves
+`csm-chaos` `no_std` and its unit tests fail on `vec!`, so the arm uses `--all-features` like `ci.yml:373`;
+(2) keeping the old test-side `-p` union made `--all-features` activate all four packages in one baseline test
+command, both feature arms died at `*** result: Timeout` (exit 4) and the run scored 64% — the test command is
+now arm-agnostic `--lib` and the package scope lives only on the generation side. End to end on the #998 diff:
+19 mutants, 16 caught, 3 unviable, **0 missed, 100.0000%** (was 66.67% with 6 MISSED). Fixtures:
+`test-mutation-arms.sh` 16/16, `test-mutation-no-diff.sh` 47/47, `test-mutation-inventory.sh` 16/16,
+`test-mutation-union.sh` 14/14; shellcheck clean. Also fixed a report line that had been lying about its own
+command (`- Target Set:` still printed `-p <union>` after the union left the test args).
+
+**A shared `CARGO_TARGET_DIR` across worktrees fabricates a red baseline (2026-11-04).** The CI-mode gate run
+reported `hashing::voronoi_lsh::tests::try_new_rejects_zero_and_oversized_dimensions` failing with
+`left: 1, right: 8` and the same shape in `csm-core-lib` — both impossible from the source on disk, and both
+*passed* minutes earlier in the copied-tree profile. `touch crates/csm-chaos/src/hashing/voronoi_lsh.rs` forced
+a rebuild and all 5 tests passed; the binary had been reused from one of the scratch worktrees that share
+`/tmp/wt998-target`. Read a suspected logic failure against a fresh target dir (or after `touch`) before
+concluding anything about the code — the same-hazard earlier victim was the 64% score.

@@ -16,9 +16,17 @@
 > reconciliation snapshot the file. Do not re-add completed entries.
 
 ```yaml
+  - name: score_feature_gated_crates_in_their_own_mutation_arms
+    github_issue: 1006
+    preconditions: []
+    effects:
+      mutation_arms_enable_crate_features: true
+    cost: 2
+    status: in_progress
+
   - name: bound_chaotic_lsh_and_voronoi_lsh_input_dim
     github_issue: 961
-    preconditions: []
+    preconditions: [score_feature_gated_crates_in_their_own_mutation_arms]
     effects:
       chaos_input_dim_rejected_not_clamped: true
     cost: 3

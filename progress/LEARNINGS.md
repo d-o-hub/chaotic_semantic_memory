@@ -711,15 +711,34 @@
   `TEST_ARGS+=(--lib)` is passed *after* `--`, so it reaches the test phase only, and the recorded
   baseline command `cargo test --no-run --package=chaotic_semantic_memory@0.3.9 --features=…/mcp`
   codegen-compiles all 73 integration targets on a runner with `CARGO_INCREMENTAL=1`.
-- **A MISSED mutant can mean "the profile never compiled it" (2026-11-04, PR #998).** Its gate scored
-  66.67% on 19 in-diff mutants with 6 missed — every one inside `#[cfg(feature = "…")]` code the arm did
-  not enable (`arm 'crates' … feature: none`): `csm-chaos/src/hashing/voronoi_lsh.rs` behind
-  `experimental-voronoi-lsh`, and `csm-core-lib/src/hashing/chaotic_lsh.rs:1`'s
-  `#![cfg(feature = "chaotic-hashing")]` (both crates are `default = []`). Same class as #952's
-  `cfg(target_arch = "wasm32")` pairs. Read the arm's feature list before concluding a test is missing.
+- **A MISSED mutant can mean "the profile never compiled it" (2026-11-04, PR #998, corrected same
+  day).** Its gate scored 66.67% on 19 in-diff mutants with 6 missed, and I first wrote all six off to
+  `#[cfg(feature = "…")]` code the arm did not enable (`arm 'crates' … feature: none`): `csm-chaos/
+  src/hashing/voronoi_lsh.rs` behind `experimental-voronoi-lsh` and
+  `csm-core-lib/src/hashing/chaotic_lsh.rs:1`'s `#![cfg(feature = "chaotic-hashing")]` (both crates
+  `default = []`), same class as #952's `cfg(target_arch = "wasm32")` pairs. Re-scoring with the
+  features on splits it 4/2: `-p csm-chaos --all-features` → 14 caught / 2 unviable / **0 MISSED**,
+  but `-p csm-core-lib --all-features` → 2 caught / 1 unviable / **2 MISSED**, and those two were real
+  — the wrapper's `input_dim()` was never read by an assertion, so it could return any constant and
+  both tests in that module would still pass. Read the arm's feature list *and then re-score*; the
+  blind-profile explanation is a hypothesis about the gate, not a verdict on the tests. #1006 fixes
+  the gate half, #998's `71f04548` the test half.
+- **A report line assembled from an associative array can label the wrong arm (2026-11-04, #1006).**
+  `echo "- Preflight: ${ARM_NAMES[*]} = ${ARM_COUNTS[*]}"` puts an insertion-ordered list next to a
+  hash-ordered expansion. With two arms they happened to agree; with three it printed
+  `root crates feat-csm-core-lib = 0 1 0` over real counts of `1 0 0`, which reads as "the crates arm
+  had mutants, the root arm had none" — the opposite of the truth, and the kind of line a reviewer
+  quotes. Any label/value pair written from two arrays must be built by iterating one of them.
+  `scripts/test-mutation-no-diff.sh` now pins the exact string.
 - **Read push runs, not only PR runs (2026-11-04, #1004).** `origin/main` at `fdc40ef4` fails
   `Test DuckDB Companion` (`libduckdb-sys` bundled unpack, `DirectoryNotEmpty`) while every PR shows that
   job as `skipping` because `detect-changes` path-filters it — so all three PRs in the train were green on
   a red `main`. Corollary for watchers: `gh pr checks --watch | tail -n` reports `tail`'s exit status, not
   the check suite's; my first "all pass" reading came from that pipe. Re-query
   `gh pr checks <n> --json bucket` before calling a head green.
+- **A shared `CARGO_TARGET_DIR` across worktrees can invent a failing test (2026-11-04, #1006).** Two
+  baseline failures reported by the mutation gate — `voronoi_lsh.rs:289` `left: 1, right: 8` and the same shape in
+  `csm-core-lib` — were impossible from the source on disk, and the identical tests passed in the copied-tree
+  profile minutes earlier. `touch`ing the file forced a rebuild and everything passed: cargo had reused a test
+  binary built from a *different* worktree that shared the target dir. Before concluding a test or a mutant is
+  wrong, re-run with a target dir belonging to one tree — the earlier "64%" score was this, not the gate.

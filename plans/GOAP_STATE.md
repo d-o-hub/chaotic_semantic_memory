@@ -82,7 +82,8 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 1            # `grep -c '^  - name:' plans/ACTIONS.md` (#961, PR #998 in flight)
+  queued_actions_count: 2            # `grep -c '^  - name:' plans/ACTIONS.md` (#961 PR #998 in
+                                     #   flight, blocked on #1006's gate arm; #1006 itself in progress)
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
