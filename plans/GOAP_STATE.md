@@ -26,15 +26,22 @@ world_state:
   binary_built: true
   documentation_complete: true       # 2026-10-20: MCP, exports, OTLP and same-SHA release docs reconciled
   validated: true                    # 2026-10-22: scripts/validate.sh rc 0 + harness-check.sh all rc 0
-  ci_all_checks_passed: true         # 2026-10-03: landing head and its push both green (incl. CodeQL/Pages)
+  ci_all_checks_passed: false        # 2026-11-04: push run 41794627066 on fdc40ef4 fails `Test DuckDB
+                                     #   Companion` in libduckdb-sys's bundled unpack (#1004). Every
+                                     #   PR-side context for it is path-skipped, so PR green says
+                                     #   nothing here; restore only on a green push run on main.
   loc_gate_verified: true            # all first-party src/ and crates/ files <= 500 LOC
 
   # ── Canonical metrics (update in place with a date comment) ──
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
-  main_head: "cb1d134d"              # 2026-11-03: `git rev-parse --short=8 origin/main`
-  tests_count: 1188                  # 2026-11-03: `scripts/coverage-report.sh` inventory (tests/ 554,
-                                     #   src/ 284, crates/*/src 330, crates/*/tests 20); the full suite
-                                     #   reports more passes because a fn can register in several targets
+  main_head: "fdc40ef4"              # 2026-11-04: `git rev-parse --short=8 origin/main`
+  tests_count: 1182                  # 2026-11-04: `scripts/coverage-report.sh inventory` on this branch
+                                     #   (tests/ 554, src/ 287, crates/*/src 321, crates/*/tests 20).
+                                     #   `origin/main` measures 1179 with the same command; the 1188 this
+                                     #   file carried was stale in `crates/*/src` (330 recorded, 321 live).
+                                     #   The drift gate cannot see that: tests/validate_llm_context.py
+                                     #   compares context.yaml against this key, never against a live
+                                     #   count, so a wrong number here is green twice over.
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)

@@ -2221,3 +2221,45 @@ updates (patches still arrive), with the removal condition — MSRV ≥ 1.89 —
 Verdict recorded in `plans/PR_ROAST_2026_11_03.md`; the classification rule was added to
 `github-ci-guardrails/references/gh-ci-truth.md`. #986 (rust-cache 2.9.3) and #987 (arrow 60.1.0) are green
 and were deliberately left for their own merge cycle.
+
+## 2026-11-04 — merge-train remainder: one PR fixed, one closed, one found the gate blind
+
+**The train is #998, #999, #1000 and it did not merge in the order I planned.** Roasting all three
+against job logs (`skill://pr-roast-triage`) produced one LAND and two non-merges, and surfaced three
+issues (#1003 catalog fixture detection, #1004 red `main`, #1005 mutation baseline scope).
+
+**#998 (#961, bound `input_dim`)** was green except one real defect I had caused: its lib test asserted
+`zero.to_string()`, which does not compile in `csm-chaos`'s **default** build (`default = []`,
+`#![cfg_attr(not(feature = "std"), no_std)]`), and the PR's own `## Verification` block hid that by
+running `--features …,std` first. Fixed to `alloc::format!("{zero}")`. Its required `mutation-test`
+context then scored **66.67% < 85%** with 6 missed mutants — all six inside `#[cfg(feature = …)]` code
+the scored arm compiles with `feature: none`, so the refusal is the gate's blindness (#952's class), not
+a missing test. That reorders the train: #1000 owns `scripts/mutation_test.sh`, so #998 rebases onto it
+and then gets a measured fix (enable `csm-chaos/experimental-voronoi-lsh` and
+`csm-core-lib/chaotic-hashing` for their packages in the arm, then re-score).
+
+**#999 (centralize PR path selection)** was closed as no-op per Rule 10: its only CI run was
+`cancelled` (which `gh pr checks` still reports as `fail`), and it conflicted in `.github/workflows/ci.yml`
+with #1000 — the same surface #992 already tracks. The roast comment states the acceptance criteria a
+re-created PR must carry.
+
+**#1000 (#951/#952/#959, shard the mutation gate)** failed for three independent reasons, each with a
+different owner. (1) `--shard` is **0-based** — measured on a 53-mutant probe crate: `0/8…7/8` partition
+the set exactly and `8/8` is rejected, so the submitted `shard: [1..8]` silently dropped shard 0's mutants
+from the union the gate scores; fixed by translating at the call site and keeping the 1-based contract
+that `mutation_union.py` and the `shard-complete` markers require, with `k < n` boundary validation added
+(`MUTANTS_SHARD=3/8` now asserts `--shard 2/8`, and `0/8`/`9/8` are refused — 46 fixture cases).
+(2) `mutation-test` died 3 s in on a **fabricated action pin** (`download-artifact@cf430e03…`, 422 from
+the upstream API) — replaced with the real `9000827ccba… # v8.0.2` already used by `release.yml:479`, and
+generalized as **#1002** because the SHA validator is opt-in and no CI job has ever run it (the pre-commit
+hook prints `skip: GitHub Actions SHA validation`). (3) `lint` failed on the `context.yaml` drift gate:
+four new `src/clock*.rs` modules made the live count 122 while the file said 118/118 — my process miss,
+fixed in `784a8531` (gate 15/15, fixture 12/12 locally). Its last red, `mutation-shard (7)`, was
+`No space left on device` behind a `BaselineFailed` exit 4 (#1005), and the aggregator's
+`missing shard evidence for [7]` was the design working.
+
+**`main` is red and nothing in the PR checks said so** (#1004): run `41794627066` on `fdc40ef4` fails only
+`Test DuckDB Companion`, inside `libduckdb-sys v1.20000.1`'s bundled unpack
+(`Os { code: 39, kind: DirectoryNotEmpty }`), and that job is `skipping` on every PR because
+`detect-changes` path-filters it. `ci_all_checks_passed` is now `false` in `plans/GOAP_STATE.md` with the
+run id, and will be restored only by a green push run.
