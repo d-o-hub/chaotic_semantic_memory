@@ -203,6 +203,18 @@ echo "==> Fuzz lock fixture"
 echo "==> Squash subject fixture"
 "${SCRIPT_DIR}/test-check-squash-subject-length.sh"
 
+# PR triage truthfulness (issue #993). `pr-triage.sh` is a read-only operator
+# helper, so no Rust sensor can catch it turning a failed/empty/unknown check
+# query into "all pass". The fixture drives every state and a head change against
+# a fake gh, and counts the per-PR check queries.
+if [[ -x "${SCRIPT_DIR}/test-pr-triage.sh" ]]; then
+  echo "==> PR triage fixture (failed/empty/unknown queries are never green)"
+  "${SCRIPT_DIR}/test-pr-triage.sh"
+else
+  echo "Error: scripts/test-pr-triage.sh missing or not executable" >&2
+  exit 1
+fi
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 

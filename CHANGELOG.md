@@ -46,6 +46,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CI trigger failed can no longer read as a green release that published
   nothing.
 
+### Changed
+- **CI tooling (`scripts/pr-triage.sh`, #993)**: the read-only triage helper
+  called `gh pr checks` twice per PR and counted the literal text
+  `pass`/`fail`/`pending`, so a failed, rate-limited, empty or unauthenticated
+  query could print `✅ all pass`; skipped checks counted as nothing and the two
+  calls could observe different heads. It now makes one structured
+  `--json name,state,link` request per PR, captures the exit status/stderr
+  separately, classifies pending/queued, failure/error/timed-out/action-required,
+  cancelled, skipped/neutral and unknown states explicitly, re-reads the head SHA
+  and rejects a stale verdict, and offers `--json` plus `--strict`. `BLOCKED`,
+  `UNKNOWN`, `STALE` and `NO_VERDICT` can never be rendered as green; a `PASS` is
+  labelled "check inventory only" because required contexts remain the merge gate.
+
 ## [0.3.9] - 2026-10-30
 
 ### Added
