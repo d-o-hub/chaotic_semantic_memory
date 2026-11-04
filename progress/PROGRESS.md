@@ -2294,3 +2294,9 @@ reported `hashing::voronoi_lsh::tests::try_new_rejects_zero_and_oversized_dimens
 a rebuild and all 5 tests passed; the binary had been reused from one of the scratch worktrees that share
 `/tmp/wt998-target`. Read a suspected logic failure against a fresh target dir (or after `touch`) before
 concluding anything about the code — the same-hazard earlier victim was the 64% score.
+
+**#1007 merged & #998 closed / #961 re-created (2026-11-04)**: PR #1007 merged cleanly as `b8fae179`
+with 37/37 CI checks passing. PR #998 was closed per Rule 10 due to staleness and conflicts against #1000.
+Issue #961 was cleanly re-created on a fresh branch off `b8fae179` containing the bounded `MAX_INPUT_DIM = 4096`,
+`try_new` constructor with `InputDimensionError`, `input_dim()` accessor, and unit assertions that make the
+effective dimension mutation-visible.

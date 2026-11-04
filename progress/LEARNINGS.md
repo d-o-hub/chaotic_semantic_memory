@@ -742,3 +742,14 @@
   profile minutes earlier. `touch`ing the file forced a rebuild and everything passed: cargo had reused a test
   binary built from a *different* worktree that shared the target dir. Before concluding a test or a mutant is
   wrong, re-run with a target dir belonging to one tree — the earlier "64%" score was this, not the gate.
+- **A new `pub const` in one module leaves bare intra-doc links unresolved in sibling modules (2026-11-03, #961).**
+  `MAX_INPUT_DIM` lives in `crates/csm-chaos/src/hashing/mod.rs`, but `chaotic_lsh.rs` and `voronoi_lsh.rs`
+  referenced it as `[MAX_INPUT_DIM]`, which rustdoc cannot resolve from those modules — and the `lint` job
+  runs `cargo doc --no-deps --all-features` with `RUSTDOCFLAGS=-D warnings`, so the job went red on a docs-only
+  defect. The fix is the full path (`[crate::hashing::MAX_INPUT_DIM]`); `cargo doc -p csm-chaos` alone was
+  green because it scopes the build, while the workspace-wide command is the gate.
+- **A `--features` run does not certify the default build of a `no_std` crate (2026-11-04, #961).**
+  `csm-chaos` ships `default = []`, so `#![cfg_attr(not(feature = "std"), no_std)]` is in force unless `std`
+  is asked for, and the alloc `ToString` is then absent from the prelude: `cargo test -p csm-chaos --lib --features experimental-voronoi-lsh,std`
+  stayed green while the default-feature lib test failed to compile on `to_string()`. Always test default
+  first, then `--features std`, then `--all-features`.
