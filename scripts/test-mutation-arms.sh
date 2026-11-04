@@ -139,8 +139,8 @@ ok() { RUNS=$((RUNS + 1)); echo "  ok: $1"; }
 no() { RUNS=$((RUNS + 1)); FAILED=$((FAILED + 1)); echo "  FAIL: $1"; }
 
 ARMS=""
-run_mutation() { # run_mutation <git-mode> <list-mode> <case-name> <expected-status>
-    local mode="$1" list="$2" name="$3" expected="$4"
+run_mutation() { # run_mutation <git-mode> <list-mode> <case-name> <expected-status> [<shard>]
+    local mode="$1" list="$2" name="$3" expected="$4" shard="${5:-}"
     : >"${TEST_DIR}/argv.txt"
     local output_file="${TEST_DIR}/case-${name}.log"
     local status=0
@@ -152,6 +152,7 @@ run_mutation() { # run_mutation <git-mode> <list-mode> <case-name> <expected-sta
             FIXTURE_ARGV="${TEST_DIR}/argv.txt" \
             MUTATION_OUTPUT_DIR="${TEST_DIR}/output/${name}" \
             DIFF_TARGET=origin/main \
+            MUTANTS_SHARD="${shard}" \
             PATH="${TEST_DIR}/bin:${PATH}" \
             bash "${SUBJECT}" --ci fast
     ) >"${output_file}" 2>&1 || status=$?
@@ -163,8 +164,9 @@ run_mutation() { # run_mutation <git-mode> <list-mode> <case-name> <expected-sta
     fi
     MUT_LOG="${output_file}"
     # Only the *generation-side* scope decides what a mutation arm builds, so the
-    # `-- <cargo test args>` tail is cut: that tail always carries every selected
-    # package (`--lib -p A -p B -p C`) and would make any `-p` count here meaningless.
+    # `-- <cargo test args>` tail is cut: the tail is the cargo test command, shared
+    # by every arm and arm-agnostic by design (`--lib`), so counting `-p` there would
+    # credit a scope the test side no longer carries.
     ARMS="$(grep -- '-- --lib' "${TEST_DIR}/argv.txt" | sed 's/ -- .*//' || true)"
 }
 
@@ -240,6 +242,44 @@ if grep -qE 'unit-target mutation summary: total=[0-9]+ caught=[0-9]+' "${MUT_LO
 else
     no "no union score was published"
     cat "${MUT_LOG}"
+fi
+
+echo
+echo "== a shard keeps every arm and hands one marker to the aggregator =="
+run_mutation crates full shard 0 "3/8"
+LIST_CMDS="$(grep -c '^mutants --list ' "${TEST_DIR}/argv.txt" || true)"
+SHARD_LISTS="$(grep -c '^mutants --list .*--shard 2/8' "${TEST_DIR}/argv.txt" || true)"
+if [[ "${LIST_CMDS}" -gt 0 && "${LIST_CMDS}" == "${SHARD_LISTS}" ]]; then
+    ok "every arm's preflight probe is narrowed to the shard slice (${LIST_CMDS})"
+else
+    no "the shard slice did not reach every arm's probe: ${SHARD_LISTS} of ${LIST_CMDS}"
+    cat "${TEST_DIR}/argv.txt"
+fi
+RUN_CMDS="$(grep -c '^mutants --in-diff ' "${TEST_DIR}/argv.txt" || true)"
+SHARD_RUNS="$(grep -c '^mutants --in-diff .*--shard 2/8' "${TEST_DIR}/argv.txt" || true)"
+if [[ "${RUN_CMDS}" -gt 0 && "${RUN_CMDS}" == "${SHARD_RUNS}" ]]; then
+    ok "every arm's run command is narrowed to the shard slice (${RUN_CMDS})"
+else
+    no "the shard slice did not reach every arm's run: ${SHARD_RUNS} of ${RUN_CMDS}"
+    cat "${TEST_DIR}/argv.txt"
+fi
+# 1-based in, 0-based out — the #959 contract, now applied inside each of three arms.
+if grep -q '^mutants --in-diff .*--shard 3/8' "${TEST_DIR}/argv.txt"; then
+    no "the 1-based shard id must reach cargo-mutants translated, not verbatim"
+else
+    ok "no arm asks cargo-mutants for its own 1-based id"
+fi
+MARKERS="$(find "${TEST_DIR}/output/shard" -maxdepth 1 -name shard-complete | wc -l)"
+if [[ "${MARKERS}" == "1" ]] && grep -qx '3/8' "${TEST_DIR}/output/shard/shard-complete"; then
+    ok "the shard writes exactly one completeness marker naming itself"
+else
+    no "completeness marker wrong (${MARKERS} found)"
+    find "${TEST_DIR}/output/shard" -maxdepth 1 | sed 's/^/    /'
+fi
+if grep -q 'unit-target mutation summary:' "${MUT_LOG}"; then
+    no "a shard must not publish a score; the aggregator owns it"
+else
+    ok "a shard publishes no score of its own"
 fi
 
 echo
