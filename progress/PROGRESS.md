@@ -2221,3 +2221,39 @@ updates (patches still arrive), with the removal condition — MSRV ≥ 1.89 —
 Verdict recorded in `plans/PR_ROAST_2026_11_03.md`; the classification rule was added to
 `github-ci-guardrails/references/gh-ci-truth.md`. #986 (rust-cache 2.9.3) and #987 (arrow 60.1.0) are green
 and were deliberately left for their own merge cycle.
+
+---
+
+## Wave close-out (2026-11-03, in flight)
+
+All 12 open issues (#951–#993, #961, #966, #982) implemented and pushed as PRs #995–#1001.
+Merged so far, each rebased onto the latest `main`, CI re-verified on that head, then
+`--squash --delete-branch`:
+
+| PR | Issue(s) | Merge |
+|---|---|---|
+| #994 | ADR-0103 plans compaction | `8b22ec01` |
+| #996 | #966 zip ignores | `08c7484c` |
+| #995 | #982 version-literal gate | `c6655a3e` |
+
+In the merge train, all rebased onto `c6655a3e` and pushed (each carrying its own
+`ACTIONS.md`/`GOAP_STATE.md` retirement, so the queue is currently at 4 entries and the GOAP
+gate is green at every step):
+
+| PR | Issue(s) | branch |
+|---|---|---|
+| #998 | #961 chaos input dim | `fix/chaos-bound-input-dim` (CI rerun triggered) |
+| #997 | #993 PR triage | `fix/ci-truthful-pr-triage` |
+| #999 | #992 change selection | `ci/change-selection-classifier` |
+| #1000 | #951/#952/#959 mutation gate | `ci/mutation-gate-shard-and-cfg` |
+| #1001 | #955/#967/#969/#974 release truth | `fix/release-verification-truth` |
+
+**Runner discipline.** The queue saturates fast — five queued runs were cancelled in this wave
+alone, including one that had already started on a stale head. Cancelling a queued run that has
+not started is free; cancelling one that has started leaves a `cancelled` result that `gh pr checks`
+still reports as the PR's state, so a stale run must be rerun (or cancelled and the new head
+re-triggered) before the PR can be read as green. `main` was cancelled twice mid-wave because it
+was shadowing the merge train. Final state to record after the train clears: `plans/ACTIONS.md` at 0
+entries, `plans/GOAP_STATE.md` `queued_actions_count: 0`,
+`action_last_completed: make_mutation_threshold_draft_invariant`, and this table's last four rows
+moved to "Merged".
