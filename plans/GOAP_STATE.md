@@ -26,22 +26,15 @@ world_state:
   binary_built: true
   documentation_complete: true       # 2026-10-20: MCP, exports, OTLP and same-SHA release docs reconciled
   validated: true                    # 2026-10-22: scripts/validate.sh rc 0 + harness-check.sh all rc 0
-  ci_all_checks_passed: false        # 2026-11-04: push run 41794627066 on fdc40ef4 fails `Test DuckDB
-                                     #   Companion` in libduckdb-sys's bundled unpack (#1004). Every
-                                     #   PR-side context for it is path-skipped, so PR green says
-                                     #   nothing here; restore only on a green push run on main.
+  ci_all_checks_passed: true         # 2026-11-04: push run 41833935753 on c9b69ca5 succeeded on all
+                                     #   jobs including Test DuckDB Companion.
   loc_gate_verified: true            # all first-party src/ and crates/ files <= 500 LOC
 
   # ── Canonical metrics (update in place with a date comment) ──
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
-  main_head: "fdc40ef4"              # 2026-11-04: `git rev-parse --short=8 origin/main`
-  tests_count: 1182                  # 2026-11-04: `scripts/coverage-report.sh inventory` on this branch
-                                     #   (tests/ 554, src/ 287, crates/*/src 321, crates/*/tests 20).
-                                     #   `origin/main` measures 1179 with the same command; the 1188 this
-                                     #   file carried was stale in `crates/*/src` (330 recorded, 321 live).
-                                     #   The drift gate cannot see that: tests/validate_llm_context.py
-                                     #   compares context.yaml against this key, never against a live
-                                     #   count, so a wrong number here is green twice over.
+  main_head: "b8fae179"              # 2026-11-04: `git rev-parse --short=8 origin/main`
+  tests_count: 1192                  # 2026-11-04: `scripts/coverage-report.sh inventory` on this branch
+                                     #   (tests/ 554, src/ 287, crates/*/src 331, crates/*/tests 20).
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)
@@ -82,8 +75,7 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 2            # `grep -c '^  - name:' plans/ACTIONS.md` (#961 PR #998 in
-                                     #   flight, blocked on #1006's gate arm; #1006 itself in progress)
+  queued_actions_count: 1            # `grep -c '^  - name:' plans/ACTIONS.md` (#961 in progress)
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -170,6 +162,7 @@ world_state:
   mutation_threshold_independent_of_draft_flag: true    # 2026-11-04 (#959): one 85% bar
   zip_bundled_assumption_gated: true              # 2026-11-03 (#966): stale zip ignores removed; gate ties any
                                                   #   future ignore to zip-in-lock + csm-duckdb/bundled
+  mutation_arms_enable_crate_features: true # 2026-11-04 (#1006): feature arms with --all-features for csm-chaos/csm-core-lib
 
   # ── GOAP bookkeeping ─────────────────────────────────────────
   goap_reconciliations_complete:
@@ -182,10 +175,6 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: make_mutation_threshold_draft_invariant  # 2026-11-04 (#959, with
-                               #   #951/#952): 8-shard union aggregator behind the literal required
-                               #   name, cfg-pair clock helper + diff-scoped sensor, and one 85%
-                               #   threshold for drafts and ready PRs alike. Previous action:
-                               #   verify_npm_attestations_in_the_release_report — 2026-11-03 (#955):
-                               #   verify-release checks .dist.attestations via the abbreviated
-                               #   packument and the fail-open npm retry is gone.
+  action_last_completed: score_feature_gated_crates_in_their_own_mutation_arms # 2026-11-04 (#1006):
+                               #   feature arms for csm-chaos and csm-core-lib with --all-features,
+                               #   arm-agnostic --lib test command, and test-mutation-arms.sh fixture.

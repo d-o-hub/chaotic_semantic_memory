@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the GHSA record with a re-check trigger.
 
 ### Fixed
+- **Chaos (`csm-chaos`, #961)**: `ChaoticLsh::new` and `VoronoiLsh::new` bounded their
+  allocation only by `input_dim`, so an untrusted dimension could request a GiB-scale table
+  (`10240 * 100_000 * 4 B` ≈ 3.8 GiB) and a multiplication by `usize::MAX` could overflow.
+  Both now clamp to one shared `MAX_INPUT_DIM` (4096; 160 MiB / 320 MiB per instance) and
+  expose `input_dim()`, while the new `try_new` constructors reject zero or oversized
+  dimensions with `InputDimensionError` instead of substituting a different shape. A
+  shape-mismatched `project` still yields an all-zero hypervector — that behaviour is now
+  documented and tested rather than implicit.
 - **Release tooling (`scripts`, #982)**: `sync-version.sh` rewrote only
   `$CURRENT_VERSION` — the value read before the release — so a `"version"`
   literal that was already older was invisible to the sweep, and
