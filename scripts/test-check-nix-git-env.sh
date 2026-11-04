@@ -32,9 +32,10 @@ ok() { RUNS=$((RUNS + 1)); echo "  ok: $1"; }
 no() { RUNS=$((RUNS + 1)); FAILED=$((FAILED + 1)); echo "  FAIL: $1"; }
 
 # ---------------------------------------------------------------- tree factory
-# make_tree <name>: the repository as measured on 2026-11-01 — one wrapped lint job
+# make_tree <name>: the repository as measured on 2026-11-04 — one wrapped lint job
 # with the scrubbed cargo-deny line, one unwrapped cargo-deny job, one wrapped mutation
-# job whose script uses local git plumbing only.
+# shard job whose script uses local git plumbing only, and the `mutation-test` aggregator
+# that scores the union without a devShell (so an inventory entry naming it is stale).
 make_tree() {
     local root="${WORK}/$1"
     mkdir -p "${root}/.github/workflows" "${root}/scripts"
@@ -51,12 +52,18 @@ jobs:
     steps:
       - name: cargo deny check
         run: nix develop --command cargo deny --locked check
-  mutation-test:
+  mutation-shard:
     runs-on: ubuntu-latest
     steps:
       - name: mut
         run: |
           nix develop --command scripts/run-with-libs.sh bash scripts/mutation_test.sh --ci fast
+  mutation-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: score the union
+        run: |
+          python3 scripts/mutation_union.py --artifacts shards --expected-shards 8
   test:
     runs-on: ubuntu-latest
     steps:
