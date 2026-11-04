@@ -24,6 +24,7 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
 pub mod bridge_retrieval;
+mod clock;
 pub use csm_chaos;
 pub use csm_core_lib::bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]

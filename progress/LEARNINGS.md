@@ -683,3 +683,43 @@
   the first and leaves the second, so "it went green except one" after a rebase is the useful state — read
   each job's log before deciding whether the PR can ever land, and never read a rebased head's remaining red
   as a regression the diff caused.
+- **A generated table is evidence about its generator, not about the world (2026-11-04, #1003).** I
+  roasted PR #1000 for shipping `scripts/mutation_union.py` "with no fixture", quoting its own
+  `SCRIPT_CATALOG.md` cell `called; no fixture`. It was wrong: `test-mutation-union.sh` (14 cases) and
+  `test-check-cfg-mutants.sh` exist and run from `validate.sh:196,201`. `gen_script_catalog.py`'s
+  `fixture_for()` probes `scripts/test-{stem}.sh`, so `mutation_union.py` is looked up as
+  `test-mutation_union.sh` and the real hyphenated file never matches. Confirm an asserted gap on disk
+  (`ls`, plus the `validate.sh` call site) before it goes into a review comment, and retract in public
+  when it was the tool that misled you.
+- **`1188 == 1188` proved nothing (2026-11-04).** `tests/validate_llm_context.py`'s Test Counts check
+  compares `context.yaml` against `plans/GOAP_STATE.md`'s `tests_count` — two declared numbers. The live
+  inventory (`scripts/coverage-report.sh inventory`, grep-only, fast) measured **1179 on `origin/main`**
+  and 1182 here, while both files declared 1188; the stale part was `crates/*/src` (330 recorded, 321
+  live). Any counter in `GOAP_STATE.md` needs the command that produced it, and a green drift gate on a
+  self-referential pair is not evidence.
+- **Adding a module is a gate failure by design (2026-11-04, PR #1000).** `lint`'s LOC gate died on
+  `modules_under_loc_limit 118/118 != live src/**/*.rs count 122` because the PR added four
+  `src/clock*.rs` files. `test_loc_coverage` requires `under == total == find(src/**/*.rs)` count. I
+  pushed after running only targeted fixtures and skipped the full local gate, so CI found it — run
+  `python3 tests/validate_llm_context.py` (or `scripts/validate.sh`) whenever files are added or a
+  counter moves.
+- **`cargo mutants` exit 4 is not a test result (2026-11-04, #1005).** `BaselineFailed` means "the tests
+  already fail in an unmutated tree", and `mutation-shard (7)`'s `mutants.out/log/baseline.log` said what
+  actually happened: `rustc-LLVM ERROR: IO failure on output stream: No space left on device`. All four
+  outcome files were empty, so the shard's own `evidence written` line was false while the aggregator
+  correctly failed closed on `missing shard evidence for [7]`. The root cause is scope, not disk luck:
+  `TEST_ARGS+=(--lib)` is passed *after* `--`, so it reaches the test phase only, and the recorded
+  baseline command `cargo test --no-run --package=chaotic_semantic_memory@0.3.9 --features=…/mcp`
+  codegen-compiles all 73 integration targets on a runner with `CARGO_INCREMENTAL=1`.
+- **A MISSED mutant can mean "the profile never compiled it" (2026-11-04, PR #998).** Its gate scored
+  66.67% on 19 in-diff mutants with 6 missed — every one inside `#[cfg(feature = "…")]` code the arm did
+  not enable (`arm 'crates' … feature: none`): `csm-chaos/src/hashing/voronoi_lsh.rs` behind
+  `experimental-voronoi-lsh`, and `csm-core-lib/src/hashing/chaotic_lsh.rs:1`'s
+  `#![cfg(feature = "chaotic-hashing")]` (both crates are `default = []`). Same class as #952's
+  `cfg(target_arch = "wasm32")` pairs. Read the arm's feature list before concluding a test is missing.
+- **Read push runs, not only PR runs (2026-11-04, #1004).** `origin/main` at `fdc40ef4` fails
+  `Test DuckDB Companion` (`libduckdb-sys` bundled unpack, `DirectoryNotEmpty`) while every PR shows that
+  job as `skipping` because `detect-changes` path-filters it — so all three PRs in the train were green on
+  a red `main`. Corollary for watchers: `gh pr checks --watch | tail -n` reports `tail`'s exit status, not
+  the check suite's; my first "all pass" reading came from that pipe. Re-query
+  `gh pr checks <n> --json bucket` before calling a head green.

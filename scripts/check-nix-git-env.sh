@@ -53,13 +53,13 @@ fi
 REPO="${1:-.}"
 WORKFLOWS="${REPO}/.github/workflows"
 
-# Every job whose steps invoke `nix develop`, as audited 2026-11-01. Keys are
+# Every job whose steps invoke `nix develop`, as audited 2026-11-04. Keys are
 # "<workflow file>::<job id>". Update by re-running the audit, not by wish.
 INVENTORY=(
   "benchmark-ci.yml::benchmark-small"
   "ci.yml::cargo-deny"
   "ci.yml::lint"
-  "ci.yml::mutation-test"
+  "ci.yml::mutation-shard"
   "ci.yml::test"
   "ci.yml::wasm"
 )

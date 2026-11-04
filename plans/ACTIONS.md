@@ -24,32 +24,7 @@
     cost: 3
     status: queued
 
-  - name: shard_the_mutation_test_context
-    github_issue: 951
-    preconditions:
-      host_subprocesses_isolated_from_nix_env: true
-    effects:
-      mutation_test_sharded_behind_one_context: true
-    cost: 5
-    status: queued
 
-  - name: detect_new_cfg_disabled_mutants
-    github_issue: 952
-    preconditions:
-      mutation_test_sharded_behind_one_context: true
-    effects:
-      new_cfg_disabled_mutants_detected_by_inventory: true
-    cost: 3
-    status: queued
-
-  - name: make_mutation_threshold_draft_invariant
-    github_issue: 959
-    preconditions:
-      new_cfg_disabled_mutants_detected_by_inventory: true
-    effects:
-      mutation_threshold_independent_of_draft_flag: true
-    cost: 2
-    status: queued
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the

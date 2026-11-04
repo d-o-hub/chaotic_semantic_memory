@@ -24,10 +24,7 @@ impl ChaoticSemanticFramework {
     }
 
     async fn purge_expired_inner(&self) -> Result<usize> {
-        #[cfg(not(target_arch = "wasm32"))]
-        let start = std::time::Instant::now();
-        #[cfg(target_arch = "wasm32")]
-        let start = js_sys::Date::now();
+        let start = crate::clock::Clock::now();
 
         let _mutation = self.mutation_coordinator.lock().await;
         let ns = self.namespace().await;
@@ -95,10 +92,7 @@ impl ChaoticSemanticFramework {
         let count = to_remove.len();
         drop(_mutation);
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let duration_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
-        #[cfg(target_arch = "wasm32")]
-        let duration_ms = (js_sys::Date::now() - start) as u64;
+        let duration_ms = start.elapsed_ms();
         self.emit_chaotic_event(ChaoticEvent::MemoryConsolidated {
             episode_count: count,
             duration_ms,

@@ -189,6 +189,17 @@ echo "==> Mutation inventory fixture"
 echo "==> Mutation gate classification fixture"
 "${SCRIPT_DIR}/test-mutation-no-diff.sh"
 
+# cfg-split declarations (issue #952): a native/wasm pair inside the mutation
+# surface contributes an unkillable MISSED mutant. The checker is diff-scoped in
+# the gate; the fixture proves both the finding and the untouched-file direction.
+echo "==> cfg-split mutant fixture"
+"${SCRIPT_DIR}/test-check-cfg-mutants.sh"
+
+# Shard union arithmetic (issue #951): the aggregator must sum caught/viable
+# across shards, never average per-shard scores, and must refuse missing shards.
+echo "==> Mutation shard union fixture"
+"${SCRIPT_DIR}/test-mutation-union.sh"
+
 # Fuzz lock freshness (issue #948): the stale/fresh pair on a synthetic path-only
 # workspace, and the fail-closed directions of scripts/check-fuzz-lock.sh — a
 # missing manifest or an unusable cargo must not read as "lock is fresh".

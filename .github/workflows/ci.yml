@@ -600,36 +600,24 @@ jobs:
     - name: Test MCP feature
       run: cargo test -p chaotic_semantic_memory --features mcp --locked -- --quiet
 
-  mutation-test:
-    # Fast profile: in-diff + unit tests only (--lib) + tight timeouts.
+  mutation-shard:
+    # Issue #951: shard the in-diff sweep across runners. The matrix context is
+    # deliberately not `mutation-test`; the required literal name is the
+    # aggregator below. 8 shards keep ~250 mutants under the 45-minute per-shard
+    # ceiling at the measured ~78 s/mutant (250/8*78 ~= 41 min).
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.mutation == 'true'
     needs: [test, detect-changes]
     runs-on: ubuntu-latest
-    # 2026-10-29: the old 45-minute ceiling was sized for a handful of in-diff mutants.
-    # Run 40748384533 (head a2639d57, "mutation preflight: 224 mutants to test") hit it after
-    # ~31 mutants. Throughput is not a guess: two older jobs on this branch's predecessor ran
-    # 30 mutants in 38m and 29 in 37m (jobs 119347672236, 118948781459) = 76-80s per mutant
-    # wall, which is what the per-mutant "56-66s build + 17-24s test" lines add up to, so the
-    # 5 lines that printed here were the *not-caught* minority, not the whole progress.
-    # 224 x 78s = 4.9h, so 45 was never going to work for a branch this size — and this ceiling
-    # is only ever consumed by branches this size: a PR with no mutation-visible Rust finishes
-    # in seconds (run 40835994704: "0 mutants to test", step took 3s). Durable fix is sharding
-    # across jobs, which the ruleset's required context name (literally `mutation-test`) blocks;
-    # tracked as a follow-up, not smuggled into a release-blocking PR.
-    timeout-minutes: 300
-    # The workflow-level CARGO_INCREMENTAL=0 (top of this file) is a cache-size choice that
-    # is actively destructive here: this job runs one mutant at a time in the same tree
-    # (--in-place, jobs=1) precisely so each mutant build reuses the previous one's artifacts,
-    # and non-incremental compilation forfeits that. Measured locally on the pinned toolchain
-    # (rustc 1.88.0, CARGO_BUILD_JOBS=2, one mutated crate in the root package, same tree,
-    # A/B by flipping only this variable): a viable mutant's build phase 147-195s with
-    # CARGO_INCREMENTAL=0 vs 107s with incremental, and an unviable mutant's 11s vs 3s. That
-    # is 1.4-1.8x off the dominant cost, not an order of magnitude — recompiling and relinking
-    # the 21k-LOC crate's test harness stays. The ceiling above is sized from the measured
-    # 76-80s/mutant x 224 mutants, and this is what brings that under it. The first run after
-    # the flip also pays one cold rebuild, since changing the flag invalidates the cached
-    # fingerprints of every dependency; scripts/mutation_test.sh now copies mutants.out into
-    # the uploaded artifact so the runner's own phase timings settle the question.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    # The workflow-level CARGO_INCREMENTAL=0 is a cache-size choice that is
+    # destructive here: one mutant runs at a time in the same tree (--in-place,
+    # jobs=1) so each build reuses the previous one's artifacts. Measured on the
+    # pinned toolchain: a viable mutant's build is 107 s with incremental vs
+    # 147-195 s without; an unviable mutant 3 s vs 11 s.
     env:
       CARGO_INCREMENTAL: "1"
     steps:
@@ -643,17 +631,9 @@ jobs:
     - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
 
     - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
-      # The default `use-flakehub: null` means "no preference": the action tries
-      # FlakeHub on every nix job, finds no netrc credentials, and emits a
-      # failure-level "Unable to authenticate to FlakeHub" annotation (measured on
-      # run 41420926560 in every job that installs nix). This repository has no
-      # FlakeHub account, so opt out explicitly and cache in the GitHub Actions cache.
       with:
         use-flakehub: false
 
-    # Caching strategy:
-    # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
-    # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
     - name: Cache cargo
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -665,36 +645,70 @@ jobs:
         key: ${{ runner.os }}-cargo-mutation-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Warm the mcp feature build the mutation profile compiles
-      # scripts/mutation_test.sh now passes --features chaotic_semantic_memory/mcp,
-      # because src/cli/mcp.rs and src/mcp/** are #[cfg(feature = "mcp")] and `mcp`
-      # is not a default feature — without it, mutations in that code were reported
-      # MISSED for lines the job never compiled. This job's target/ cache is keyed
-      # on Cargo.lock and had never linked rmcp/axum/tower, so the first mutant run
-      # would pay that link inside a per-build timeout. Building the test binaries
-      # once here makes the mutation baseline incremental; the tight per-mutant
-      # bound then measures rebuilds of one crate, as it is meant to.
+      # src/cli/mcp.rs and src/mcp/** are cfg(feature = "mcp") and `mcp` is not a
+      # default feature; without the warm build the first mutant pays the
+      # rmcp/axum/tower link inside a per-build timeout.
       run: nix develop --command scripts/run-with-libs.sh cargo test --lib --no-run -p chaotic_semantic_memory -p csm-retrieval --features chaotic_semantic_memory/mcp
       timeout-minutes: 25
 
-    - name: Run unit-target mutation tests
+    - name: Run unit-target mutation shard
       run: nix develop --command scripts/run-with-libs.sh bash scripts/mutation_test.sh --ci fast
       env:
-        MUTATION_THRESHOLD: ${{ github.event.pull_request.draft && '75' || '85' }}
+        MUTANTS_SHARD: ${{ matrix.shard }}/8
         DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
         MUTANTS_JOBS: "4"
-        # Absolute timeout budget + fraction of viable (see scripts/mutation_test.sh)
-        MUTATION_TIMEOUT_BUDGET: "5"
-        MUTATION_TIMEOUT_FRACTION: "0.10"
         CARGO_TERM_COLOR: always
         RUST_BACKTRACE: "0"
 
-    - name: Upload Mutation Test Artifacts
+    - name: Upload Mutation Shard Artifacts
       if: always()
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: mutation-artifacts
+        name: mutants-shard-${{ matrix.shard }}
         path: progress/mutation
-        retention-days: 14
+        retention-days: 7
+
+  mutation-test:
+    # The branch ruleset requires this exact context name (ruleset 12897801), so
+    # the aggregator owns it and the matrix stays `mutation-shard`. Scoring and
+    # timeout budgets are computed over the union, never per shard or averaged.
+    name: mutation-test
+    if: always() && github.event_name == 'pull_request'
+    needs: [detect-changes, mutation-shard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
+
+    - name: Download shard artifacts
+      if: needs.detect-changes.result == 'success' && needs.detect-changes.outputs.mutation == 'true'
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      continue-on-error: true
+      with:
+        pattern: mutants-shard-*
+        path: shards
+        merge-multiple: false
+
+    - name: Aggregate shard verdicts
+      run: |
+        set -euo pipefail
+        if [ "${{ needs.detect-changes.result }}" != "success" ]; then
+          echo "::error title=Mutation gate::detect-changes did not succeed; no mutation verdict"
+          exit 1
+        fi
+        if [ "${{ needs.detect-changes.outputs.mutation }}" != "true" ]; then
+          echo "0 mutants in changed Rust sources, CI check skipped"
+          exit 0
+        fi
+        python3 scripts/mutation_union.py --artifacts shards --expected-shards 8
+      env:
+        # Issue #959: one bar (85) for every run. A draft cannot merge, and the
+        # ruleset reads the check-run conclusion, not the threshold that produced
+        # it — a separate 75% draft threshold is a merge bypass waiting for an
+        # un-draft that does not re-run the job.
+        MUTATION_THRESHOLD: "85"
+        MUTATION_TIMEOUT_BUDGET: "5"
+        MUTATION_TIMEOUT_FRACTION: "0.10"
 
   wasm:
     needs: detect-changes
