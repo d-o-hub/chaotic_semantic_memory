@@ -78,6 +78,13 @@ if [[ "${1:-}" == "mutants" && "${2:-}" == "--list" ]]; then
             exit 3
             ;;
         mutants | mutants_split | mutants_missed)
+            # An arm that selects only csm-core-lib has nothing in this diff (which
+            # touches src/example.rs and the `example` package), so it must list
+            # nothing and be skipped rather than pay a baseline build.
+            if [[ "$*" == *"-p csm-core-lib"* ]] && [[ "$*" != *"-p example"* ]] &&
+              [[ "$*" != *"-p chaotic_semantic_memory"* ]]; then
+                exit 0
+            fi
             echo "src/example.rs:12:5: replace example::alpha -> u32 with 0"
             echo "crates/nested/src/lib.rs:4:9: replace + with - in nested::beta"
             exit 0
@@ -211,6 +218,9 @@ lacks() {
 report_has() {
     if grep -qF -- "$2" "${MUT_REPORT}"; then ok "$1"; else no "$1"; cat "${MUT_REPORT}" 2>/dev/null; fi
 }
+report_lacks() {
+    if grep -qF -- "$2" "${MUT_REPORT}"; then no "$1"; else ok "$1"; fi
+}
 
 echo
 echo "== an unbounded CI run is still not a result =="
@@ -251,7 +261,8 @@ has "a diff with mutants reaches the score" "unit-target mutation score 87.5000%
 has "the score is the union of the arms, not an average" "caught=7 missed=1 timeout=0 unviable=0"
 lacks "neither arm is scored alone" "unit-target mutation score 100.0000%"
 lacks "a diff with mutants must not warn about zero evidence" "::warning title=Mutation gate::0 mutation-visible lines"
-report_has "the report states the derived target set" "- Target Set: lib target only (--lib -p csm-core-lib"
+report_has "the report states the derived target set" "- Target Set: lib target only (--lib); the package scope lives on each arm"
+report_lacks "the report must not claim a package scope the test command no longer carries" "--lib -p"
 
 # The regression that caused all of this: `-p` must appear on the generation side
 # (before `--`), not only on the test side. Root-manifest discovery is what made
@@ -261,7 +272,8 @@ report_has "the report states the derived target set" "- Target Set: lib target 
 # assertion no longer describes the command. The surviving invariant is the union:
 # every package in scope reaches some arm's generation.
 if grep -qE '^mutants --list [^&]*-p chaotic_semantic_memory' "${TEST_DIR}/argv.txt" &&
-  grep -qE '^mutants --list [^&]*-p csm-core-lib -p csm-retrieval' "${TEST_DIR}/argv.txt"; then
+  grep -qE '^mutants --list [^&]*-p csm-retrieval -p example' "${TEST_DIR}/argv.txt" &&
+  grep -qE '^mutants --list [^&]*-p csm-core-lib( |$)' "${TEST_DIR}/argv.txt"; then
     ok "mutant generation carries the package scope (union of arms)"
 else
     no "mutant generation carries the package scope (union of arms)"
@@ -277,10 +289,11 @@ if grep -E '^mutants --list ' "${TEST_DIR}/argv.txt" | grep -F -- '--features' |
 else
     ok "the mcp feature rides only with the root package arm"
 fi
-if grep -qE -- '-- --lib -p csm-core-lib -p csm-retrieval -p chaotic_semantic_memory' "${TEST_DIR}/argv.txt"; then
-    ok "the test invocation keeps its --lib package scope"
+if grep -qE -- '-- --lib$' "${TEST_DIR}/argv.txt" &&
+  ! grep -qE -- '-- --lib -p' "${TEST_DIR}/argv.txt"; then
+    ok "the test side stays arm-agnostic (--lib) and the package scope lives on the arm"
 else
-    no "the test invocation keeps its --lib package scope"
+    no "the test side stays arm-agnostic (--lib) and the package scope lives on the arm"
     cat "${TEST_DIR}/argv.txt"
 fi
 
@@ -288,7 +301,7 @@ echo
 echo "== an arm with no mutants is skipped, and does not veto the arm that has some =="
 run_mutation rust rootonly ok 0 asymmetric
 has "one arm's evidence still scores the gate" "unit-target mutation score 100.0000% >= 85%"
-report_has "the preflight records the empty arm as 0, not as a failure" "- Preflight: root crates = 1 0"
+report_has "the preflight records the empty arm as 0, not as a failure" "- Preflight: root crates feat-csm-core-lib = 1 0 0"
 RUNS_CMD="$(grep -cE '^mutants --in-diff ' "${TEST_DIR}/argv.txt" || true)"
 if [[ "${RUNS_CMD}" -eq 1 ]]; then
     ok "the arm that generated nothing is not built or tested"
@@ -307,10 +320,10 @@ else
     cat "${MUT_LOG}"
 fi
 if grep -qE '^mutants --list [^&]*-p nested' "${TEST_DIR}/argv.txt" \
-    && grep -qE -- '-- --lib [^&]*-p nested' "${TEST_DIR}/argv.txt"; then
-    ok "the derived package reaches mutant generation, not only the tests"
+    && grep -qE '^mutants --in-diff [^&]*-p nested' "${TEST_DIR}/argv.txt"; then
+    ok "the derived package reaches both mutation arms, not only the tests"
 else
-    no "the derived package reaches mutant generation, not only the tests"
+    no "the derived package reaches both mutation arms, not only the tests"
     cat "${TEST_DIR}/argv.txt"
 fi
 

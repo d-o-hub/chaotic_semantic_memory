@@ -77,6 +77,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   native instead of producing unkillable MISSED mutants; the four exclusion
   regexes that suppressed them were removed. A diff-scoped sensor
   (`check_cfg_mutants.py`) rejects a new same-file native/wasm declaration pair.
+- **CI mutation gate (`#1006`)**: a package whose code sits behind its *own*
+  features is now scored in an arm of its own with those features on
+  (`MUTATION_FEATURE_ARMS`: `csm-chaos`, `csm-core-lib`, `--all-features`), because
+  the flat `crates` arm carried no features and cargo-mutants cannot scope
+  `--all-features` to one package inside a multi-package selection. Those modules
+  were listed, built without, passed every test, and reported **MISSED forever**:
+  measured on the #998 diff with cargo-mutants 27.1.0, `-p csm-chaos` scored
+  12 caught / 3 MISSED while `-p csm-chaos --all-features` scores 14 caught /
+  0 MISSED, and `-p csm-core-lib` scored 3 MISSED against `--all-features` 2 caught /
+  2 MISSED. `--all-features` rather than the single gating feature because
+  `--features experimental-voronoi-lsh` alone leaves `csm-chaos` `no_std` and its
+  own unit tests then fail to compile on `vec!` — the same `--all-features` the
+  crate's CI test step already uses (`ci.yml:373`). An arm whose package the diff
+  does not touch still lists 0 mutants and is skipped, so no PR pays a build for
+  code it did not change. The feature arms also made the *test* command
+  arm-agnostic (`--lib`, no `-p` union): with the union still in place,
+  `--all-features` activated all four packages inside one baseline test command and
+  both feature arms died at `*** result: Timeout` (exit 4, "cargo test failed in an
+  unmutated tree"), scoring the run 64%. The report's `- Preflight:` line is now built in
+  `ARM_NAMES` order: `${ARM_COUNTS[*]}` walks a hash map, so with three arms it
+  printed `root crates feat-csm-core-lib = 0 1 0` over real counts of `1 0 0` and
+  pointed a reader at the wrong arm. `scripts/test-mutation-arms.sh` pins the
+  command shape (a feature flag never meets a package that does not own it — the
+  #977 failure from the other side). Measured end to end on the #998 diff: the
+  gate now sees 19 mutants and scores 100.0000% (16 caught, 3 unviable, 0 missed)
+  where the same diff reported 66.67% with 6 MISSED.
 
 ## [0.3.9] - 2026-10-30
 
