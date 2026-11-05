@@ -14,6 +14,9 @@
 > - Dated snapshots (metrics, PR logs, wave reports) belong in the archive,
 >   not here. Record only the *current* value with a short dated comment.
 > - When a flag flips, update it in place; do not append a new block.
+> - CI truth (`main_head`, `ci_all_checks_passed`) is **derived, never stored** — a
+>   `scripts/check-goap-queue-issues.sh` STATE rule fails the file if either key
+>   reappears, because a stored verdict is unverified the moment `main` moves.
 
 world_state:
   # ── Core project ──────────────────────────────────────────────
@@ -26,21 +29,21 @@ world_state:
   binary_built: true
   documentation_complete: true       # 2026-10-20: MCP, exports, OTLP and same-SHA release docs reconciled
   validated: true                    # 2026-10-22: scripts/validate.sh rc 0 + harness-check.sh all rc 0
-  ci_all_checks_passed: false        # 2026-11-05: RED on the last two main heads, for TWO DIFFERENT reasons.
-                                     #   Push run 41869624859 (546727d0) attempt 1: `lint` died on runner
-                                     #   "No space left on device". Attempt 2 cleared the compile and then failed
-                                     #   the real gate — scripts/check-goap-queue-issues.sh rejected the STALE
-                                     #   #961 entry left in plans/ACTIONS.md, which is what this branch removes.
-                                     #   Push run 41847436489 (b8fae179): `lint` died on magic-nix-cache HTTP 418
-                                     #   + `Test DuckDB Companion` failed. The green run this flag used to cite
-                                     #   (41833935753) was c9b69ca5 — three heads behind main, so it never
-                                     #   certified the tree that landed. Re-set true only from a green run
-                                     #   whose head SHA == current origin/main tip.
+  # CI truth is NOT stored here (no `ci_all_checks_passed`, no `main_head`) — both are
+  # per-head facts that go stale the moment `main` moves, and a stored copy asserts what
+  # was believed, not what happened: on 2026-11-05 the flag sat at a green run three heads
+  # back while `main` was red on two consecutive heads, which also meant nothing could
+  # merge (`lint` is a required ruleset context). Derive instead:
+  #   scripts/goap-orchestrator.sh status
+  #     → ci-truth tip=<sha> state=green|red|pending|stale|unavailable run=<id>
+  # `state=green` only when the newest `main` push run's head SHA equals the current
+  # origin/main tip. `ci-truth state=unavailable` (no gh auth) is *unverified*, not green.
   loc_gate_verified: true            # all first-party src/ and crates/ files <= 500 LOC
 
   # ── Canonical metrics (update in place with a date comment) ──
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
-  main_head: "546727d0"              # 2026-11-05: `git rev-parse --short=8 origin/main` (#1008 landed)
+  # `main_head` was removed with ci_all_checks_passed — read it from `git rev-parse
+  # --short=8 origin/main` (or the ci-truth line above), never from this file.
   tests_count: 1192                  # 2026-11-04: `scripts/coverage-report.sh inventory` on this branch
                                      #   (tests/ 554, src/ 287, crates/*/src 331, crates/*/tests 20).
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
@@ -193,4 +196,5 @@ world_state:
   action_last_completed: bound_chaotic_lsh_and_voronoi_lsh_input_dim # 2026-11-04 (#961, PR #1008 -> 546727d0):
                                #   shared MAX_INPUT_DIM, rejecting try_new(), input_dim() accessor, and
                                #   lib-target assertions on what project() returns for an oversized input.
-                               #   Queue is now empty (see plans/ACTIONS.md); main CI is RED (ci_all_checks_passed).
+                               #   Queue is now empty (see plans/ACTIONS.md); CI truth is derived per head via
+                               #   `scripts/goap-orchestrator.sh status`, never stored in this file.
