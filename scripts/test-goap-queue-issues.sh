@@ -359,7 +359,10 @@ for banned in 'main_head: "546727d0"' 'ci_all_checks_passed: true' 'ci_all_check
         "stores '${banned%%:*}'" "goap-orchestrator.sh status"
 done
 write_baseline
-printf '  # `main_head` was removed — read it from git rev-parse, never from this file\n' \
+# The line carries `main_head:` with the colon, so this asserts the gate is
+# *anchored* — an explanation that names a banned key with a colon after it is
+# prose, not a stored key, and only `^  <key>:` distinguishes the two.
+printf '  # main_head: removed 2026-11-05 — derived now, never stored\n' \
     >> "${TEST_DIR}/plans/GOAP_STATE.md"
 run_gate
 expect_pass "the comment explaining the removal is not a stored key"
