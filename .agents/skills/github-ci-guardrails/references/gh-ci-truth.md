@@ -82,6 +82,54 @@ fix's own run — the pinned `ubuntu-24.04` job failed the byte-identical line. 
    main's `validate.sh` had no `cargo deny` stage at all until this branch unified the gate. When
    a PR moves a gate into a different toolchain, price the timeout from a run of *that* shape.
 
+### Runner-exhaustion signatures, and why `skipped` hides them (measured 2026-11-05, runs 41869624859 + 41847436489)
+
+Two consecutive `main` heads failed on the *same* job name with different environment causes, and the job
+list made both look like partial runs — `mutation-shard`/`mutation-test` **skipped**, macOS builds
+**cancelled**, because `lint` is their dependency. The causes were visible only in `gh run view --log-failed`:
+
+- `error: failed to build archive at target/debug/deps/libimage-*.rlib: No space left on device (os error 28)` —
+  the runner filled its own disk mid-compile. Nothing in the diff can cause this.
+- `HTTP error 418` / `GitHub Actions Cache throttled Magic Nix Cache. Not trying to use it again on this run`
+  followed by `error: substituter 'http://127.0.0.1:37515' is disabled` — the magic-nix-cache proxy got
+  throttled, so the job lost its substitute and rebuilt from source, which is also how it ends up disk-full.
+
+Both were attempt 1 and had never been re-run. Re-running the failed jobs is the diagnostic that *classifies*
+the failure, and per rule 1 above, a second identical stage failure is a verdict: a repeated `No space left`
+on a push that only touches docs means the workflow needs cleanup/`--no-fallback` cache posture, not that the
+code is wrong. Do not open a code fix for a job that never reached the code's assertions.
+
+**But classify the stage, not the job — attempt 2 of 41869624859 failed later and differently.** The retry got
+past the disk-full compile and failed the `LOC gate` step on a genuine assertion:
+`check-goap-queue-issues.sh` → `STALE: action … is queued with github_issue: #961, which GitHub reports as
+CLOSED … delete this action from plans/ACTIONS.md`. Two consequences:
+
+1. An infra cause at stage *n* says nothing about stage *n+1*. "The failure is environmental" is only safe as
+   "the failure that happened is environmental" — the run may be hiding a second, real one behind it, so re-read
+   the *failing step name* after the retry, not the job name.
+2. A docs/plan-hygiene gate failing on `main` is usually fixed by the very PR whose checks are pending, and
+   required contexts are evaluated **on the PR head**, not on `main`'s push run. Do not "wait for `main` to go
+   green before merging" — that deadlocks when the pending PR is the fix. Prove it both ways locally first:
+   `./scripts/check-goap-queue-issues.sh` exits 1 on the landed head and prints `ok: GOAP queue reconciled` rc 0
+   on the correcting branch.
+
+### A green run on an older head is not a passed check (2026-11-05)
+
+State files that record `ci_all_checks_passed: true` from `gh run list --limit N` will cite whichever recent
+run succeeded, not the current tip. The measured gap: the flag cited run 41833935753 (`c9b69ca5`) while the
+two newer `main` pushes above it were both red — three heads of drift, and `lint` is a required ruleset
+context, so the flag was simultaneously stale *and* implied merges that were unavailable. Always pair the
+run id with the SHA and re-derive:
+
+```bash
+TIP=$(git rev-parse --short=8 origin/main)
+gh run list --workflow=ci.yml --branch main --limit 1 \
+  --json headSha,conclusion,databaseId \
+  --jq '.[0] | {head:(.headSha[0:8]), conclusion, run:.databaseId}'
+# Compare .head to $TIP. Truth only when they match — `--jq` takes a bare filter, so
+# `--jq --arg tip "$TIP"` is parsed as a subcommand and errors ("unknown command \"tip\"").
+```
+
 ## The queue gate: read the refusal, then drain (measured 2026-10-31, runs 41188203137 + 41192441437)
 
 `release.yml` can refuse a perfectly green `main` because `pre-release-gate.yml`'s `pr-drain-check` job

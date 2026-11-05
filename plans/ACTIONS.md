@@ -16,14 +16,12 @@
 > reconciliation snapshot the file. Do not re-add completed entries.
 
 ```yaml
-  - name: bound_chaotic_lsh_and_voronoi_lsh_input_dim
-    github_issue: 961
-    preconditions: []
-    effects:
-      chaos_input_dim_rejected_not_clamped: true
-    cost: 3
-    status: in_progress
-
+# Queue empty as of 2026-11-05. The last active action,
+# bound_chaotic_lsh_and_voronoi_lsh_input_dim (#961), landed as PR #1008 -> 546727d0
+# and is recorded as `action_last_completed` in GOAP_STATE.md. Do not re-add it here.
+# The next action must come from the open-work flags in GOAP_STATE.md
+# (`release_pipeline_validated: false` is the one that blocks shipping), and per AGENTS.md
+# Phase 1 step 5 it gets roasted before anything is implemented.
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the

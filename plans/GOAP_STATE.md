@@ -26,13 +26,21 @@ world_state:
   binary_built: true
   documentation_complete: true       # 2026-10-20: MCP, exports, OTLP and same-SHA release docs reconciled
   validated: true                    # 2026-10-22: scripts/validate.sh rc 0 + harness-check.sh all rc 0
-  ci_all_checks_passed: true         # 2026-11-04: push run 41833935753 on c9b69ca5 succeeded on all
-                                     #   jobs including Test DuckDB Companion.
+  ci_all_checks_passed: false        # 2026-11-05: RED on the last two main heads, for TWO DIFFERENT reasons.
+                                     #   Push run 41869624859 (546727d0) attempt 1: `lint` died on runner
+                                     #   "No space left on device". Attempt 2 cleared the compile and then failed
+                                     #   the real gate — scripts/check-goap-queue-issues.sh rejected the STALE
+                                     #   #961 entry left in plans/ACTIONS.md, which is what this branch removes.
+                                     #   Push run 41847436489 (b8fae179): `lint` died on magic-nix-cache HTTP 418
+                                     #   + `Test DuckDB Companion` failed. The green run this flag used to cite
+                                     #   (41833935753) was c9b69ca5 — three heads behind main, so it never
+                                     #   certified the tree that landed. Re-set true only from a green run
+                                     #   whose head SHA == current origin/main tip.
   loc_gate_verified: true            # all first-party src/ and crates/ files <= 500 LOC
 
   # ── Canonical metrics (update in place with a date comment) ──
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
-  main_head: "b8fae179"              # 2026-11-04: `git rev-parse --short=8 origin/main`
+  main_head: "546727d0"              # 2026-11-05: `git rev-parse --short=8 origin/main` (#1008 landed)
   tests_count: 1192                  # 2026-11-04: `scripts/coverage-report.sh inventory` on this branch
                                      #   (tests/ 554, src/ 287, crates/*/src 331, crates/*/tests 20).
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
@@ -75,7 +83,8 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 1            # `grep -c '^  - name:' plans/ACTIONS.md` (#961 in progress)
+  queued_actions_count: 0            # `grep -c '^  - name:' plans/ACTIONS.md` — queue empty after #961 landed;
+                                     #   next action must come from the open-work flags below (release chain).
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -163,6 +172,12 @@ world_state:
   zip_bundled_assumption_gated: true              # 2026-11-03 (#966): stale zip ignores removed; gate ties any
                                                   #   future ignore to zip-in-lock + csm-duckdb/bundled
   mutation_arms_enable_crate_features: true # 2026-11-04 (#1006): feature arms with --all-features for csm-chaos/csm-core-lib
+  chaos_input_dim_rejected_not_clamped: true      # 2026-11-04 (#961/#1008): ChaoticLsh/VoronoiLsh share one
+                                                  #   MAX_INPUT_DIM = 4096 in hashing/mod.rs. try_new() -> Result
+                                                  #   rejects 0 and > 4096; the infallible new() still clamps but
+                                                  #   is doc-commented and detectable via the new input_dim()
+                                                  #   accessor, so an oversized caller cannot get all-zero codes
+                                                  #   without either an error or a readable shape mismatch.
 
   # ── GOAP bookkeeping ─────────────────────────────────────────
   goap_reconciliations_complete:
@@ -175,6 +190,7 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: score_feature_gated_crates_in_their_own_mutation_arms # 2026-11-04 (#1006):
-                               #   feature arms for csm-chaos and csm-core-lib with --all-features,
-                               #   arm-agnostic --lib test command, and test-mutation-arms.sh fixture.
+  action_last_completed: bound_chaotic_lsh_and_voronoi_lsh_input_dim # 2026-11-04 (#961, PR #1008 -> 546727d0):
+                               #   shared MAX_INPUT_DIM, rejecting try_new(), input_dim() accessor, and
+                               #   lib-target assertions on what project() returns for an oversized input.
+                               #   Queue is now empty (see plans/ACTIONS.md); main CI is RED (ci_all_checks_passed).
