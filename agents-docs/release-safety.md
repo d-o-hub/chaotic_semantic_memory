@@ -42,11 +42,15 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
 4. Run `cargo build --release` to sync Cargo.lock
 5. Commit all version files together (atomic)
 6. Push and wait for CI to pass on `main`; its completion triggers `release.yml`, which applies the version/tag check and owns the tag
-7. Dispatch `publish-crates.yml` for the tag `release.yml` just created (`ref=refs/tags/v<version>`,
-   `version=<version>`). Releases are no longer proof of a crates.io publish — and `verify-release`
-   still probes the nine index paths, so until that dispatch lands the release run reports a **red**
-   `verify-release` with a `Crates.io not published` annotation. That is the intended signal, not a
-   flake: re-run the job after the dispatch and it goes green.
+7. Watch `trigger-crates-io-publish` in the release run: it dispatches `publish-crates.yml`
+   for the tag `release.yml` just created (`ref=refs/tags/v<version>`, `version=<version>`) and
+   waits for that run's verdict, so a normal release does publish to crates.io. It cannot do the
+   publishing itself — crates.io refuses a token minted from this `workflow_run`-triggered file
+   (ADR-0104) — so a red dispatch job means the *other* run went wrong; open it. `verify-release`
+   then probes the nine index paths independently and stays red while any crate is missing, with a
+   `Crates.io not published` annotation. That is the intended signal, not a flake. A hand dispatch
+   (`gh workflow run publish-crates.yml -f ref=… -f version=…`) remains the recovery path, and the
+   only way to get a `dry_run`.
 
 ## Platform-Specific Notes
 - **macOS arm64**: NEON SIMD intrinsics require explicit unsafe blocks
@@ -68,7 +72,8 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
    recovery is to create the missing config and re-dispatch the same `ref` + `version`; crates
    already in the index at that version are skipped.
 4. Keep the `crates.io` environment's `protection_rules` empty (measured `[]`, see Failure item 2).
-   A reviewer on that environment would hold the job *mid-publish*, after some crates landed.
+   A reviewer on that environment would hold the job *mid-publish*, after some crates landed — and
+   since ADR-0104 it also stalls the release run that dispatched it until that job's wait expires.
 5. After the OIDC path is proven, revoke the crates.io API token **on crates.io**. Deleting the
    `CARGO_REGISTRY_TOKEN` GitHub secret does not revoke the credential; the token itself
    (created 2026-02-19, last updated 2026-07-22) is what #967's nine 403s were rejected against.
@@ -93,7 +98,10 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
    no drain. The hazard is the reverse one: re-running the tagged commit's CI creates a **new** gate run for
    it, and that run re-reads the open-PR list — so never re-run it while PRs are open, or a green historical
    verdict is replaced by a queue-dependent refusal.
-   **It does not cover crates.io.** `release.yml` cannot mint a crates.io OIDC token (that event is
-   `workflow_run`, which crates.io refuses — ADR-0104), so this recovery retries the GitHub Release
-   and both npm channels only. The crate half of a recovery is a separate
-   `gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9 -f version=0.3.9` dispatch.
+   **It covers crates.io too, from ADR-0104 onward.** `recover=true` sets `release-needed=true`, so
+   `trigger-crates-io-publish` runs and dispatches `publish-crates.yml` against the existing tag; the
+   publish loop is idempotent, so crates already at that version are skipped. What the recovery run
+   still cannot do is mint a crates.io token itself — `release.yml` is a `workflow_run`-triggered file
+   and crates.io refuses that event — so the crate half happens in the second run, and its verdict is
+   what this job reports. A direct `gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9
+   -f version=0.3.9` remains available whenever you want to name the ref yourself or pass `dry_run`.

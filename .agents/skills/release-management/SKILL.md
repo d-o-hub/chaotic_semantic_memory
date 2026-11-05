@@ -101,7 +101,7 @@ grep -q "^\[${VERSION}\]:" CHANGELOG.md
 
 | Target | Method | When |
 |--------|--------|------|
-| crates.io | OIDC Trusted Publishing | Human dispatch of `publish-crates.yml` once the tag exists |
+| crates.io | OIDC Trusted Publishing | `release.yml` dispatches `publish-crates.yml` and waits; hand dispatch for recovery or `dry_run` |
 | npm packages | `npm publish --provenance` / OIDC | Same |
 | GitHub Release | `softprops/action-gh-release` | Same |
 | GitHub Pages | mdBook deploy | Docs path on main / release jobs |
@@ -133,8 +133,8 @@ deployment still waiting — run it to confirm a wait exists, not to explain a f
 | Who | Action |
 |-----|--------|
 | **Human / PR** | Bump `Cargo.toml`, changelog, sync-version, merge via PR |
-| **`release.yml`** | Wait for CI → create+push `v{version}` → package → GitHub release + npm |
-| **`publish-crates.yml`** | Human dispatch naming a `ref` + `version` → OIDC exchange → publish the nine crates |
+| **`release.yml`** | Wait for CI → create+push `v{version}` → package → GitHub release + npm → dispatch the crates.io publish (never mints a crates.io token itself) |
+| **`publish-crates.yml`** | Dispatched by `release.yml`'s `trigger-crates-io-publish` with that release's `ref` + `version` (or by hand) → OIDC exchange → publish the nine crates |
 
 If the tag already exists, the workflow sets `release-needed=false` and skips re-publish paths (idempotent). Manual tag push is **recovery-only**, approval-gated — see `references/release-workflow.md`.
 
@@ -162,12 +162,14 @@ Also: `cargo deny check` before release when deps changed.
 ## Post-publish verification (the half the workflow cannot prove)
 
 `verify-release` enumerates the full set — **9** crates.io index paths, both npm packages, and the expected
-release assets (12 targets) — and accumulates misses instead of aborting at the first. What it cannot do is
-close a crates.io gap: publishing there is a human dispatch now, so a red `verify-release` on the crates half
-is an instruction ("dispatch `publish-crates.yml`"), not a retryable failure. Inside the publishing path, the
-set is split across steps — seven members in one loop, then the root crate, then `csm-duckdb` last because it
-path-depends on the root and polls the sparse index for it — so read every `run:` block, not just the loop
-header, before claiming a crate was covered.
+release assets (5 CLI targets → 7 files with `SHA256SUMS` and the WASM tarball, from the same
+`scripts/release-cli-matrix.sh` output that drives the build) — and accumulates misses instead of aborting at
+the first. It waits on `trigger-crates-io-publish`, so the crates it probes are the ones that workflow just
+tried to publish: a crates.io gap is a *failure with a named job to open*, not an instruction to go dispatch
+something by hand — that hand dispatch is the recovery path, and the only way to reach `dry_run`. Inside the
+publishing path, the set is split across steps — seven members in one loop, then the root crate, then
+`csm-duckdb` last because it path-depends on the root and polls the sparse index for it — so read every
+`run:` block, not just the loop header, before claiming a crate was covered.
 
 Rules that came out of validating the 0.3.9 scripts against the *previous* release:
 

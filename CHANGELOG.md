@@ -26,7 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `release.yml`'s `publish-crates` job is deleted — crates.io refuses
   tokens minted from the `workflow_run` event that triggers `release.yml`,
   so no edit to a job in that file could ever have used Trusted Publishing.
-  No workflow reads `secrets.CARGO_REGISTRY_TOKEN` any more.
+  `release.yml` instead gains `trigger-crates-io-publish`, which posts the
+  `workflow_dispatch` for the tag it just created (`workflow_dispatch` is the
+  one accepted event a running workflow can still cause), finds the run it
+  spawned by that run's `head_sha`, and goes red if the run fails, is held by
+  an environment approval, or never appears — so a normal release still
+  publishes to crates.io, from a workflow that can. No workflow reads
+  `secrets.CARGO_REGISTRY_TOKEN` any more.
 
 ### Fixed
 - **Chaos (`csm-chaos`, #961)**: `ChaoticLsh::new` and `VoronoiLsh::new` bounded their

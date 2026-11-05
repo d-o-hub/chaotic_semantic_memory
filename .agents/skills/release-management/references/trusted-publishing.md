@@ -22,8 +22,14 @@ for `workflow_run` and `pull_request_target`. A publishing job that lives inside
 `workflow_run`-triggered workflow (which is how this repo's `release.yml` fires) therefore
 cannot be fixed in place — the trigger has to move. That is why crates.io publishing lives
 in `publish-crates.yml` on `workflow_dispatch`, and why a tag trigger is not the answer
-either: `release.yml` pushes the tag with `secrets.GITHUB_TOKEN` and a `GITHUB_TOKEN` push
-spawns no workflow run at all.
+either: `release.yml` pushes the tag with the runner's own `GITHUB_TOKEN`
+(`release.yml:237-242`), and a `GITHUB_TOKEN` push spawns no workflow run at all.
+
+What the event rules do **not** forbid is the *dispatch*. GitHub's recursion guard is
+documented to exempt `workflow_dispatch` and `repository_dispatch`, so a job inside the
+release run may POST a dispatch and get a real run out of it — which is exactly what
+`release.yml`'s `trigger-crates-io-publish` does, then waits for that run's verdict. The
+publishing token is still minted only in the dispatched run, on an accepted event.
 
 ### Requirements
 
@@ -87,7 +93,9 @@ jobs:
 
 The minted token lives 30 minutes (`ACCESS_TOKEN_LIFETIME`), so keep the publishing job's
 `timeout-minutes` under that — a run that outlives its credential fails as a 403 and reads
-like a config problem.
+like a config problem. The job that *dispatches* this one needs no `id-token: write` at all:
+holding no token is the point, and its only crates.io job is to POST the dispatch, match the
+run it caused by that run's `head_sha`, and fail if the run fails or never finishes.
 
 ### Verification
 
@@ -127,8 +135,12 @@ so a bearer token — valid or not — never returns 200. Do not build a gate on
    - Configure:
      - **Organization**: `d-o-hub`
      - **Repository**: `chaotic_semantic_memory`
-     - **Workflow filename**: `npm-publish.yml` (just filename, not path!)
-     - **Environment**: `npm` (optional, matches workflow)
+     - **Workflow filename**: `release.yml` (just filename, not path!) — measured, not
+       copied: this repo has no `npm-publish.yml`, and 0.3.9 was published with provenance
+       by `release.yml`'s `publish-npm-wasm` (environment `npm`) and `publish-npm-cli`
+       (environment `npm-cli`) jobs.
+     - **Environment**: `npm` for the WASM package, `npm-cli` for the CLI package — each must
+       match the publishing job's `environment:`
 
 3. **Update GitHub Actions workflow** (already done):
    - Ensure `id-token: write` permission

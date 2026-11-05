@@ -76,13 +76,19 @@ Prefer **fix-forward** (patch release) over deleting published artifacts.
 
 ## Recovery dispatch (workflow_dispatch)
 
-A half-shipped release now needs **two** dispatches, because the two channels no longer
-live in the same workflow. For npm succeeded but crates.io missing:
+`recover=true` sets `release-needed=true`, and `release.yml`'s `trigger-crates-io-publish` runs
+on that condition — so **one** dispatch now covers all three channels, crates.io included:
 
 ```bash
 # GitHub Release + npm: retry missing artifacts for an existing tag
 gh workflow run release.yml --ref main -f recover=true -f recovery_tag=v0.3.9
+# → the same run dispatches publish-crates.yml for refs/tags/v0.3.9 and waits for its verdict
+```
 
+Dispatch the crate workflow by hand when the release half is already verified and only the
+crates are missing, or when you want `dry_run` (a release run never asks for one):
+
+```bash
 # crates.io: publish the same tag over OIDC, no secret involved
 gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9 -f version=0.3.9
 ```
@@ -91,11 +97,13 @@ gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9 -f version=0.3.9
 `::error::recovery_tag is required when recover=true.` (`release.yml:53-57`). `ref` and
 `version` are likewise both required on `publish-crates.yml`, and `version` must be the
 bare `0.3.9` — the workflow cross-checks it against what the ref's manifests declare.
+Neither path has been exercised end to end yet: v0.3.9's recovery is the first run through it.
 
 The recovery workflow:
 1. Sees tag exists, but `recover=true` → proceeds with `release-needed=true`
 2. Each job checks if its artifact already exists → skips if so
-3. Publishes only missing artifacts (idempotent)
+3. Publishes only missing artifacts (idempotent) — the crate loop skips by index row, the
+   dispatch job skips nothing it did not already see published
 
 **Prerequisites for recovery:**
 - Nine **crates.io trusted-publisher configs** exist (owner `d-o-hub`, repository
@@ -112,7 +120,9 @@ The recovery workflow:
   (`642238f0`) both are green (41104878082 / 41110522706). Re-running that commit's CI is the way to spoil it:
   the new gate run re-reads today's open-PR list and can refuse where history passed
 - `publish-crates.yml` has no CI gate of its own: it publishes whatever `ref` you name, so
-  naming a ref whose manifests disagree with `version` is the one thing that stops it
+  naming a ref whose manifests disagree with `version` is the one thing that stops it. From
+  ADR-0104 a release names the ref for you, which makes that cross-check the only thing
+  between a mis-tagged release and nine `cargo publish` calls.
 - Workspace crate names must not be taken by unrelated projects (see below)
 
 ## crates.io name conflicts
@@ -145,6 +155,9 @@ only `github-pages` carries a rule (`branch_policy`). Nothing can stall `publish
 or a timer, so a failed publish has a real cause — on v0.3.9 it was nine `403 authentication failed` uploads
 from a dead `CARGO_REGISTRY_TOKEN` (issue #967), not a waiting deployment. Keep it that way: reviewers on the
 `crates.io` environment would park the job *between* crate uploads, which is how a partial publish is made.
+Since ADR-0104 the stall is no longer invisible: `release.yml`'s `trigger-crates-io-publish` waits that run
+out (38 minutes of waiting inside its 40-minute job) and goes red with `parked on an environment approval`, so
+adding protection turns every release into a partially published one you have to notice.
 
 ```bash
 gh api repos/{owner}/{repo}/environments \
