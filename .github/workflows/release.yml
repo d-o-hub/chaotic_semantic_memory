@@ -347,131 +347,15 @@ jobs:
         path: release/*.tar.gz
         retention-days: 30
 
-  publish-crates:
-    runs-on: ubuntu-24.04
-    needs: [validate, build-cli-matrix]
-    if: needs.validate.outputs.release-needed == 'true'
-    environment: crates.io
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        ref: ${{ needs.validate.outputs.release-ref }}
-
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
-      with:
-        cache: false
-        toolchain: stable
-
-    - name: Probe the crates.io credential before publishing
-      run: |
-        set -euo pipefail
-        # Issue #967: one call distinguishes missing, malformed and wrong-account
-        # before a single crate is packaged. The 403 arrived 142 s into the loop at
-        # v0.3.9 and was then repeated per crate; this is the pre-flight that makes
-        # the credential a one-line diagnosis.
-        RESPONSE="$(mktemp)"
-        CODE="$(curl -sS -o "${RESPONSE}" -w '%{http_code}' \
-          -H "Authorization: ${CARGO_REGISTRY_TOKEN}" \
-          -H 'User-Agent: chaotic_semantic_memory-release' \
-          https://crates.io/api/v1/me || echo 000)"
-        if [ "${CODE}" != "200" ]; then
-          DETAIL="$(jq -r '.errors[0].detail // empty' "${RESPONSE}" 2>/dev/null || true)"
-          echo "::error title=Crates.io token::pre-flight failed (HTTP ${CODE}): ${DETAIL:-no detail}"
-          rm -f "${RESPONSE}"
-          exit 1
-        fi
-        LOGIN="$(jq -r '.user.login // empty' "${RESPONSE}")"
-        EXPECTED="${{ vars.CRATES_IO_EXPECTED_LOGIN || 'd-o-hub' }}"
-        rm -f "${RESPONSE}"
-        if [ "${LOGIN}" != "${EXPECTED}" ]; then
-          echo "::error title=Crates.io token::authenticated as '${LOGIN}', expected '${EXPECTED}'"
-          exit 1
-        fi
-        echo "crates.io token pre-flight: authenticated as ${LOGIN}"
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-    - name: Publish workspace crates incrementally
-      run: |
-        VERSION="${{ needs.validate.outputs.version }}"
-        # The pattern this file shipped for its first four index probes — `""vers":"$VERSION""` — is
-        # not the pattern it looks like. Bash splices the adjacent quote runs (`""` + `vers` + `":"` +
-        # $VERSION + `""`) into `vers:0.3.9`, and the sparse index stores `"vers":"0.3.9"`, with the
-        # quotes between the key and the colon, so `vers:0.3.9` cannot match a row that exists: every
-        # one of these checks answered "not published" for versions that were (#971). `-F` with
-        # escaped quotes is the whole fix, and every index probe in this file uses the same form so
-        # the next one does not re-derive the splice.
-        version_published() {
-          local crate="$1" path
-          path="$(bash scripts/crates-io-index-path.sh "${crate}")"
-          curl -sL "https://index.crates.io/${path}" | grep -qF "\"vers\":\"$VERSION\""
-        }
-
-        CRATES="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
-        FAILED=""
-        for crate in $CRATES; do
-          if version_published "$crate"; then
-            echo "⏭️ $crate@$VERSION already on crates.io, skipping"
-            continue
-          fi
-          echo "Publishing $crate@$VERSION..."
-          if cargo publish -p "$crate" --allow-dirty > /tmp/publish.log 2>&1; then
-            echo "  ✅ $crate@$VERSION published"
-          elif grep -qiE 'already (uploaded|exists)' /tmp/publish.log; then
-            echo "  ⏭️ $crate@$VERSION already uploaded"
-          else
-            echo "  ❌ $crate@$VERSION publish failed:"
-            tail -20 /tmp/publish.log
-            if grep -qiE 'authentication failed|403 Forbidden|401 Unauthorized' /tmp/publish.log; then
-              echo "::error title=Crates.io token::credential rejected while publishing ${crate}; aborting instead of repeating it per crate"
-              exit 1
-            fi
-            FAILED="$FAILED $crate"
-          fi
-          sleep 15
-        done
-
-        if [ -n "$FAILED" ]; then
-          echo "::error::Publish failed for:$FAILED"
-          return 1 2>/dev/null || exit 1
-        fi
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-    - name: Publish root crate to crates.io
-      run: |
-        VERSION="${{ needs.validate.outputs.version }}"
-        CRATE_PATH="$(bash scripts/crates-io-index-path.sh chaotic_semantic_memory)"
-        if curl -sL "https://index.crates.io/${CRATE_PATH}" | grep -qF "\"vers\":\"$VERSION\""; then
-          echo "⏭️ chaotic_semantic_memory@$VERSION already on crates.io, skipping"
-        else
-          echo "Publishing chaotic_semantic_memory@$VERSION..."
-          cargo publish -p chaotic_semantic_memory --locked --allow-dirty
-        fi
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-    - name: Publish csm-duckdb
-      run: |
-        VERSION="${{ needs.validate.outputs.version }}"
-        DUCKDB_PATH="$(bash scripts/crates-io-index-path.sh csm-duckdb)"
-        ROOT_PATH="$(bash scripts/crates-io-index-path.sh chaotic_semantic_memory)"
-        if curl -sL "https://index.crates.io/${DUCKDB_PATH}" | grep -qF "\"vers\":\"$VERSION\""; then
-          echo "⏭️ csm-duckdb@$VERSION already on crates.io, skipping"
-          return 0 2>/dev/null || exit 0
-        fi
-        echo "Waiting for chaotic_semantic_memory@$VERSION in sparse index..."
-        for attempt in $(seq 1 30); do
-          if curl -sL "https://index.crates.io/${ROOT_PATH}" | grep -qF "\"vers\":\"$VERSION\""; then
-            echo "✅ chaotic_semantic_memory@$VERSION visible"
-            break
-          fi
-          sleep 15
-        done
-        cargo publish -p csm-duckdb --allow-dirty
-      env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+  # crates.io publishing lives in publish-crates.yml, not in this file. crates.io
+  # refuses OIDC tokens minted from the `workflow_run` event that triggers release.yml
+  # (release.yml:4-7), so no edit to a job here could ever have used Trusted
+  # Publishing: the trigger had to move, not the job.
+  #
+  # `verify-release` still probes the nine crates and still reds the run when they are
+  # absent, by design — that is how v0.3.9 ended up missing from crates.io for weeks
+  # while the release itself looked finished. It now names the remedy instead of
+  # waiting for a job: dispatch publish-crates.yml, then re-run verify-release.
 
   create-github-release:
     runs-on: ubuntu-24.04
@@ -695,7 +579,7 @@ jobs:
 
   verify-release:
     runs-on: ubuntu-24.04
-    needs: [validate, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli]
+    needs: [validate, create-github-release, publish-npm-wasm, publish-npm-cli]
     if: always() && needs.validate.outputs.release-needed == 'true'
     steps:
     - name: Verify complete release across all registries
@@ -806,6 +690,13 @@ jobs:
 
         if [ -n "$ERRORS" ]; then
           echo "::error::Partial release detected! Missing: ${ERRORS}"
+          # A crates.io miss is no longer a failed job to re-run: publishing there is a
+          # human dispatch now, because crates.io refuses OIDC tokens minted from this
+          # file's `workflow_run` trigger. Say what closes the gap, or the red run reads
+          # as a flake and the release ships half-done — which is how 0.3.9 happened.
+          if [[ "$ERRORS" == *crates.io/* ]]; then
+            echo "::error title=Crates.io not published::dispatch publish-crates.yml with ref refs/tags/v${VERSION} and version ${VERSION}, then re-run this job"
+          fi
           return 1 2>/dev/null || exit 1
         fi
       env:
@@ -836,7 +727,7 @@ jobs:
     # Issue #969: render the verdict from explicit sibling results, not a fixed
     # sentence. `if: always()` alone is what let a partial or absent release read
     # as routine; the results are read in scripts/release-verdict.sh.
-    needs: [validate, build-cli-matrix, build-wasm, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli, verify-release, no-verdict]
+    needs: [validate, build-cli-matrix, build-wasm, create-github-release, publish-npm-wasm, publish-npm-cli, verify-release, no-verdict]
     if: always()
     permissions:
       contents: read
@@ -851,7 +742,6 @@ jobs:
         VALIDATE_RESULT: ${{ needs.validate.result }}
         BUILD_CLI_RESULT: ${{ needs.build-cli-matrix.result }}
         BUILD_WASM_RESULT: ${{ needs.build-wasm.result }}
-        PUBLISH_CRATES_RESULT: ${{ needs.publish-crates.result }}
         NPM_WASM_RESULT: ${{ needs.publish-npm-wasm.result }}
         NPM_CLI_RESULT: ${{ needs.publish-npm-cli.result }}
         RELEASE_RESULT: ${{ needs.create-github-release.result }}

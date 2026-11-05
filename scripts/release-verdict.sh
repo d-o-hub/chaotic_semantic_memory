@@ -17,8 +17,11 @@
 #
 # Inputs are environment variables (empty is rendered as "skipped"):
 #   VERSION, EVENT_NAME, RELEASE_NEEDED, VALIDATE_RESULT, BUILD_CLI_RESULT,
-#   BUILD_WASM_RESULT, PUBLISH_CRATES_RESULT, NPM_WASM_RESULT, NPM_CLI_RESULT,
-#   RELEASE_RESULT, VERIFY_RESULT
+#   BUILD_WASM_RESULT, NPM_WASM_RESULT, NPM_CLI_RESULT, RELEASE_RESULT, VERIFY_RESULT
+# There is no crates-publish row here: crates.io is published by the dispatch-only
+# publish-crates.yml (crates.io refuses OIDC tokens minted from release.yml's
+# workflow_run trigger), so a crates gap reaches this verdict through VERIFY_RESULT,
+# which still probes all nine index rows.
 # Exit: 0 always except usage errors (2).
 # Fixture: scripts/test-release-verdict.sh
 
@@ -57,7 +60,6 @@ else
     for pair in \
         "build-cli-matrix:$(result "${BUILD_CLI_RESULT:-}")" \
         "build-wasm:$(result "${BUILD_WASM_RESULT:-}")" \
-        "publish-crates:$(result "${PUBLISH_CRATES_RESULT:-}")" \
         "publish-npm-wasm:$(result "${NPM_WASM_RESULT:-}")" \
         "publish-npm-cli:$(result "${NPM_CLI_RESULT:-}")" \
         "create-github-release:$(result "${RELEASE_RESULT:-}")"; do

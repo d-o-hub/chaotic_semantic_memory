@@ -93,35 +93,46 @@ expect_not "nothing-to-do is not an error" "::error"
 
 echo "Test 9: a complete release is published"
 run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEASE_NEEDED=true \
-  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success PUBLISH_CRATES_RESULT=success \
+  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success \
   NPM_WASM_RESULT=success NPM_CLI_RESULT=success RELEASE_RESULT=success VERIFY_RESULT=success
 expect "published" 0 "Verdict: published"
 expect "artifact counts" 0 "9 crates, 2 npm packages, and 7 release assets"
 expect_not "published is not an error" "::error"
 
-echo "Test 10: a failed crates publish is partial and names the job"
+echo "Test 10: unpublished crates is caught by the verifier, and no job row is left"
+# release.yml has no publish-crates job any more: crates.io is published by the
+# dispatch-only publish-crates.yml, because crates.io refuses OIDC tokens minted from
+# release.yml's workflow_run trigger. A crates gap therefore arrives as VERIFY_RESULT
+# =failure (verify-release still probes all nine rows) — never as a failed sibling job.
+# Asserting the stale name is absent is what keeps the removed row from coming back.
 run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEASE_NEEDED=true \
-  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success PUBLISH_CRATES_RESULT=failure \
+  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success \
   NPM_WASM_RESULT=success NPM_CLI_RESULT=success RELEASE_RESULT=success VERIFY_RESULT=failure
 expect "partial" 0 "Verdict: partial"
-expect "names the failed job" 0 "publish-crates (failure)"
+expect "the verifier owns the gap" 0 "the release is unverified"
 expect "error annotation" 0 "::error title=Release::partial"
+expect_not "no publish-crates job row remains" "publish-crates"
 
-echo "Test 11: a failed verifier is unverified, not published"
+echo "Test 11: a verifier that never ran is unverified, not published"
+# Distinct from Test 10 by branch, not by wording: `failure` means someone checked and
+# the release is short, `skipped` means nothing was ever checked. Both must refuse the
+# published verdict, and the second is what a release run looks like when a publish job
+# reds and verify-release never gets a chance to run.
 run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEASE_NEEDED=true \
-  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success PUBLISH_CRATES_RESULT=success \
-  NPM_WASM_RESULT=success NPM_CLI_RESULT=success RELEASE_RESULT=success VERIFY_RESULT=failure
+  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success \
+  NPM_WASM_RESULT=success NPM_CLI_RESULT=success RELEASE_RESULT=success VERIFY_RESULT=skipped
 expect "unverified" 0 "the release is unverified"
+expect_not "a skipped verifier never says published" "Verdict: published"
 
 echo "Test 12: a skipped publish job is incomplete"
 run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEASE_NEEDED=true \
-  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success PUBLISH_CRATES_RESULT=success \
+  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success \
   NPM_WASM_RESULT=success NPM_CLI_RESULT=skipped RELEASE_RESULT=success VERIFY_RESULT=success
 expect "skipped job named" 0 "skipped: publish-npm-cli"
 
 echo "Test 13: a cancelled build is partial"
 run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEASE_NEEDED=true \
-  BUILD_CLI_RESULT=cancelled BUILD_WASM_RESULT=success PUBLISH_CRATES_RESULT=skipped \
+  BUILD_CLI_RESULT=cancelled BUILD_WASM_RESULT=success \
   NPM_WASM_RESULT=skipped NPM_CLI_RESULT=skipped RELEASE_RESULT=skipped VERIFY_RESULT=skipped
 expect "cancelled build named" 0 "build-cli-matrix (cancelled)"
 
