@@ -820,3 +820,28 @@
   measurement — not a compile error, and exit 101 is Rust's panic code rather than a `cc` failure. Reading the
   step timeline plus the message's `kind:` separates "retry the attempt" from "fix the code" faster than any
   badge, and the cache state that carries the residue is queryable (`gh cache list --ref refs/heads/main`).
+- **An upstream event blacklist constrains where the token is minted, not who may start the run
+  (2026-11-05, ADR-0104)**: this branch first shipped "crates.io publishing is a human dispatch, and a
+  release run no longer proves it" — written straight from crates.io refusing OIDC assertions for
+  `workflow_run`. That refusal is about the *exchange*, and GitHub's `GITHUB_TOKEN` recursion guard is
+  documented to exempt `workflow_dispatch`, so a job inside the release run can POST a dispatch and read
+  the spawned run's verdict. Before documenting a channel as manual-only, ask which link in the chain the
+  restriction actually lands on; "the job cannot move" is not evidence that "the run cannot be caused".
+- **A text-shaped gate reads comments as code (2026-11-05)**: two of the new structural assertions red a
+  correct workflow — one because a prose line mentioned `dry_run`, one because a comment quoted the very
+  `${{ }}` syntax the rule forbids. An assertion over source either strips comment lines or pins the
+  positive artifact instead of the absence of a word (here: the payload is exactly `ref` + `inputs.version`),
+  because a checker that punishes documentation teaches the next reader to phrase the rule away.
+- **Match a run you caused by the ref you caused it on, not by recency (2026-11-05)**: "newest run of that
+  workflow" silently credits a concurrent manual dispatch with this release's outcome. The bound is
+  `id > last-seen-before-POST AND head_sha == <release commit>`, and the fixture carries a *newer* run on a
+  foreign sha so the assertion can actually fail. If the unreadable-run-list case is not tested too, the
+  matcher degrades to guessing on noise the day the API hiccups.
+- **A replay of one file cannot see a contract broken between two files (2026-11-05, ADR-0104)**: the dispatch
+  step I wrote was well-formed, replayed green against a stubbed API, and would have failed every real release —
+  `publish-crates.yml` declares `ref` as a required `workflow_dispatch` input, my payload sent only `version`, so
+  GitHub answers 422. The fixture step-replays a body and structurally reads one YAML at a time; nothing joined
+  them. The gate that closes the class parses the *receiver's* schema (`on.workflow_dispatch.inputs[*].required`)
+  and asserts the sender's payload covers it, plus a second assertion that the receiver declares enough inputs —
+  otherwise an empty or renamed schema makes the coverage check quietly vacuous. Whenever two files must agree and
+  every test looks at one of them, the missing test is the one that reads both.

@@ -38,6 +38,10 @@ world_state:
   #     → ci-truth tip=<sha> state=green|red|pending|stale|unavailable run=<id>
   # `state=green` only when the newest `main` push run's head SHA equals the current
   # origin/main tip. `ci-truth state=unavailable` (no gh auth) is *unverified*, not green.
+  # Scope: ci.yml. pre-release-gate and release are expected to be red while unlabelled PRs
+  # are open (#903/#969) — that is the drain check refusing, not a failed CI. A red whose
+  # log shows a runner cache collision or a magic-nix-cache 418 is infra: re-run the attempt
+  # first (proved 2026-11-05, when attempt 2 of push run 42041881050 cleared on its own).
   loc_gate_verified: true            # all first-party src/ and crates/ files <= 500 LOC
 
   # ── Canonical metrics (update in place with a date comment) ──
@@ -72,12 +76,14 @@ world_state:
 
   # ── Active wave / release surface ─────────────────────────────
   release_pipeline_validated: false  # v0.3.9: tag + 2/2 npm + 7 assets live, crates.io 0/9 (dead
-                                     #   credential, #967). Stays false until 9/9. The GitHub+npm half
-                                     #   recovers with `recover=true recovery_tag=v0.3.9`; the crates.io
-                                     #   half now needs `gh workflow run publish-crates.yml -f
-                                     #   ref=refs/tags/v0.3.9 -f version=0.3.9` (ADR-0104), which
-                                     #   `release.yml` cannot do — crates.io refuses `workflow_run`
-                                     #   tokens. A green run whose jobs all skipped is not evidence (#969).
+                                     #   credential, #967). Stays false until 9/9. A `recover=true
+                                     #   recovery_tag=v0.3.9` release run now drives the crates.io half
+                                     #   too (trigger-crates-io-publish dispatches publish-crates.yml),
+                                     #   but the first proof should be the direct
+                                     #   `gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9
+                                     #   -f version=0.3.9` dispatch: one named run, one verdict, no
+                                     #   release in flight. A green run whose jobs all skipped is not
+                                     #   evidence (#969).
   audit_followup_wave_merged: true   # 2026-10-30: PR #947 -> 3953e818
   release_gate_race_repaired: true   # 2026-10-30: bounded 30m same-SHA gate wait (#953/#962)
   release_refusal_names_the_failing_gate_job: true  # #960: gate-failure-detail.sh names the job
@@ -88,6 +94,12 @@ world_state:
                                      #   (id-token: write, environment crates.io); no workflow reads
                                      #   secrets.CARGO_REGISTRY_TOKEN any more. Proven locally by
                                      #   scripts/test-verify-release-step.sh, not yet by a live dispatch.
+  release_run_drives_crates_io_publish: false       # release.yml's trigger-crates-io-publish POSTs the
+                                     #   dispatch and waits for that run's verdict (the GITHUB_TOKEN
+                                     #   recursion block exempts workflow_dispatch). Code + fixture on
+                                     #   this branch; false until a release run shows the job green
+                                     #   alongside 9/9 index rows. Until then the hand dispatch is the
+                                     #   path that has actually been tested.
   crates_io_trusted_publishers_configured: false    # the 9 configs exist only in the crates.io UI and there
                                      #   is no endpoint that lists them, so CI cannot pre-flight them; the
                                      #   reconciliation step of publish-crates.yml is the sensor. Revoking
@@ -207,12 +219,19 @@ world_state:
   action_last_completed: publish_crates_io_over_oidc_from_dispatch # 2026-11-05 (ADR-0104):
                                #   publish-crates.yml (workflow_dispatch, OIDC, timeout under the
                                #   30-minute token life, index reconciliation over all nine) replaces
-                               #   release.yml's publish-crates job; the /api/v1/me probe is gone
+                               #   release.yml's publish-crates job, and release.yml's new
+                               #   trigger-crates-io-publish dispatches it for the tag it just made and
+                               #   waits for that run's verdict (crates.io refuses a workflow_run token
+                               #   but accepts a dispatch a run posts). The /api/v1/me probe is gone
                                #   because that route is cookie-only and could never answer 200;
-                               #   scripts/test-verify-release-step.sh now covers both files (91 cases).
-                               #   Its predecessor, derive_ci_truth_and_delete_stored_keys (PR #1010 ->
-                               #   #1013), deleted ci_all_checks_passed / main_head from this file and
-                               #   made scripts/check-goap-queue-issues.sh fail closed if either returns.
+                               #   scripts/test-verify-release-step.sh now covers both files (137 cases)
+                               #   and scripts/test-release-verdict.sh 31. Its predecessor,
+                               #   derive_ci_truth_and_delete_stored_keys (PR #1010 -> #1013), deleted
+                               #   ci_all_checks_passed / main_head from this file and made
+                               #   scripts/check-goap-queue-issues.sh fail closed if either returns.
                                #   Queue is empty (see plans/ACTIONS.md); CI truth comes from
-                               #   `scripts/goap-orchestrator.sh status` (ci-truth tip=<sha> state=…), never
-                               #   from a stored flag.
+                               #   `scripts/goap-orchestrator.sh status`, never from a stored flag — the
+                               #   run that last needed reading, attempt 2 of push run 42041881050 at
+                               #   123e5e89, is recorded here as history, not as a verdict.
+                               #   Not done yet: the nine trusted-publisher configs, the v0.3.9 dispatch,
+                               #   revoking the crates.io API token, and any live run of the dispatch job.

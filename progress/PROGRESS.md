@@ -2377,16 +2377,56 @@ new structural assertions (each mutation-proved), and behavioral replays for the
 auth-failure abort and the 2-of-9 partial publish — 91 cases, 0 failures. `scripts/release-verdict.sh` and its
 fixture dropped the job row (26/0). Docs: ADR-0104 + registry row + `context.yaml` ADR count 100, ADR-0039's
 undelivered OIDC claim and ADR-0042's "no such action" both amended, `book/src/release.md` job list and
-Security section, `agents-docs/release-safety.md` gained a numbered nine-config operator checklist and the
-note that the release.yml recovery dispatch no longer covers crates.io, and the `release-management` skill's
-`trusted-publishing.md` / `release-workflow.md` / `SKILL.md` no longer tell anyone to put a token in two
-scopes. Gates: actionlint rc 0 (11 workflows), `publish-crates.yml` 0 warnings/0 advisories, ADR parity ok,
-`validate_llm_context.py` 100==100, docs-links 245/0 broken, catalog regenerated, queue gate reconciled with
-an empty queue.
+Security section, `agents-docs/release-safety.md` gained a numbered nine-config operator checklist, and the
+`release-management` skill's `trusted-publishing.md` / `release-workflow.md` / `SKILL.md` no longer tell anyone
+to put a token in two scopes. Gates: actionlint rc 0 (11 workflows), `publish-crates.yml` 0 warnings/0
+advisories, ADR parity ok, `validate_llm_context.py` 100==100, docs-links 245/0 broken, catalog regenerated,
+queue gate reconciled with an empty queue.
 
 Not done, and not doable from the repo: the nine trusted-publisher configs in the crates.io UI (owner
 `d-o-hub`, repo `chaotic_semantic_memory`, workflow `publish-crates.yml`, environment exactly `crates.io`), the
 dry-run and real v0.3.9 dispatches, and revoking the crates.io API token there — deleting the GitHub secret
-does not revoke it. `main` is red at `123e5e89` on one job (`Test DuckDB Companion`, a `libduckdb-sys`
-build-script unpack collision, infra-class), and #1013 is `CLEAN` and must merge before this branch rebases
-onto it.
+does not revoke it. `main` is green at `123e5e89`: attempt 1 of push run 42041881050 failed `Test DuckDB
+Companion` in a `libduckdb-sys` build-script unpack collision (infra-class), and the re-run cleared it — which
+is the proof the classification was right, not just a guess. #1013 is `CLEAN` and must merge before this
+branch rebases onto it.
+
+## 2026-11-05: the release run drives the crates.io publish (`trigger-crates-io-publish`)
+
+Direction taken after ADR-0104 landed on this branch: keep OIDC, and have `release.yml` publish crates.io
+automatically rather than leaving it to a human. Both are true at once because crates.io's event list rejects
+the *job* but not the *dispatch* — GitHub's `GITHUB_TOKEN` recursion guard is documented to exempt
+`workflow_dispatch`, so a job inside the release run may POST one and get a real run out of it.
+
+`release.yml` gained `trigger-crates-io-publish` (`permissions: contents:read + actions:write`,
+`timeout-minutes: 40`): it POSTs `workflow_dispatch` to `publish-crates.yml` with the tag this run just created
+and the release version, finds the run it caused (ids newer than the last pre-dispatch run **and** `head_sha`
+equal to the release commit), spends at most 3 min finding it and 35 min waiting for its verdict (38 min inside
+a 40-minute job), and reds on `failure`, on a run still `waiting`/`in_progress` at the bound, and on a dispatch
+that spawned nothing (the default-branch case). `dry_run` is deliberately not in the payload, so the dispatched
+default `false` applies — a release publishes for real, and the dry run stays a human choice. It holds no token,
+needs no `id-token: write`, and never re-probes the index: the spawned workflow's own reconciliation step is the
+stronger check, and `verify-release` — now `needs` this job — independently re-probes all nine rows afterward
+anyway. `release-verdict.sh` reports the job as its own row so a red dispatch names itself instead of surfacing
+as a mysterious verify miss.
+
+Fixture: `scripts/test-verify-release-step.sh` 815 → 1056 lines, 137 cases 0 failures — 20 new structural
+assertions (24 → 44 checks) over the dispatch job (exact permission set, no environment of its own, `if:` on
+`release-needed`, payload shape, sha-matched discovery, no expression inside the `run:` body, bound under the
+token life, `verify-release`/`notify` wiring) plus seven behavioral replays through a stubbed Actions API (green,
+foreign-sha ignore, empty history, rejected POST, unreadable run list, no spawned run, `failure`, `waiting`). Two
+of the 20 are **cross-file**: they read every `required: true` dispatch input out of `publish-crates.yml`'s `on:`
+block and fail if the payload `release.yml` builds omits one — the gate that would have caught the first draft of
+that payload, which sent `inputs.version` but not the required `inputs.ref` and would have 422'd every release. Each was
+mutation-proved: `actions: read`, dropping the `needs` entry, adding `dry_run: true` to the payload, putting
+`${{ }}` in the body, and `timeout-minutes: 120` all turn exactly their own assertion red.
+`scripts/test-release-verdict.sh` 26 → 31 cases with the two new dispatch rows.
+
+Docs corrected to match: ADR-0104 items 1/8/9 and its consequences ("a normal release run no longer proves
+crates.io" was the pessimistic half of the same doc-lag defect this branch roasts in the other direction),
+`book/src/release.md` job list — which also dropped a stale `update-rolling-tags` step that exists in no
+workflow — `agents-docs/release-safety.md` version-bump step 7 and recovery item 3 (a `recover=true` release now
+*does* cover crates.io), the `release-management` skill's dispatch tables, and its "12 targets" asset claim
+(measured: `scripts/release-cli-matrix.sh` emits 5 targets → 7 assets). Two more stale claims fell out of
+reading while editing: the npm trusted-publisher doc named a workflow file this repo does not have, and the SKILL
+prose still described crates.io publishing as human-only.
