@@ -2388,8 +2388,9 @@ Not done, and not doable from the repo: the nine trusted-publisher configs in th
 dry-run and real v0.3.9 dispatches, and revoking the crates.io API token there — deleting the GitHub secret
 does not revoke it. `main` is green at `123e5e89`: attempt 1 of push run 42041881050 failed `Test DuckDB
 Companion` in a `libduckdb-sys` build-script unpack collision (infra-class), and the re-run cleared it — which
-is the proof the classification was right, not just a guess. #1013 is `CLEAN` and must merge before this
-branch rebases onto it.
+is the proof the classification was right, not just a guess. #1013 merged as `1210f732` and this branch rebased
+onto it; the rebase deleted `ci_all_checks_passed` and `main_head` from `plans/GOAP_STATE.md` rather than
+re-asserting them, because that PR's gate fails closed on either key reappearing.
 
 ## 2026-11-05: the release run drives the crates.io publish (`trigger-crates-io-publish`)
 
