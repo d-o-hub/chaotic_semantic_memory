@@ -99,6 +99,20 @@ the failure, and per rule 1 above, a second identical stage failure is a verdict
 on a push that only touches docs means the workflow needs cleanup/`--no-fallback` cache posture, not that the
 code is wrong. Do not open a code fix for a job that never reached the code's assertions.
 
+**But classify the stage, not the job — attempt 2 of 41869624859 failed later and differently.** The retry got
+past the disk-full compile and failed the `LOC gate` step on a genuine assertion:
+`check-goap-queue-issues.sh` → `STALE: action … is queued with github_issue: #961, which GitHub reports as
+CLOSED … delete this action from plans/ACTIONS.md`. Two consequences:
+
+1. An infra cause at stage *n* says nothing about stage *n+1*. "The failure is environmental" is only safe as
+   "the failure that happened is environmental" — the run may be hiding a second, real one behind it, so re-read
+   the *failing step name* after the retry, not the job name.
+2. A docs/plan-hygiene gate failing on `main` is usually fixed by the very PR whose checks are pending, and
+   required contexts are evaluated **on the PR head**, not on `main`'s push run. Do not "wait for `main` to go
+   green before merging" — that deadlocks when the pending PR is the fix. Prove it both ways locally first:
+   `./scripts/check-goap-queue-issues.sh` exits 1 on the landed head and prints `ok: GOAP queue reconciled` rc 0
+   on the correcting branch.
+
 ### A green run on an older head is not a passed check (2026-11-05)
 
 State files that record `ci_all_checks_passed: true` from `gh run list --limit N` will cite whichever recent

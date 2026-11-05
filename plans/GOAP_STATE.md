@@ -26,10 +26,13 @@ world_state:
   binary_built: true
   documentation_complete: true       # 2026-10-20: MCP, exports, OTLP and same-SHA release docs reconciled
   validated: true                    # 2026-10-22: scripts/validate.sh rc 0 + harness-check.sh all rc 0
-  ci_all_checks_passed: false        # 2026-11-05: RED on the last two main heads. Push run 41869624859
-                                     #   (546727d0) `lint` died on runner "No space left on device"; push run
-                                     #   41847436489 (b8fae179) `lint` died on magic-nix-cache HTTP 418 +
-                                     #   `Test DuckDB Companion` failed. The green run this flag used to cite
+  ci_all_checks_passed: false        # 2026-11-05: RED on the last two main heads, for TWO DIFFERENT reasons.
+                                     #   Push run 41869624859 (546727d0) attempt 1: `lint` died on runner
+                                     #   "No space left on device". Attempt 2 cleared the compile and then failed
+                                     #   the real gate — scripts/check-goap-queue-issues.sh rejected the STALE
+                                     #   #961 entry left in plans/ACTIONS.md, which is what this branch removes.
+                                     #   Push run 41847436489 (b8fae179): `lint` died on magic-nix-cache HTTP 418
+                                     #   + `Test DuckDB Companion` failed. The green run this flag used to cite
                                      #   (41833935753) was c9b69ca5 — three heads behind main, so it never
                                      #   certified the tree that landed. Re-set true only from a green run
                                      #   whose head SHA == current origin/main tip.

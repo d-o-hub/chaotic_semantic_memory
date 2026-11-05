@@ -769,4 +769,15 @@
   had an unpushed-looking commit `f5e41fa9`, but `git diff --stat origin/main f5e41fa9` was empty — squash-merge
   had already landed the same tree as `546727d0`. Compare the tree against `origin/main` before concluding there
   is work to push; an identical tree means reconcile the state files and re-base onto `main`, not re-push.
+- **The first failure cause is the front of the queue, not the whole queue (2026-11-05, run 41869624859).**
+  `main`'s `lint` failed attempt 1 on runner `No space left on device`; attempt 2 cleared that compile and then
+  failed a *different, real* step — `check-goap-queue-issues.sh` rejecting the stale `#961` action left in
+  `plans/ACTIONS.md`. So "infra" described only the stage that died first. Re-run to the end before classifying,
+  and when the retry fails at a later step, the earlier infra cause was masking a genuine gate failure. Corollary:
+  required contexts evaluate on the **PR head**, so the PR that fixes the stale entry is not blocked by red `main`
+  — waiting for `main` first would deadlock.
+- **Never let a watcher assert a cause it did not measure (2026-11-05).** A monitoring loop printed
+  "disk-full reproduced, this is a workflow defect not a flake" on any `completed:failure` — a conclusion baked
+  into a status branch. It fired twice, both times wrong. Report `state=completed:failure step=<from the log>`
+  and leave the causal claim to whoever reads `--log-failed`.
 
