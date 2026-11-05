@@ -147,8 +147,51 @@ cmd_execute() {
     echo -e "${YELLOW}Implement changes for Issue #$issue_num${NC}"
 }
 
+# CI truth is a property of the *current* main tip, not of "a recent green run".
+# Printed as `key=value` so a session cannot transcribe an older head's run as passing.
+ci_truth_on_main_tip() {
+    local tip row head status conclusion run_id verdict
+    tip=$(git rev-parse --short=8 origin/main 2>/dev/null) || {
+        echo "ci-truth state=unavailable reason=no-origin-main"; return 0; }
+    row=$(gh run list --workflow=ci.yml --branch main --event push --limit 1 \
+        --json headSha,status,conclusion,databaseId \
+        --jq '.[0] // empty | "\(.headSha[0:8])|\(.status)|\(.conclusion // "")|\(.databaseId)"' \
+        2>/dev/null) || row=""
+    if [[ -z "$row" ]]; then
+        echo "ci-truth tip=$tip state=unavailable reason=no-push-run-on-main"
+        return 0
+    fi
+    # Deliberately '|' not tab: `read` treats tab as IFS whitespace, so an empty
+    # conclusion (a still-running job) would collapse the field and shift the rest.
+    IFS='|' read -r head status conclusion run_id <<<"$row"
+    if [[ "$head" != "$tip" ]]; then
+        verdict="unverified run=$run_id runs_on=$head tip=$tip"
+    elif [[ "$status" != "completed" ]]; then
+        verdict="pending run=$run_id status=$status"
+    elif [[ "$conclusion" == "success" ]]; then
+        verdict="green run=$run_id"
+    else
+        verdict="red run=$run_id conclusion=$conclusion failing_step=$(gh_run_first_failing_step "$run_id")"
+    fi
+    echo "ci-truth tip=$tip state=$verdict"
+}
+
+gh_run_first_failing_step() {
+    local run_id="$1" job_id step
+    job_id=$(gh run view "$run_id" --json jobs \
+        --jq '[.jobs[] | select(.conclusion == "failure")][0].databaseId // ""' 2>/dev/null) || job_id=""
+    [[ -z "$job_id" ]] && { echo "-"; return 0; }
+    step=$(gh api "repos/{owner}/{repo}/actions/jobs/${job_id}" \
+        --jq '[.steps[] | select(.conclusion == "failure") | .name] | first // "-"' 2>/dev/null) || step="-"
+    [[ -z "$step" ]] && step="-"
+    printf 'job=%s step=%s' "$(gh run view "$run_id" --json jobs \
+        --jq '[.jobs[] | select(.conclusion == "failure")][0].name // "-"' 2>/dev/null)" "$step"
+}
+
 cmd_verify() {
     echo -e "${BLUE}=== Verifying CI Status ===${NC}"
+
+    ci_truth_on_main_tip
 
     # Check latest workflow runs
     gh run list --workflow=ci.yml --limit 5 --json status,conclusion,headBranch \
@@ -241,6 +284,7 @@ cmd_status() {
     # CI status
     echo ""
     echo -e "${BLUE}=== Latest CI ===${NC}"
+    ci_truth_on_main_tip
     gh run list --workflow=ci.yml --limit 3 --json status,conclusion,displayTitle \
         --jq '.[] | "\(.status): \(.conclusion // "pending") — \(.displayTitle)"' 2>/dev/null || echo "No gh auth"
 }
