@@ -467,6 +467,17 @@ else
   exit 1
 fi
 
+# Issue #1011: the release CLI matrix step wrote multi-line JSON into $GITHUB_OUTPUT,
+# which only the runner can reject. This fixture replays the step body against a temp
+# output file and applies the runner's parse rules, so the failure is visible locally.
+if [[ -x "${SCRIPT_DIR}/test-release-cli-matrix.sh" ]]; then
+  echo "==> Release CLI matrix output fixture"
+  "${SCRIPT_DIR}/test-release-cli-matrix.sh"
+else
+  echo "Error: scripts/test-release-cli-matrix.sh missing or not executable" >&2
+  exit 1
+fi
+
 # Plan archive manifest completeness (issue #831). plans/ARCHIVE_MANIFEST.md is the
 # only index of plans/.archive/, and `scripts/plans-manager.sh archive adr` moves ADRs
 # into that directory without touching the manifest — so the gate had a real drift

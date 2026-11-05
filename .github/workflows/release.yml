@@ -79,7 +79,17 @@ jobs:
       # Issue #974: one source for the platform list. The build matrix and the
       # verifier's expected asset set both read this output, so adding a target
       # cannot leave the verifier checking a stale hardcoded copy.
-      run: echo "json=$(bash scripts/release-cli-matrix.sh --json)" >> "$GITHUB_OUTPUT"
+      # Issue #1011: `release-cli-matrix.sh` emits multi-line JSON, and the runner
+      # parses $GITHUB_OUTPUT as one `key=value` per line — `echo "json=$(…)"` made
+      # it reject lines 2-6 with "Invalid format" and fail `validate` before any
+      # gate check. The heredoc form below is the documented way to write a
+      # multi-line value. Fixture: scripts/test-release-cli-matrix.sh.
+      run: |
+        {
+          echo 'json<<CSM_CLI_MATRIX_EOF'
+          bash scripts/release-cli-matrix.sh --json
+          echo 'CSM_CLI_MATRIX_EOF'
+        } >> "$GITHUB_OUTPUT"
 
     - name: Verify CI and Pre-Release Gate are green for target commit
       run: |

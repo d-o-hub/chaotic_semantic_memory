@@ -2321,3 +2321,23 @@ had been asserted from a green run three heads behind. Housekeeping: removed the
 (residue saved to `/home/do/git/d-o-hub/patches/wt1002-residue-2026-11-05.patch`, branch kept), and reclaimed
 ~9G by dropping `target/debug/incremental` and `target/debug/examples` (64G free).
 
+**Release `validate` was structurally broken, and no CI could see it (#1011, 2026-11-05)**. The 0/9 crates.io
+gap traced to `.github/workflows/release.yml`'s CLI-matrix step: it wrote the multi-line JSON from
+`scripts/release-cli-matrix.sh --json` into `$GITHUB_OUTPUT` as a bare `echo 'json=…'`, so the runner saw five
+`key=value` lines and the output truncated at the first newline — `fromJSON` then fed garbage to
+`build-cli-matrix`, failing every target. Defect landed in `fdc40ef4` (#1001) and stayed invisible because
+`validate` runs only on a successful CI push, so the downstream steps never executed under CI, and
+`actionlint` checks expressions/`if:` syntax rather than what a `run:` block emits. Fix: heredoc form
+(`json<<CSM_CLI_MATRIX_EOF … CSM_CLI_MATRIX_EOF`) with the reason cited in-place. Regression coverage is
+`scripts/test-release-cli-matrix.sh`, which **extracts the real step body out of the workflow YAML**, replays it
+against a temp `$GITHUB_OUTPUT`, re-applies the runner's own parse rules, and asserts 5 entries plus
+(linux,x64)/(darwin,arm64)/(win32,x64) coverage — then runs the pre-fix bare-`echo` form as a **negative
+control** and requires rejection. Two self-caught defects during development, both recorded: the fixture's
+output parser was missing `i += 1` (the fixed form never reaches that branch, so it "passed" while the mutated
+form hung to timeout — now bounded, rc 1 in ~1s), and one turn *described* the `release.yml`/fixture edits
+without executing them (`git status` was clean, `sed` showed the old line), so nothing is treated as done until
+`git status --short` lists the path. Wired into `scripts/validate.sh`; `SCRIPT_CATALOG.md` regenerated
+(`release-cli-matrix.sh`: `called; no fixture` → `called + fixture`). Gates: fixture rc 0 fixed / rc 1 mutated,
+shellcheck clean, `check-actionlint.sh` rc 0 (10 workflows), catalog drift gate pass, `harness-check.sh all`
+exit 0. Filed as #1011 first, then fixed, per the issue-then-fix choice.
+
