@@ -193,8 +193,13 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: bound_chaotic_lsh_and_voronoi_lsh_input_dim # 2026-11-04 (#961, PR #1008 -> 546727d0):
-                               #   shared MAX_INPUT_DIM, rejecting try_new(), input_dim() accessor, and
-                               #   lib-target assertions on what project() returns for an oversized input.
-                               #   Queue is now empty (see plans/ACTIONS.md); CI truth is derived per head via
-                               #   `scripts/goap-orchestrator.sh status`, never stored in this file.
+  action_last_completed: derive_ci_truth_and_delete_stored_keys # 2026-11-05 (PR #1010 -> #1013):
+                               #   ci_truth_on_main_tip replaced run-listing in goap-orchestrator.sh, and
+                               #   ci_all_checks_passed / main_head were deleted from this file with
+                               #   scripts/check-goap-queue-issues.sh failing closed if either key returns.
+                               #   Two landed CI-truth fixes precede it un-named here: PR #1012 (release CLI
+                               #   matrix written to $GITHUB_OUTPUT in heredoc form, #1011) and PR #1009
+                               #   (the stale #961 queue entry that made `main` red).
+                               #   Queue is empty (see plans/ACTIONS.md); CI truth comes from
+                               #   `scripts/goap-orchestrator.sh status` (ci-truth tip=<sha> state=…), never
+                               #   from a stored flag.
