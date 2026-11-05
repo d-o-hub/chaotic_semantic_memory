@@ -15,6 +15,16 @@ Trusted Publishing uses OpenID Connect (OIDC) to verify CI/CD workflow identity 
 
 ## crates.io Trusted Publishing
 
+### Which events can mint a crates.io token
+
+`crates_io_api::handlers::github::handle_github_token_inner` **refuses** OIDC assertions
+for `workflow_run` and `pull_request_target`. A publishing job that lives inside a
+`workflow_run`-triggered workflow (which is how this repo's `release.yml` fires) therefore
+cannot be fixed in place — the trigger has to move. That is why crates.io publishing lives
+in `publish-crates.yml` on `workflow_dispatch`, and why a tag trigger is not the answer
+either: `release.yml` pushes the tag with `secrets.GITHUB_TOKEN` and a `GITHUB_TOKEN` push
+spawns no workflow run at all.
+
 ### Requirements
 
 - Rust stable toolchain
@@ -32,50 +42,63 @@ Trusted Publishing uses OpenID Connect (OIDC) to verify CI/CD workflow identity 
    cargo publish
    ```
 
-2. **Configure Trusted Publishing**:
-   - Go to `https://crates.io/crates/CRATE_NAME/settings`
-   - Navigate to "Trusted Publishing"
-   - Click "Add"
-   - Select platform: GitHub
-   - Enter:
-     - Repository: `d-o-hub/chaotic_semantic_memory`
-     - Workflow: `.github/workflows/release.yml`
-     - Environment: (optional)
+2. **Configure Trusted Publishing** — once **per crate**, in the crates.io web UI only
+   (there is no API to create or list these configs, so nothing in CI can pre-flight them):
+   - Go to `https://crates.io/crates/CRATE_NAME/management` and open "Trusted Publishing"
+   - Add a trusted publisher with:
+     - Owner: `d-o-hub`
+     - Repository: `chaotic_semantic_memory`
+     - Workflow filename: `publish-crates.yml` (the filename, not a path)
+     - Environment: `crates.io` — must match the job's `environment:` exactly
+   - This repo has **nine** crates (`csm-chaos`, `csm-core-lib`, `csm-traits`,
+     `csm-embedding`, `csm-memory`, `csm-retrieval`, `csm-persistence`,
+     `chaotic_semantic_memory`, `csm-duckdb`); a config gap on one of them 403s that one
+     crate and lets the other eight publish, because the minted token is scoped to the
+     subset whose configs match. The last step of `publish-crates.yml` re-probes the sparse
+     index for all nine and reds the run on any gap.
 
-3. **Enable "Trusted Publishing Only" Mode** (recommended):
-   - In crate settings, enable this to block token-based publishing
-   - Only OIDC-authenticated workflows can publish
+3. **Enable "Trusted Publishing Only" Mode** — only after all nine configs exist and the
+   recovery dispatch has gone green. Enabling it earlier blocks the token path you may still
+   need to finish the set.
 
 ### GitHub Actions Configuration
+
+`cargo` still reads `CARGO_REGISTRY_TOKEN` from the environment; what changes is where the
+value comes from — the OIDC exchange's output, not a repository secret.
 
 ```yaml
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: crates.io
     permissions:
-      id-token: write  # Required for OIDC token
       contents: read
-    
+      id-token: write  # Required for OIDC token
     steps:
       - uses: actions/checkout@v4
-      
       - uses: dtolnay/rust-toolchain@stable
-      
+      - uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+        id: crates-auth
       - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
         run: cargo publish
-        # No CARGO_REGISTRY_TOKEN needed!
 ```
+
+The minted token lives 30 minutes (`ACCESS_TOKEN_LIFETIME`), so keep the publishing job's
+`timeout-minutes` under that — a run that outlives its credential fails as a 403 and reads
+like a config problem.
 
 ### Verification
 
 ```bash
-# Check crate publishing settings
-curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory | jq '.versions[0]'
-
-# Verify OIDC token in workflow (debug)
-- name: Debug OIDC
-  run: echo $ACTIONS_ID_TOKEN_REQUEST_TOKEN | head -c 20
+# Check the index row for the version the dispatch claimed (shard from scripts/crates-io-index-path.sh)
+curl -sL "https://index.crates.io/$(bash scripts/crates-io-index-path.sh chaotic_semantic_memory)" \
+  | grep -cF '"vers":"0.3.9"'
 ```
+
+`/api/v1/me` is not a usable probe: crates.io serves it behind `AuthCheck::only_cookie()`,
+so a bearer token — valid or not — never returns 200. Do not build a gate on it.
 
 ## npm Trusted Publishing with Provenance (2026)
 
@@ -224,12 +247,9 @@ The version was already published. Bump version in Cargo.toml.
 
 ### "insufficient permissions"
 
-Add to workflow:
-```yaml
-permissions:
-  id-token: write
-  contents: write
-```
+`id-token: write` is what the OIDC exchange needs; `contents: write` does not help and a
+publishing job has no business holding it. Keep the pair `contents: read` +
+`id-token: write` under a repository-wide `permissions: {}`.
 
 ### "npm provenance failed"
 
@@ -238,29 +258,14 @@ permissions:
 3. Verify repository field in package.json
 4. Run: `npm install -g npm@latest`
 
-### Debug OIDC Token
-
-```yaml
-- name: Debug OIDC Claims
-  run: |
-    curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=crates.io"
-```
-
 ## Environment-based Publishing
 
-For additional security, use GitHub Environments:
+Binding the publisher config to a GitHub environment is what makes the assertion
+specific: the crates.io config must carry **exactly** the environment the job declares, or
+the exchange fails for that crate. This repo uses `environment: crates.io`.
 
-```yaml
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    environment: production  # Requires approval
-    permissions:
-      id-token: write
-```
-
-Configure environment protection rules:
-- Required reviewers
-- Wait timer
-- Deployment branches (main only)
+Keep that environment's `protection_rules` empty. A wait timer or required reviewers hold
+the job *wherever it sits in the run*, and a publish job that pauses after four of nine
+crates uploaded leaves a partial publish — the state this doc's whole reconciliation step
+exists to escape. Measure rather than assume:
+`gh api repos/{owner}/{repo}/environments --jq '.environments[] | "\(.name) \(.protection_rules)"'`.

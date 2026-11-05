@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `scripts/check-bundled-ignore-reason.sh` now fails if a zip ignore outlives
   the package or if `bundled` disappears while an ignore remains, and requires
   the GHSA record with a re-check trigger.
+- **crates.io publishing no longer reads a long-lived API token (ADR-0104)**:
+  a new `.github/workflows/publish-crates.yml` mints a 30-minute OIDC token via
+  `rust-lang/crates-io-auth-action` (SHA-pinned) on a `workflow_dispatch`
+  naming a `ref` and `version`, publishes the nine crates in dependency
+  order, and finishes by re-probing the sparse index for all nine so a
+  partial publish (crates.io scopes the token to the crates whose trusted
+  publishers match) fails loudly and is resumable by re-dispatch.
+  `release.yml`'s `publish-crates` job is deleted — crates.io refuses
+  tokens minted from the `workflow_run` event that triggers `release.yml`,
+  so no edit to a job in that file could ever have used Trusted Publishing.
+  No workflow reads `secrets.CARGO_REGISTRY_TOKEN` any more.
 
 ### Fixed
 - **Chaos (`csm-chaos`, #961)**: `ChaoticLsh::new` and `VoronoiLsh::new` bounded their
@@ -44,10 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks both npm packages' `.dist.attestations.provenance` through the
   abbreviated packument (the full packument does not serve the field), and
   asserts the seven expected release assets against the same matrix output that
-  drives `build-cli-matrix`. A missing asset is named individually. The
-  `publish-crates` job probes `GET /api/v1/me` before any packaging, names the
-  HTTP status and crates.io detail, asserts the publisher login, and aborts on
-  the first 401/403 instead of repeating a dead credential per crate. The
+  drives `build-cli-matrix`. A missing asset is named individually. Publishing
+  aborts on the first 401/403 instead of repeating a dead credential per crate;
+  the `GET /api/v1/me` probe #967 added ahead of that loop was removed by
+  ADR-0104 — crates.io serves the route behind `AuthCheck::only_cookie()`, so no
+  token, live or revoked, can return the 200 the step demanded, and its own
+  fixture had been stubbing that response. The
   `|| npm publish` retry is gone, so a failed attested publish is red. A
   `no-verdict` job and `release-verdict.sh` distinguish published /
   nothing-to-do / not-a-release / partial for the run summary, so a run whose

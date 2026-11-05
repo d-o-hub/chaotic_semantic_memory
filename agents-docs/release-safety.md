@@ -42,11 +42,36 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
 4. Run `cargo build --release` to sync Cargo.lock
 5. Commit all version files together (atomic)
 6. Push and wait for CI to pass on `main`; its completion triggers `release.yml`, which applies the version/tag check and owns the tag
+7. Dispatch `publish-crates.yml` for the tag `release.yml` just created (`ref=refs/tags/v<version>`,
+   `version=<version>`). Releases are no longer proof of a crates.io publish — and `verify-release`
+   still probes the nine index paths, so until that dispatch lands the release run reports a **red**
+   `verify-release` with a `Crates.io not published` annotation. That is the intended signal, not a
+   flake: re-run the job after the dispatch and it goes green.
 
 ## Platform-Specific Notes
 - **macOS arm64**: NEON SIMD intrinsics require explicit unsafe blocks
 - **Windows x64**: CI uses `--locked` flag, Cargo.lock must match Cargo.toml
 - **WASM**: Size gate checks library (~870KB), not CLI binary (~5KB)
+
+## crates.io Trusted Publishing (operator setup, one time)
+1. For **each** of the nine crates — `csm-chaos`, `csm-core-lib`, `csm-traits`, `csm-embedding`,
+   `csm-memory`, `csm-retrieval`, `csm-persistence`, `chaotic_semantic_memory`, `csm-duckdb` — open
+   that crate's *Trusted Publishing* page on crates.io and add a publisher with owner `d-o-hub`,
+   repository `chaotic_semantic_memory`, workflow filename `publish-crates.yml`, and environment
+   **exactly** `crates.io`. Nine crates means nine configs; one crate without a config is one
+   failing publish, not one failing workflow.
+2. The crates.io web UI is the only place these configs exist and there is no read-only endpoint
+   that lists them, so a gap surfaces at `publish-crates.yml`'s reconciliation step — after the
+   other crates have already uploaded. Nothing here can pre-flight it.
+3. A gap therefore produces a **partial publish**: crates.io scopes the minted token to the subset
+   of crates whose trusted publishers match the assertion. The publish loop is idempotent, so the
+   recovery is to create the missing config and re-dispatch the same `ref` + `version`; crates
+   already in the index at that version are skipped.
+4. Keep the `crates.io` environment's `protection_rules` empty (measured `[]`, see Failure item 2).
+   A reviewer on that environment would hold the job *mid-publish*, after some crates landed.
+5. After the OIDC path is proven, revoke the crates.io API token **on crates.io**. Deleting the
+   `CARGO_REGISTRY_TOKEN` GitHub secret does not revoke the credential; the token itself
+   (created 2026-02-19, last updated 2026-07-22) is what #967's nine 403s were rejected against.
 
 ## Common Deployment Failures & Recovery
 1. **crates.io name conflicts**: Workspace crate names may be taken. Rename before first publish (e.g., `csm-core` -> `csm-core-lib`).
@@ -68,3 +93,7 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
    no drain. The hazard is the reverse one: re-running the tagged commit's CI creates a **new** gate run for
    it, and that run re-reads the open-PR list — so never re-run it while PRs are open, or a green historical
    verdict is replaced by a queue-dependent refusal.
+   **It does not cover crates.io.** `release.yml` cannot mint a crates.io OIDC token (that event is
+   `workflow_run`, which crates.io refuses — ADR-0104), so this recovery retries the GitHub Release
+   and both npm channels only. The crate half of a recovery is a separate
+   `gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9 -f version=0.3.9` dispatch.

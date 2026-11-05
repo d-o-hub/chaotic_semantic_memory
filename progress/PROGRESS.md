@@ -2357,4 +2357,36 @@ verdict instead of the flag. Self-caught during the edit: the AGENTS.md rewrite 
 duplicated at the end of the same line, and `grep -c` reported **1** — these instruction lines are hundreds of
 characters, so occurrence counting needs `grep -o … | wc -l`; fixed, re-counted, verified.
 
+## 2026-11-05: crates.io publishing moved to OIDC (ADR-0104), v0.3.9 still 0/9
 
+`v0.3.9` is on GitHub and both npm packages, and on crates.io 0/9: every crate's latest index row is 0.3.8.
+The cause is the credential, not a skipped step — #967's nine 403s came from a long-lived
+`CARGO_REGISTRY_TOKEN` that has outlived its 90-day validity. Added `.github/workflows/publish-crates.yml`
+(`workflow_dispatch` only: `ref`, `version`, `dry_run`), which mints a 30-minute token via the SHA-pinned
+`rust-lang/crates-io-auth-action`, cross-checks the dispatched version against `cargo metadata` for all nine
+crates, publishes members → root → `csm-duckdb` skipping anything already in the index, and closes with a
+reconciliation pass over the sparse index that reds the run and names any crate still missing. Deleted
+`release.yml`'s `publish-crates` job (crates.io refuses tokens minted from `workflow_run`, so that file could
+never use Trusted Publishing) and repaired the two `needs:` lists that named it; `verify-release` now fails
+with a `Crates.io not published` annotation until the dispatch has run. The dead `/api/v1/me` probe and the
+fixture response that kept it alive are gone.
+
+`scripts/test-verify-release-step.sh` 538 → 815 lines: parameterized on both workflow paths so a mutated copy
+is the negative control, cross-file crate-set equality between `publish-crates.yml` and `verify-release`, 19
+new structural assertions (each mutation-proved), and behavioral replays for the empty-token guard, the
+auth-failure abort and the 2-of-9 partial publish — 91 cases, 0 failures. `scripts/release-verdict.sh` and its
+fixture dropped the job row (26/0). Docs: ADR-0104 + registry row + `context.yaml` ADR count 100, ADR-0039's
+undelivered OIDC claim and ADR-0042's "no such action" both amended, `book/src/release.md` job list and
+Security section, `agents-docs/release-safety.md` gained a numbered nine-config operator checklist and the
+note that the release.yml recovery dispatch no longer covers crates.io, and the `release-management` skill's
+`trusted-publishing.md` / `release-workflow.md` / `SKILL.md` no longer tell anyone to put a token in two
+scopes. Gates: actionlint rc 0 (11 workflows), `publish-crates.yml` 0 warnings/0 advisories, ADR parity ok,
+`validate_llm_context.py` 100==100, docs-links 245/0 broken, catalog regenerated, queue gate reconciled with
+an empty queue.
+
+Not done, and not doable from the repo: the nine trusted-publisher configs in the crates.io UI (owner
+`d-o-hub`, repo `chaotic_semantic_memory`, workflow `publish-crates.yml`, environment exactly `crates.io`), the
+dry-run and real v0.3.9 dispatches, and revoking the crates.io API token there — deleting the GitHub secret
+does not revoke it. `main` is red at `123e5e89` on one job (`Test DuckDB Companion`, a `libduckdb-sys`
+build-script unpack collision, infra-class), and #1013 is `CLEAN` and must merge before this branch rebases
+onto it.

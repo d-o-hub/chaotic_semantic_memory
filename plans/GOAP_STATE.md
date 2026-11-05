@@ -49,8 +49,8 @@ world_state:
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)
-  adr_registry_count: 99             # check-adr-parity.sh: registry rows (ADR-0024 has two files)
-  adr_disk_count: 98                 # unique ids on disk (99 files, ADR-0024 has two)
+  adr_registry_count: 100            # check-adr-parity.sh: registry rows (ADR-0024 has two files)
+  adr_disk_count: 99                 # unique ids on disk (100 files, ADR-0024 has two)
   integration_test_files: 73         # ls tests/*.rs | wc -l
 
   # ── Plans pointers ────────────────────────────────────────────
@@ -72,15 +72,26 @@ world_state:
 
   # ── Active wave / release surface ─────────────────────────────
   release_pipeline_validated: false  # v0.3.9: tag + 2/2 npm + 7 assets live, crates.io 0/9 (dead
-                                     #   credential, #967). Stays false until 9/9; recover with
-                                     #   `recover=true recovery_tag=v0.3.9`. A green run whose jobs all
-                                     #   skipped is not evidence (#969).
+                                     #   credential, #967). Stays false until 9/9. The GitHub+npm half
+                                     #   recovers with `recover=true recovery_tag=v0.3.9`; the crates.io
+                                     #   half now needs `gh workflow run publish-crates.yml -f
+                                     #   ref=refs/tags/v0.3.9 -f version=0.3.9` (ADR-0104), which
+                                     #   `release.yml` cannot do — crates.io refuses `workflow_run`
+                                     #   tokens. A green run whose jobs all skipped is not evidence (#969).
   audit_followup_wave_merged: true   # 2026-10-30: PR #947 -> 3953e818
   release_gate_race_repaired: true   # 2026-10-30: bounded 30m same-SHA gate wait (#953/#962)
   release_refusal_names_the_failing_gate_job: true  # #960: gate-failure-detail.sh names the job
   verify_release_collects_all_verdicts: true        # #954/#973: every probe's verdict is collected
   crates_io_index_checks_match_the_index: true      # #971/#973: `"vers":"$VERSION"` matches sparse index
   verify_release_retries_re_query: true             # #972/#973: probes re-query, not replay a substitution
+  crates_io_publishing_moved_to_oidc_dispatch: true # ADR-0104: publish-crates.yml mints a 30-min token
+                                     #   (id-token: write, environment crates.io); no workflow reads
+                                     #   secrets.CARGO_REGISTRY_TOKEN any more. Proven locally by
+                                     #   scripts/test-verify-release-step.sh, not yet by a live dispatch.
+  crates_io_trusted_publishers_configured: false    # the 9 configs exist only in the crates.io UI and there
+                                     #   is no endpoint that lists them, so CI cannot pre-flight them; the
+                                     #   reconciliation step of publish-crates.yml is the sensor. Revoking
+                                     #   the old API token on crates.io is still owed (ADR-0104).
   host_subprocesses_isolated_from_nix_env: true     # #949/#981: 37-case fixture; nix jobs use use-flakehub: false
   active_wave: 33
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
@@ -193,13 +204,15 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: derive_ci_truth_and_delete_stored_keys # 2026-11-05 (PR #1010 -> #1013):
-                               #   ci_truth_on_main_tip replaced run-listing in goap-orchestrator.sh, and
-                               #   ci_all_checks_passed / main_head were deleted from this file with
-                               #   scripts/check-goap-queue-issues.sh failing closed if either key returns.
-                               #   Two landed CI-truth fixes precede it un-named here: PR #1012 (release CLI
-                               #   matrix written to $GITHUB_OUTPUT in heredoc form, #1011) and PR #1009
-                               #   (the stale #961 queue entry that made `main` red).
+  action_last_completed: publish_crates_io_over_oidc_from_dispatch # 2026-11-05 (ADR-0104):
+                               #   publish-crates.yml (workflow_dispatch, OIDC, timeout under the
+                               #   30-minute token life, index reconciliation over all nine) replaces
+                               #   release.yml's publish-crates job; the /api/v1/me probe is gone
+                               #   because that route is cookie-only and could never answer 200;
+                               #   scripts/test-verify-release-step.sh now covers both files (91 cases).
+                               #   Its predecessor, derive_ci_truth_and_delete_stored_keys (PR #1010 ->
+                               #   #1013), deleted ci_all_checks_passed / main_head from this file and
+                               #   made scripts/check-goap-queue-issues.sh fail closed if either returns.
                                #   Queue is empty (see plans/ACTIONS.md); CI truth comes from
                                #   `scripts/goap-orchestrator.sh status` (ci-truth tip=<sha> state=…), never
                                #   from a stored flag.
