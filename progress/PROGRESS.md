@@ -2300,3 +2300,19 @@ with 37/37 CI checks passing. PR #998 was closed per Rule 10 due to staleness an
 Issue #961 was cleanly re-created on a fresh branch off `b8fae179` containing the bounded `MAX_INPUT_DIM = 4096`,
 `try_new` constructor with `InputDimensionError`, `input_dim()` accessor, and unit assertions that make the
 effective dimension mutation-visible.
+
+**#961 landed as #1008; queue emptied; `main` found red on two heads (2026-11-05)**. The re-created #961
+branch merged as `546727d0`, making that the current `main` tip. The local `fix/chaos-bound-input-dim`
+commit `f5e41fa9` was verified **tree-identical** to it (`git diff --stat origin/main f5e41fa9` empty), so
+there was nothing to push — the branch was an unsquashed duplicate and the working tree is now on a
+fast-forwarded local `main`. `plans/ACTIONS.md` is empty and `action_last_completed` moved to
+`bound_chaotic_lsh_and_voronoi_lsh_input_dim`. Verified against the source, not the PR prose: `new()` still
+clamps (documented, plus the `input_dim()` accessor to detect it) while `try_new()` rejects, so the invariant
+records both shapes rather than claiming the clamp was removed. **`main` CI is red on the last two heads** —
+push run 41869624859 (`546727d0`) died in `lint` on runner `No space left on device`, and 41847436489
+(`b8fae179`) died in `lint` on magic-nix-cache HTTP 418 with `Test DuckDB Companion` also failing. Both were
+attempt 1, never re-run; re-triggered attempt 2 of 41869624859. `ci_all_checks_passed` is now **false** — it
+had been asserted from a green run three heads behind. Housekeeping: removed the stale `wt1002` worktree
+(residue saved to `/home/do/git/d-o-hub/patches/wt1002-residue-2026-11-05.patch`, branch kept), and reclaimed
+~9G by dropping `target/debug/incremental` and `target/debug/examples` (64G free).
+
