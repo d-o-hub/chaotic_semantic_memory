@@ -16,9 +16,11 @@
 > reconciliation snapshot the file. Do not re-add completed entries.
 
 ```yaml
-# Queue empty as of 2026-11-05. The last active action,
-# bound_chaotic_lsh_and_voronoi_lsh_input_dim (#961), landed as PR #1008 -> 546727d0
-# and is recorded as `action_last_completed` in GOAP_STATE.md. Do not re-add it here.
+# Queue empty as of 2026-11-05. The last completed action,
+# publish_crates_io_over_oidc_from_dispatch (ADR-0104), is recorded as
+# `action_last_completed` in GOAP_STATE.md; the action before it,
+# bound_chaotic_lsh_and_voronoi_lsh_input_dim (#961), landed as PR #1008 -> 546727d0.
+# Do not re-add either here.
 # The next action must come from the open-work flags in GOAP_STATE.md
 # (`release_pipeline_validated: false` is the one that blocks shipping), and per AGENTS.md
 # Phase 1 step 5 it gets roasted before anything is implemented.

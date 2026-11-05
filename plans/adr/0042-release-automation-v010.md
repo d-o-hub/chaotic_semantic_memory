@@ -10,6 +10,11 @@ Accepted
 
 Comprehensive analysis of the release infrastructure reveals 13 issues blocking a clean v0.1.0 release to crates.io and GitHub:
 
+> Stale 2026-11-05 (item 1 below): `rust-lang/crates-io-auth-action` **does** exist —
+> `v1.0.5` is `c6f97d42243bad5fab37ca0427f495c86d5b1a18`, and `ADR-0104` now uses it,
+> SHA-pinned, from `publish-crates.yml`. The blocker it describes was the *unpublished*
+> `@v1` tag reference, not the absence of the action.
+
 ### Critical Blockers
 
 1. **Broken CI action**: `release.yml` line 102 uses `rust-lang/crates-io-auth-action@v1` which does not exist as a published GitHub Action. The workflow will fail on any tag push.

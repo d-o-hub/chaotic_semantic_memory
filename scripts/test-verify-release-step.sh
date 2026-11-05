@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# test-verify-release-step.sh — issue #954 (+ #971, #972): the release-verification
-# step must collect every registry verdict, tell the truth about each one, and
-# actually re-probe on retry.
+# test-verify-release-step.sh — issue #954 (+ #971, #972, ADR-0104): the
+# release-verification step must collect every registry verdict, tell the truth about
+# each one, actually re-probe on retry — and the crates.io publish path must stay on
+# the OIDC exchange rather than drifting back to a stored token.
 #
 # WHY THIS EXISTS AT ALL: `verify-release` is inline workflow shell, so no Rust
 # test and no `--lib` mutant can ever see it — the mutation surface does not
@@ -22,18 +23,29 @@
 #
 # Case group two is the sharpness control: it un-fixes the extracted body with sed
 # and requires the *bug* to reappear. Without it the fixture could pass on a step
-# that had silently regressed. The `publish-crates` group replays the same #971
+# that had silently regressed. The `publish-crates.yml` groups replay the same #971
 # pattern where the dead branch meant seven needless `cargo publish` calls rather
 # than one wrong word in a summary.
+#
+# Since the crates.io migration, this fixture is also the only gate standing between
+# the OIDC design and a silent regression, so it carries structural assertions on
+# both workflow files (ADR-0104). Those lock properties no replay can show: that the
+# token comes from the OIDC exchange and never from a stored secret, that the
+# exchange step runs before anything consumes it, that the job's bound sits under
+# crates.io's 30-minute token lifetime, and that release.yml no longer owns a crate
+# job at all. Every one of them was mutation-checked against a broken copy of the
+# workflow, because a `grep -q` over YAML that cannot fail is decoration.
 #
 # No network: curl/npm/gh/cargo are stubbed on PATH. `sleep` is stubbed *inside*
 # the extracted body (245 s of backoff per miss is not the subject) — that is the
 # only mutation this fixture makes to the code under test, and it replaces a call
 # the step already makes rather than removing one.
 #
-# The stub `curl` answers every index URL with the same file. That is deliberate:
-# the property under test is whether the pattern matches the row shape crates.io
-# stores, not per-crate URL routing.
+# By default the stub `curl` answers every index URL with the same file. That is
+# deliberate: the property under test is whether the pattern matches the row shape
+# crates.io stores, not per-crate URL routing. The reconciliation group is the one
+# exception and opts into per-crate routing with FIXTURE_INDEX_LIVE, because "seven
+# of nine landed" is a state a single shared answer cannot express.
 #
 # Usage: scripts/test-verify-release-step.sh          (no arguments)
 # Exit:  0 all cases pass, or PyYAML is absent and CSM_VALIDATION_REQUIRED is not
@@ -45,7 +57,13 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WORKFLOW="${REPO_ROOT}/.github/workflows/release.yml"
+# The extracted bodies call `bash scripts/crates-io-index-path.sh`, so the replay's
+# cwd is part of the fixture, not an accident of how it was invoked.
+cd "${REPO_ROOT}" || exit 2
+# Both paths are overridable so a deliberately broken copy can be the negative
+# control for the structural group: an assertion nobody has seen fail is a guess.
+WORKFLOW="${CSM_RELEASE_WORKFLOW:-${REPO_ROOT}/.github/workflows/release.yml}"
+PUBLISH_WORKFLOW="${CSM_PUBLISH_WORKFLOW:-${REPO_ROOT}/.github/workflows/publish-crates.yml}"
 
 if ! python3 -c 'import yaml' 2>/dev/null; then
     # Same convention as the LLM-context gate in scripts/validate.sh: a required run
@@ -59,10 +77,12 @@ if ! python3 -c 'import yaml' 2>/dev/null; then
     printf 'SKIPPED — NOT A PASS: python3 has no PyYAML (apt: python3-yaml); release.yml went un-replayed\n'
     exit 0
 fi
-if [[ ! -r "${WORKFLOW}" ]]; then
-    printf 'ERROR: cannot read %s\n' "${WORKFLOW}" >&2
-    exit 2
-fi
+for required_workflow in "${WORKFLOW}" "${PUBLISH_WORKFLOW}"; do
+    if [[ ! -r "${required_workflow}" ]]; then
+        printf 'ERROR: cannot read %s\n' "${required_workflow}" >&2
+        exit 2
+    fi
+done
 
 TEST_DIR="$(mktemp -d)"
 trap 'rm -rf "${TEST_DIR}"' EXIT
@@ -83,6 +103,11 @@ FIXTURE_NPM_OK="no"
 FIXTURE_NPM_VERSION="9.9.9"
 FIXTURE_GH_OK="no"
 FIXTURE_CARGO_RC="0"
+# TEST_DIR is exported because the stubs resolve their fixture files by name, and the
+# stubs run in the replay's environment, not this shell's. A stub that quietly reads an
+# empty ${TEST_DIR} answers "no such row" for every crate — which looks exactly like a
+# publish that never happened and will be believed.
+export TEST_DIR
 export FIXTURE_CALLS FIXTURE_INDEX FIXTURE_NPM_OK FIXTURE_NPM_VERSION FIXTURE_GH_OK FIXTURE_CARGO_RC
 
 pass() {
@@ -151,26 +176,27 @@ set_registry_state() {
 
 # ---------------------------------------------------------------- extraction
 
-# extract_step <out-file> <job> <step-name-prefix> <version>
+# extract_step <out-file> <workflow> <job> <step-name-prefix> <version>
 extract_step() {
-    local out="$1" job="$2" prefix="$3" version="$4"
-    python3 - "${WORKFLOW}" "${job}" "${prefix}" "${version}" "${out}" <<'PY'
+    local out="$1" workflow="$2" job="$3" prefix="$4" version="$5"
+    python3 - "${workflow}" "${job}" "${prefix}" "${version}" "${out}" <<'PY'
 import sys, yaml
 workflow, job, prefix, version, out = sys.argv[1:6]
 doc = yaml.safe_load(open(workflow, encoding='utf-8'))
 steps = doc['jobs'][job]['steps']
 matches = [s for s in steps if str(s.get('name', '')).startswith(prefix)]
 if len(matches) != 1:
-    sys.exit('fixture: %r matched %d steps in job %r (need exactly 1)'
-             % (prefix, len(matches), job))
+    sys.exit('fixture: %r matched %d steps in job %r of %s (need exactly 1)'
+             % (prefix, len(matches), job, workflow))
 body = matches[0]['run']
 # The runner interpolates these; the fixture supplies literals so a replay can
 # never quietly read a live output value off the machine it runs on.
 body = body.replace('${{ needs.validate.outputs.version }}', version)
 body = body.replace('${{ github.repository }}', 'd-o-hub/chaotic_semantic_memory')
 body = body.replace('${{ secrets.GITHUB_TOKEN }}', 'fixture-token')
-body = body.replace('${{ secrets.CARGO_REGISTRY_TOKEN }}', 'fixture-token')
-body = body.replace("${{ vars.CRATES_IO_EXPECTED_LOGIN || 'd-o-hub' }}", 'd-o-hub')
+# Deliberately no substitution for a registry secret: crates.io credentials come from
+# the OIDC exchange step now, so a body that reads `secrets.CARGO_REGISTRY_TOKEN`
+# should replay with that literal text in it and fail, not be quietly papered over.
 matrix = [
     {"runner": "ubuntu-24.04", "target": "x86_64-unknown-linux-gnu", "platform": "linux", "arch": "x64"},
     {"runner": "ubuntu-24.04", "target": "aarch64-unknown-linux-gnu", "platform": "linux", "arch": "arm64"},
@@ -194,25 +220,232 @@ un_fix_bare_calls() {
     sed -E 's|^([[:space:]]*)if ! (check_with_retry .*); then :; fi[[:space:]]*$|\1\2|' "$1" > "$2"
 }
 
+# structural_checks — the OIDC properties only the workflow files can prove.
+# Each line the checker prints goes through pass/fail, so a structural failure counts
+# against the fixture the same way a replay failure does; printing a red word without
+# a non-zero exit is how a gate becomes a comment.
+structural_checks() {
+    local status message
+    if ! python3 - "${PUBLISH_WORKFLOW}" "${WORKFLOW}" \
+        > "${TEST_DIR}/structural.tsv" 2> "${TEST_DIR}/structural.err" <<'PY'
+import re
+import sys
+import yaml
+
+publish_path, release_path = sys.argv[1:3]
+checks = []
+
+
+def check(name, ok, got=''):
+    checks.append((name, bool(ok), '' if ok else ' -- got %s' % (got,)))
+
+
+pub_raw = open(publish_path, encoding='utf-8').read()
+rel_raw = open(release_path, encoding='utf-8').read()
+pub = yaml.safe_load(pub_raw)
+rel = yaml.safe_load(rel_raw)
+
+job = pub['jobs']['publish']
+steps = job['steps']
+jobenv = job.get('env') or {}
+step_env = [s.get('env') or {} for s in steps]
+token_steps = [i for i, e in enumerate(step_env) if 'CARGO_REGISTRY_TOKEN' in e]
+auth = [i for i, s in enumerate(steps) if 'crates-io-auth-action' in str(s.get('uses', ''))]
+bodies = [str(s.get('run', '')) for s in steps]
+
+check('publish-crates.yml asks for exactly contents:read + id-token:write',
+      job.get('permissions') == {'contents': 'read', 'id-token': 'write'}, job.get('permissions'))
+check('the workflow declares no default permissions',
+      pub.get('permissions') == {}, pub.get('permissions'))
+check('the job runs in the crates.io environment (a publisher without it is refused)',
+      job.get('environment') == 'crates.io', job.get('environment'))
+bound = job.get('timeout-minutes')
+check('the job is bounded under the 30-minute lifetime of an exchange token',
+      isinstance(bound, int) and 0 < bound <= 25, bound)
+
+# PyYAML reads the `on:` key as the boolean True -- YAML 1.1 treats `on` as a reserved
+# word. A checker that only asked for the string 'on' would find no triggers at all and
+# report a forbidden workflow_run as merely absent, which reads as a pass.
+triggers = pub.get(True, pub.get('on'))
+check('workflow_dispatch is the only trigger (crates.io refuses workflow_run and pull_request_target)',
+      isinstance(triggers, dict) and list(triggers) == ['workflow_dispatch'], triggers)
+check('the job cannot be cancelled mid-upload',
+      (pub.get('concurrency') or {}).get('cancel-in-progress') is False, pub.get('concurrency'))
+
+check('exactly one step uses the crates.io OIDC action', len(auth) == 1, auth)
+if len(auth) == 1:
+    uses = str(steps[auth[0]].get('uses', ''))
+    check('it is the step the token consumers read, named crates-auth',
+          steps[auth[0]].get('id') == 'crates-auth', steps[auth[0]].get('id'))
+    check('the action is pinned to a commit SHA, not a moving tag',
+          bool(re.search(r'@[0-9a-f]{40}$', uses)), uses)
+    check('the pin says v1.0.5 in the file itself (PyYAML drops comments, so grep the raw text)',
+          bool(re.search(r'crates-io-auth-action@[0-9a-f]{40} # v1\.0\.5', pub_raw)), uses)
+    check('the exchange runs before anything consumes a token',
+          bool(token_steps) and min(token_steps) > auth[0], (auth[0], token_steps))
+
+check('at least the guard and the three publish steps consume the exchange token',
+      len(token_steps) >= 4, token_steps)
+check('every crates.io token comes from the exchange, none from a stored secret',
+      all(step_env[i]['CARGO_REGISTRY_TOKEN'] == '${{ steps.crates-auth.outputs.token }}'
+          for i in token_steps),
+      [step_env[i]['CARGO_REGISTRY_TOKEN'] for i in token_steps])
+check('publish-crates.yml never names CARGO_REGISTRY_TOKEN as a secret',
+      'secrets.CARGO_REGISTRY_TOKEN' not in pub_raw)
+
+# Dispatch text inside a run: body is a shell-injection surface, and ref/version are
+# exactly what an operator types at dispatch time.
+interpolating = [s.get('name', '<unnamed>') for s in steps if '${{' in str(s.get('run', ''))]
+check('no run: body interpolates an expression (event text reaches the shell only as env)',
+      not interpolating, interpolating)
+check('the checkout keeps no credential for a ref named at dispatch time',
+      (steps[0].get('with') or {}).get('persist-credentials') is False, steps[0].get('with'))
+
+check('the published crate set is written exactly once in this file',
+      pub_raw.count('csm-core-lib') == 1, pub_raw.count('csm-core-lib'))
+crates = str(jobenv.get('CSM_PUBLISH_CRATES', '')).split()
+check('the two crates with their own steps are still members of that set',
+      {jobenv.get('CSM_ROOT_CRATE'), jobenv.get('CSM_DUCKDB_CRATE')} <= set(crates),
+      [jobenv.get('CSM_ROOT_CRATE'), jobenv.get('CSM_DUCKDB_CRATE'), crates])
+hard_paths = [ln.strip() for b in bodies for ln in b.splitlines()
+              if 'index.crates.io/' in ln and '${' not in ln.split('index.crates.io/', 1)[1]]
+check('every index URL is built by crates-io-index-path.sh, none hand-spliced',
+      not hard_paths, hard_paths)
+
+check('release.yml no longer owns a crate-publish job',
+      'publish-crates' not in (rel.get('jobs') or {}), sorted(rel.get('jobs') or {}))
+needing = [name for name, j in (rel.get('jobs') or {}).items()
+           if 'publish-crates' in ([j['needs']] if isinstance(j.get('needs'), str)
+                                   else (j.get('needs') or []))]
+check('no release.yml job waits on the removed crate job', not needing, needing)
+check('release.yml no longer reads a crates.io secret',
+      'secrets.CARGO_REGISTRY_TOKEN' not in rel_raw)
+check('release.yml no longer reads the removed job context',
+      'needs.publish-crates' not in rel_raw)
+check('release.yml no longer reads the identity variable the dead probe used',
+      'vars.CRATES_IO_EXPECTED_LOGIN' not in rel_raw)
+
+# The release-to-crates.io handoff: release.yml cannot publish itself (crates.io refuses
+# a workflow_run token), so it dispatches publish-crates.yml and waits for that run's own
+# verdict. These are the properties that keep the handoff from becoming a silent no-op:
+# a POST whose response nobody reads would turn "we forgot crates.io again" into a green
+# release, which is the exact failure this whole change is meant to end.
+trig = (rel.get('jobs') or {}).get('trigger-crates-io-publish')
+check('release.yml dispatches the crates.io publish instead of skipping it',
+      isinstance(trig, dict), sorted((rel.get('jobs') or {})))
+if isinstance(trig, dict):
+    tsteps = trig.get('steps') or []
+    tbodies = [str(s.get('run', '')) for s in tsteps]
+    tall = '\n'.join(tbodies)
+    check('the dispatch job asks for exactly contents:read + actions:write',
+          trig.get('permissions') == {'contents': 'read', 'actions': 'write'},
+          trig.get('permissions'))
+    check('the dispatch job has no crates.io environment of its own',
+          'environment' not in trig, trig.get('environment'))
+    check('the dispatch only runs for a release that was actually made',
+          trig.get('if') == "needs.validate.outputs.release-needed == 'true'", trig.get('if'))
+    tneeds = ([trig['needs']] if isinstance(trig.get('needs'), str)
+              else (trig.get('needs') or []))
+    check('the tag and the release exist before a ref is dispatched on',
+          {'validate', 'create-github-release'} <= set(tneeds), tneeds)
+    tb = trig.get('timeout-minutes')
+    check('the dispatch job is bounded, so a hung publish cannot hang the release',
+          isinstance(tb, int) and 0 < tb <= 40, tb)
+    check('the dispatch job posts the dispatch and then waits for that run',
+          '/dispatches' in tall and 'actions/runs/' in tall,
+          ['/dispatches' in b for b in tbodies])
+    check('the wait exits on a run that is not completed, not on a POST that returned 2xx',
+          '!= "completed"' in tall and 'return 1 2>/dev/null || exit 1' in tall)
+    check('the dispatched run is matched by its tag sha, not by recency alone',
+          '.head_sha == $sha' in tall and '--arg sha' in tall)
+    tcode = '\n'.join(ln for b in tbodies for ln in b.splitlines()
+                      if not ln.strip().startswith('#'))
+    check('the dispatch payload is ref + inputs.ref + inputs.version, from one variable',
+          '{ref: $ref, inputs: {ref: $ref, version: $ver}}' in tall, tall.count('inputs:'))
+    # Comment-insensitive on purpose: a comment cannot put an input in a payload, and an
+    # assertion that reads prose as code reds a job for what it says, not what it does.
+    check('a release dispatch never asks for a dry run', 'dry_run' not in tcode)
+    check('the dispatch job writes no expression into a run: body',
+          not [b for b in tbodies if '${{' in b],
+          [s.get('name', '<unnamed>') for s in tsteps if '${{' in str(s.get('run', ''))])
+    check('the dispatch names the workflow file that actually exists',
+          'WORKFLOW_FILE="publish-crates.yml"' in tall)
+    vr = (rel.get('jobs') or {}).get('verify-release') or {}
+    vr_needs = ([vr['needs']] if isinstance(vr.get('needs'), str) else (vr.get('needs') or []))
+    check('verify-release waits for the publish it is about to probe',
+          'trigger-crates-io-publish' in vr_needs, vr_needs)
+    check('verify-release still runs when the dispatch failed, to say which half is short',
+          'always()' in str(vr.get('if', '')), vr.get('if'))
+    check('notify reports the dispatch job result',
+          'needs.trigger-crates-io-publish.result' in rel_raw)
+    check('the dispatch job tells a crates.io miss where to look',
+          'trigger-crates-io-publish' in str(
+              (rel.get('jobs') or {}).get('verify-release', {}).get('steps', [{}])[-1]
+              .get('run', '')))
+
+winputs = ((triggers.get('workflow_dispatch') or {}) if isinstance(triggers, dict) else {})
+winputs = winputs.get('inputs') or {}
+check('publish-crates.yml defaults dry_run to false, which is what release.yml relies on '
+      'by omitting it', (winputs.get('dry_run') or {}).get('default') is False,
+      winputs.get('dry_run'))
+
+# Cross-file schema gate. This is the only assertion in the suite that can see the defect
+# class a step replay cannot: a well-formed step posting a payload the *receiver* rejects.
+# publish-crates.yml declares `ref` as required, so a payload without inputs.ref gets a 422
+# and every release goes red for a reason no replay of either step would show.
+required_inputs = sorted(k for k, v in winputs.items()
+                         if isinstance(v, dict) and v.get('required') is True)
+check('the receiver declares the required inputs the sender has to satisfy (not a vacuous check)',
+      len(required_inputs) >= 2, required_inputs)
+if isinstance(trig, dict):
+    sent = set()
+    match = re.search(r'inputs:\s*\{([^}]*)\}', tall)
+    if match:
+        sent = {k.strip() for k in re.findall(r'([A-Za-z_][A-Za-z0-9_]*)\s*:', match.group(1))}
+    check('the dispatch payload supplies every input publish-crates.yml requires',
+          set(required_inputs) <= sent, (required_inputs, sorted(sent)))
+
+for name, ok, detail in checks:
+    sys.stdout.write('%s\t%s%s\n' % ('PASS' if ok else 'FAIL', name, detail))
+PY
+    then
+        printf 'ERROR: structural checker exited nonzero:\n' >&2
+        cat "${TEST_DIR}/structural.err" >&2
+        return 1
+    fi
+    while IFS=$'\t' read -r status message; do
+        [[ -n "${status}" ]] || continue
+        if [[ "${status}" == "PASS" ]]; then
+            pass "${message}"
+        else
+            fail "${message}"
+        fi
+    done < "${TEST_DIR}/structural.tsv"
+}
+
 # ------------------------------------------------------------------- stubs
 write_stubs() {
     cat > "${STUBS}/curl" <<'STUB'
 #!/usr/bin/env bash
 printf 'curl\n' >> "${FIXTURE_CALLS}"
-out=""
-prev=""
-for arg in "$@"; do
-    if [[ "${prev}" == "-o" ]]; then out="${arg}"; fi
-    prev="${arg}"
-done
-if [[ "$*" == *"/api/v1/me"* ]]; then
-    body="$(cat "${FIXTURE_ME_BODY_FILE}")"
-    [[ -n "${out}" ]] && printf '%s' "${body}" > "${out}"
-    printf '%s' "${FIXTURE_ME_CODE:-200}"
-    exit 0
-fi
 if [[ "$*" == *"registry.npmjs.org"* ]]; then
     cat "${FIXTURE_NPM_PACKUMENT:-${TEST_DIR}/npm_attested.json}"
+    exit 0
+fi
+# Per-crate routing, opt-in: the sparse index URL ends in the crate name, so a live-set
+# file can express "seven of nine landed" — the partial-publish state the reconciliation
+# step exists to catch, and one the shared FIXTURE_INDEX answer below cannot show.
+if [[ -n "${FIXTURE_INDEX_LIVE:-}" && "$*" == *"index.crates.io"* ]]; then
+    # `${*##*/}` is NOT the URL tail: a `##` on `$*` applies per word, so it yields
+    # "-sL csm-chaos" here and a stub like this answers Missing for everything. Fold to
+    # one scalar first, then strip.
+    allargs="$*"
+    crate="${allargs##*/}"
+    if grep -qxF -- "${crate}" "${FIXTURE_INDEX_LIVE}"; then
+        cat "${TEST_DIR}/index_present.json"
+    else
+        cat "${TEST_DIR}/index_absent.json"
+    fi
     exit 0
 fi
 if [[ -n "${FIXTURE_INDEX}" && -f "${FIXTURE_INDEX}" ]]; then
@@ -234,11 +467,39 @@ STUB
     cat > "${STUBS}/gh" <<'STUB'
 #!/usr/bin/env bash
 printf 'gh\n' >> "${FIXTURE_CALLS}"
+allargs="$*"
 if [[ "${FIXTURE_GH_OK}" != "yes" ]]; then
     exit 1
 fi
-if [[ "$*" == *"--json assets"* ]]; then
+if [[ "${allargs}" == *"--json assets"* ]]; then
     cat "${FIXTURE_GH_ASSETS:-${TEST_DIR}/assets_all.txt}"
+    exit 0
+fi
+# The dispatch-and-wait replay. Each Actions API shape the step reads is answered from
+# its own fixture file, so a case states the exact run-list state it is testing instead
+# of relying on one generic answer. Names fall back to the all-green defaults, and every
+# file is written by the fixture — no case can reach a live GitHub API by accident.
+if [[ "${allargs}" == *"--method POST"* ]]; then
+    printf 'dispatch\n' >> "${FIXTURE_CALLS}"
+    cat > "${TEST_DIR}/dispatch-payload.json"
+    exit "${FIXTURE_DISPATCH_RC:-0}"
+fi
+if [[ "${allargs}" == *"runs?per_page=1"* ]]; then
+    if [[ "${FIXTURE_GH_NO_LAST_RUN:-0}" == "1" ]]; then
+        exit 1
+    fi
+    cat "${TEST_DIR}/${FIXTURE_GH_LAST_RUN_FILE:-last_run.json}"
+    exit 0
+fi
+if [[ "${allargs}" == *"runs?event=workflow_dispatch"* ]]; then
+    cat "${TEST_DIR}/${FIXTURE_GH_RUNS_FILE:-run_list.json}"
+    exit 0
+fi
+if [[ "${allargs}" == *"/actions/runs/"* ]]; then
+    # Recorded by id: "which run did the wait actually poll" is the whole point of the
+    # sha match, and a stub that answered every run the same way could not show it.
+    printf 'run %s\n' "${allargs##*/actions/runs/}" >> "${FIXTURE_CALLS}"
+    cat "${TEST_DIR}/${FIXTURE_GH_RUN_FILE:-run_state.json}"
     exit 0
 fi
 printf '{"tagName":"v9.9.9"}\n'
@@ -257,17 +518,67 @@ STUB
 }
 
 # run_body <body-file> — GitHub's own default run shell, no network.
+#
+# The job-level `env:` block of publish-crates.yml is read out of that file (see
+# load_publish_env) and replayed, because the step bodies now read VERSION/DRY_RUN/
+# CSM_PUBLISH_CRATES/CSM_ROOT_CRATE/CSM_DUCKDB_CRATES from job env instead of inline
+# `${{ }}` interpolation. Replaying the workflow's own values means a change to the
+# crate set moves the replays with it; a fixture that hardcoded nine names of its own
+# would keep passing after the thing it tests drifted.
 run_body() {
     local body="$1"
     : > "${FIXTURE_CALLS}"
     : > "${TEST_DIR}/summary.md"
-    PATH="${STUBS}:${PATH}" GITHUB_STEP_SUMMARY="${TEST_DIR}/summary.md" \
-        CARGO_REGISTRY_TOKEN=fixture-token GH_TOKEN=fixture-token \
-        bash -e -o pipefail "${body}" > "${TEST_DIR}/stdout.log" 2> "${TEST_DIR}/stderr.log"
+    # Cleared per case: a run that never POSTs must not be judged on the payload the
+    # previous case left behind.
+    : > "${TEST_DIR}/dispatch-payload.json"
+    local -a assigns=(
+        "PATH=${STUBS}:${PATH}"
+        "GITHUB_STEP_SUMMARY=${TEST_DIR}/summary.md"
+        "GH_TOKEN=fixture-token"
+        "VERSION=${FIXTURE_VERSION}"
+        "DRY_RUN=${FIXTURE_DRY_RUN}"
+        # The trigger job reads REPO/VERSION/RELEASE_SHA from its job `env:` block, and
+        # RELEASE_SHA is a run output the runner would have interpolated. The fixture
+        # pins it, because a replay that inherited the machine's git state would match
+        # (or fail to match) the run list on something other than the code under test.
+        "REPO=d-o-hub/chaotic_semantic_memory"
+        "RELEASE_SHA=${FIXTURE_SHA}"
+    )
+    # FIXTURE_NO_TOKEN models the exchange producing nothing: the guard step must red
+    # before a single cargo call, and only an absent variable can prove that.
+    if [[ "${FIXTURE_NO_TOKEN}" != "1" ]]; then
+        assigns+=("CARGO_REGISTRY_TOKEN=fixture-token")
+    fi
+    if [[ -f "${TEST_DIR}/publish.env" ]]; then
+        local -a jobenv=()
+        mapfile -t jobenv < "${TEST_DIR}/publish.env"
+        assigns+=("${jobenv[@]}")
+    fi
+    env "${assigns[@]}" bash -e -o pipefail "${body}" \
+        > "${TEST_DIR}/stdout.log" 2> "${TEST_DIR}/stderr.log"
     BODY_RC=$?
     SUMMARY="$(cat "${TEST_DIR}/summary.md")"
     STDOUT="$(cat "${TEST_DIR}/stdout.log")"
     CALLS="$(cat "${FIXTURE_CALLS}")"
+}
+
+# load_publish_env — copy publish-crates.yml's job env into KEY=VALUE lines for the
+# replay. `${{ ... }}` values are skipped on purpose: those are the dispatch inputs,
+# which the fixture pins explicitly rather than reading from the machine it runs on.
+load_publish_env() {
+    python3 - "${PUBLISH_WORKFLOW}" "${TEST_DIR}/publish.env" <<'PY'
+import sys, yaml
+workflow, out = sys.argv[1:3]
+env = yaml.safe_load(open(workflow, encoding='utf-8'))['jobs']['publish'].get('env') or {}
+lines = []
+for key, value in env.items():
+    text = str(value).strip()
+    if '${{' in text:
+        continue
+    lines.append('%s=%s' % (key, text))
+open(out, 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
+PY
 }
 
 stub_tool_calls() {
@@ -275,28 +586,30 @@ stub_tool_calls() {
 }
 
 write_stubs
+load_publish_env
 
 # Credential/npm/asset defaults for the replay. Every case overrides the field it
 # cares about, so the positive control is explicit rather than incidental.
-FIXTURE_ME_CODE=200
-FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_ok.json"
 FIXTURE_CARGO_AUTH=0
 FIXTURE_NPM_PACKUMENT="${TEST_DIR}/npm_attested.json"
 FIXTURE_GH_ASSETS="${TEST_DIR}/assets_all.txt"
-export FIXTURE_ME_CODE FIXTURE_ME_BODY_FILE FIXTURE_CARGO_AUTH FIXTURE_NPM_PACKUMENT FIXTURE_GH_ASSETS
-
-cat > "${TEST_DIR}/me_ok.json" <<'JSON'
-{"user":{"login":"d-o-hub"}}
-JSON
-cat > "${TEST_DIR}/me_401.json" <<'JSON'
-{"errors":[{"detail":"The given API token does not match the format used by crates.io."}]}
-JSON
-cat > "${TEST_DIR}/me_403.json" <<'JSON'
-{"errors":[{"detail":"this action requires authentication"}]}
-JSON
-cat > "${TEST_DIR}/me_wrong_login.json" <<'JSON'
-{"user":{"login":"someone-else"}}
-JSON
+# 9.9.9 is not a real release: no row in any fixture index can be mistaken for live
+# history, and a case that forgets to set the version fails loudly instead of
+# accidentally matching a version that exists on crates.io.
+FIXTURE_VERSION="9.9.9"
+FIXTURE_DRY_RUN="false"
+FIXTURE_NO_TOKEN="0"
+FIXTURE_INDEX_LIVE=""
+FIXTURE_SHA="0000000000000000000000000000000000000000"
+FIXTURE_DISPATCH_RC="0"
+FIXTURE_GH_NO_LAST_RUN="0"
+FIXTURE_GH_LAST_RUN_FILE="last_run.json"
+FIXTURE_GH_RUNS_FILE="run_list.json"
+FIXTURE_GH_RUN_FILE="run_state.json"
+export FIXTURE_CARGO_AUTH FIXTURE_NPM_PACKUMENT FIXTURE_GH_ASSETS
+export FIXTURE_VERSION FIXTURE_DRY_RUN FIXTURE_NO_TOKEN FIXTURE_INDEX_LIVE
+export FIXTURE_SHA FIXTURE_DISPATCH_RC FIXTURE_GH_NO_LAST_RUN
+export FIXTURE_GH_LAST_RUN_FILE FIXTURE_GH_RUNS_FILE FIXTURE_GH_RUN_FILE
 
 cat > "${TEST_DIR}/npm_attested.json" <<'JSON'
 {"versions":{
@@ -332,7 +645,7 @@ cat > "${TEST_DIR}/index_spliced_only.json" <<'EOF'
 EOF
 
 printf '== #954: every verdict is collected (verify-release) ==\n'
-if ! extract_step "${TEST_DIR}/vr.sh" verify-release "Verify complete" "9.9.9"; then
+if ! extract_step "${TEST_DIR}/vr.sh" "${WORKFLOW}" verify-release "Verify complete" "${FIXTURE_VERSION}"; then
     printf 'ERROR: could not extract the verify-release step from %s\n' "${WORKFLOW}" >&2
     exit 2
 fi
@@ -393,33 +706,80 @@ run_body "${TEST_DIR}/vr.sh"
 expect_has "a lower published version is still Missing" "❌ crates.io/csm-memory: Missing"
 expect_has "while the npm verdicts are unaffected" "✅ npm (@d-o-hub/csm) version: Published"
 
+printf '\n== the published set has one source across both workflow files ==\n'
+# release.yml's verifier and publish-crates.yml's publisher each carry the crate set,
+# and a set that drifts between them is the bug class this repository keeps re-finding:
+# `check-goap-queue-issues.sh` and ci-workspace-crate-matrix.sh both exist for exactly
+# this reason ("a comment is not a gate"). So the two lists are read out of the files
+# and compared, and every count below is derived from them rather than written here —
+# a hardcoded 7 would only prove the fixture remembers last year's crate set.
+if ! python3 - "${PUBLISH_WORKFLOW}" "${WORKFLOW}" "${TEST_DIR}" <<'PY'
+import re, sys, yaml
+publish_wf, release_wf, test_dir = sys.argv[1:4]
+pub_env = yaml.safe_load(open(publish_wf, encoding='utf-8'))['jobs']['publish']['env']
+publish_set = pub_env['CSM_PUBLISH_CRATES'].split()
+own_steps = {pub_env['CSM_ROOT_CRATE'], pub_env['CSM_DUCKDB_CRATE']}
+member_set = [c for c in publish_set if c not in own_steps]
+verifier = [s for s in yaml.safe_load(open(release_wf, encoding='utf-8'))['jobs']
+            ['verify-release']['steps'] if str(s.get('name', '')).startswith('Verify complete')]
+if len(verifier) != 1:
+    sys.exit('fixture: expected 1 verify-release step, found %d' % len(verifier))
+match = re.search(r'^[ \t]*CRATES_PUBLISHED="([^"]*)"', verifier[0]['run'], re.M)
+if not match:
+    sys.exit('fixture: verify-release no longer builds CRATES_PUBLISHED as one list')
+verify_set = match.group(1).split()
+for name, rows in (('publish_set', publish_set), ('member_set', member_set),
+                   ('verify_set', verify_set)):
+    open('%s/%s.txt' % (test_dir, name), 'w', encoding='utf-8').write('\n'.join(rows) + '\n')
+PY
+then
+    printf 'ERROR: could not compare the published crate sets\n' >&2
+    exit 2
+fi
+PUBLISH_TOTAL="$(wc -l < "${TEST_DIR}/publish_set.txt" | tr -d ' ')"
+PUBLISH_MEMBERS="$(wc -l < "${TEST_DIR}/member_set.txt" | tr -d ' ')"
+PUBLISH_UNIQUE="$(sort -u "${TEST_DIR}/publish_set.txt" | wc -l | tr -d ' ')"
+expect_eq "publish-crates.yml and release.yml publish the same set" \
+    "$(cat "${TEST_DIR}/publish_set.txt")" "$(cat "${TEST_DIR}/verify_set.txt")"
+expect_eq "the crate set has no duplicates" "${PUBLISH_TOTAL}" "${PUBLISH_UNIQUE}"
+expect_eq "exactly the root crate and csm-duckdb leave the member loop" \
+    "$(( PUBLISH_TOTAL - 2 ))" "${PUBLISH_MEMBERS}"
+
 printf '\n== #971: publish-crates no longer re-publishes what is already live ==\n'
-if ! extract_step "${TEST_DIR}/pc.sh" publish-crates "Publish workspace crates" "9.9.9"; then
-    printf 'ERROR: could not extract the publish-crates step from %s\n' "${WORKFLOW}" >&2
+if ! extract_step "${TEST_DIR}/pc.sh" "${PUBLISH_WORKFLOW}" publish "Publish workspace crates" "${FIXTURE_VERSION}"; then
+    printf 'ERROR: could not extract the member publish step from %s\n' "${PUBLISH_WORKFLOW}" >&2
     exit 2
 fi
 set_registry_state "${TEST_DIR}/index_present.json" yes yes
 run_body "${TEST_DIR}/pc.sh"
-expect_eq "publish-crates: step exits 0" "0" "${BODY_RC}"
-expect_eq "publish-crates: zero cargo publishes for a live version" "0" "$(stub_tool_calls cargo)"
-expect_eq "publish-crates: all seven members skipped" "7" "$(count_in_stdout 'already on crates.io, skipping')"
+expect_eq "publish step exits 0" "0" "${BODY_RC}"
+expect_eq "publish step: zero cargo publishes for a live version" "0" "$(stub_tool_calls cargo)"
+expect_eq "publish step: every member skipped when all are live" \
+    "${PUBLISH_MEMBERS}" "$(count_in_stdout 'already on crates.io, skipping')"
 
 set_registry_state "${TEST_DIR}/index_absent.json" yes yes
 run_body "${TEST_DIR}/pc.sh"
-expect_eq "publish-crates: seven publishes when none is live" "7" "$(stub_tool_calls cargo)"
-expect_eq "publish-crates: one index probe per member" "7" "$(stub_tool_calls curl)"
+expect_eq "publish step: one publish per member when none is live" \
+    "${PUBLISH_MEMBERS}" "$(stub_tool_calls cargo)"
+expect_eq "publish step: one index probe per member" \
+    "${PUBLISH_MEMBERS}" "$(stub_tool_calls curl)"
 
 printf '\n== workflow file: the splice and the bare call must not come back ==\n'
 # Comments are excluded, and deliberately so: this file's own rationale comment
 # quotes the broken pattern to explain the fix, and a gate that reads prose as
 # code fails on the documentation of the repair (the same trap as the generated
 # script catalog's caller columns). An executable line never starts with `#`.
-if sed '/^[[:space:]]*#/d' "${WORKFLOW}" | grep -qn 'grep -q ""'; then
-    fail "release.yml contains a quote-spliced grep pattern again"
-    sed '/^[[:space:]]*#/d' "${WORKFLOW}" | grep -n 'grep -q ""' >&2
-else
-    pass "release.yml has no quote-spliced grep pattern"
-fi
+# Both workflow files are scanned: #971 was proven in release.yml and the pattern is
+# now re-expressed in publish-crates.yml, where a re-splice would re-publish nine
+# crates that are already live.
+for scanned in "${WORKFLOW}" "${PUBLISH_WORKFLOW}"; do
+    if sed '/^[[:space:]]*#/d' "${scanned}" | grep -qn 'grep -q ""'; then
+        fail "$(basename "${scanned}") contains a quote-spliced grep pattern again"
+        sed '/^[[:space:]]*#/d' "${scanned}" | grep -n 'grep -q ""' >&2
+    else
+        pass "$(basename "${scanned}") has no quote-spliced grep pattern"
+    fi
+done
 if grep -qF 'check_with_retry "crates.io" "curl' "${WORKFLOW}"; then
     fail "verify-release inlines the index probe into check_with_retry again"
 else
@@ -449,37 +809,79 @@ else
 fi
 
 
-printf '\n== #967: the crates.io credential is probed before any cargo ==\n'
-if ! extract_step "${TEST_DIR}/pc_auth.sh" publish-crates "Probe the crates.io credential" "9.9.9"; then
-    printf 'ERROR: could not extract the credential preflight step\n' >&2
+printf '\n== ADR-0104: the crates.io credential comes from the OIDC exchange ==\n'
+# Structural, not behavioural: no replay can show that a secret is *not referenced*,
+# and the whole point of the migration is that the file stops mentioning one. These
+# are the properties that keep the next editor from "just adding back" the
+# CARGO_REGISTRY_TOKEN that cost nine 403s on v0.3.9 (#967) — a fix that worked, but
+# only until the token expired again, which is exactly what the registry's 90-day
+# default did.
+#
+# The #967 credential *probe* it replaces is gone, and deliberately so: crates.io
+# serves /api/v1/me behind AuthCheck::only_cookie(), so that step could never see a
+# token as a token. What remains is the one question the runner can actually answer —
+# did the exchange return anything — replayed below.
+if ! structural_checks; then
+    printf 'ERROR: the structural checker could not run\n' >&2
     exit 2
 fi
-FIXTURE_ME_CODE=200
-FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_ok.json"
-export FIXTURE_ME_CODE FIXTURE_ME_BODY_FILE
-run_body "${TEST_DIR}/pc_auth.sh"
-expect_eq "a valid token exits 0" "0" "${BODY_RC}"
-expect_has "the probe names the authenticated login" "authenticated as d-o-hub"
-expect_not_has "the token value is never printed" "fixture-token"
 
-FIXTURE_ME_CODE=401
-FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_401.json"
-run_body "${TEST_DIR}/pc_auth.sh"
-expect_eq "a 401 exits 1" "1" "${BODY_RC}"
-expect_has "the HTTP status is named" "HTTP 401"
-expect_has "crates.io's detail is surfaced" "token does not match the format"
+printf '\n== ADR-0104: an exchange that returns nothing publishes nothing ==\n'
+if ! extract_step "${TEST_DIR}/guard.sh" "${PUBLISH_WORKFLOW}" publish "Refuse to publish on an empty token" "${FIXTURE_VERSION}"; then
+    printf 'ERROR: could not extract the empty-token guard from %s\n' "${PUBLISH_WORKFLOW}" >&2
+    exit 2
+fi
+FIXTURE_NO_TOKEN=0
+export FIXTURE_NO_TOKEN
+run_body "${TEST_DIR}/guard.sh"
+expect_eq "a returned token lets the job continue" "0" "${BODY_RC}"
+expect_eq "a returned token calls no tool" "0" "$(stub_tool_calls cargo)"
+expect_not_has "the guard never prints the token" "fixture-token"
 
-FIXTURE_ME_CODE=403
-FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_403.json"
-run_body "${TEST_DIR}/pc_auth.sh"
-expect_eq "missing auth exits 1" "1" "${BODY_RC}"
-expect_has "missing auth keeps the detail" "requires authentication"
+FIXTURE_NO_TOKEN=1
+export FIXTURE_NO_TOKEN
+run_body "${TEST_DIR}/guard.sh"
+expect_eq "an empty exchange reds the guard" "1" "${BODY_RC}"
+expect_has "it names the credential class" "::error title=Crates.io OIDC::"
+expect_not_has "it does not leak an empty value into a publish" "cargo publish"
+FIXTURE_NO_TOKEN=0
+export FIXTURE_NO_TOKEN
 
-FIXTURE_ME_CODE=200
-FIXTURE_ME_BODY_FILE="${TEST_DIR}/me_wrong_login.json"
-run_body "${TEST_DIR}/pc_auth.sh"
-expect_eq "a valid token for the wrong account exits 1" "1" "${BODY_RC}"
-expect_has "the wrong login is named" "authenticated as 'someone-else'"
+printf '\n== ADR-0104: the reconciler turns a partial publish into a red run ==\n'
+# crates.io scopes the exchange token to the subset of crates whose trusted publishers
+# match, so one missing config publishes seven and 403s two — and the publish loop
+# above reports success for the seven it did. Without this step the migration would
+# re-create the 0.3.9 shape: a green release with a registry that never got the crate.
+if ! extract_step "${TEST_DIR}/recon.sh" "${PUBLISH_WORKFLOW}" publish "Reconcile the sparse index" "${FIXTURE_VERSION}"; then
+    printf 'ERROR: could not extract the reconciliation step from %s\n' "${PUBLISH_WORKFLOW}" >&2
+    exit 2
+fi
+printf 'csm-chaos\nchaotic_semantic_memory\n' > "${TEST_DIR}/live_two.txt"
+FIXTURE_INDEX_LIVE="${TEST_DIR}/live_two.txt"
+export FIXTURE_INDEX_LIVE
+run_body "${TEST_DIR}/recon.sh"
+expect_eq "seven of nine live is a failure, not a warning" "1" "${BODY_RC}"
+expect_eq "two verdicts are credited" "2" "$(count_in_stdout ': Published')"
+expect_eq "the rest are named Missing" "$(( PUBLISH_TOTAL - 2 ))" "$(count_in_stdout ': Missing')"
+expect_has "the aggregate lists the gap" "::error title=Partial publish::"
+expect_has "it says what closes the gap" "re-dispatch this workflow"
+FIXTURE_INDEX_LIVE=""
+export FIXTURE_INDEX_LIVE
+
+set_registry_state "${TEST_DIR}/index_present.json" yes yes
+run_body "${TEST_DIR}/recon.sh"
+expect_eq "all nine live exits 0" "0" "${BODY_RC}"
+expect_eq "one verdict row per crate" "${PUBLISH_TOTAL}" "$(count_in_stdout ': Published')"
+expect_has "and the run says so" "crates are live at ${FIXTURE_VERSION}"
+
+set_registry_state "${TEST_DIR}/index_absent.json" yes yes
+FIXTURE_DRY_RUN=true
+export FIXTURE_DRY_RUN
+run_body "${TEST_DIR}/recon.sh"
+expect_eq "a dry run reconciles nothing and passes" "0" "${BODY_RC}"
+expect_eq "a dry run probes the index zero times" "0" "$(stub_tool_calls curl)"
+FIXTURE_DRY_RUN=false
+export FIXTURE_DRY_RUN
 
 printf '\n== #967: an authentication failure aborts the publish loop ==\n'
 set_registry_state "${TEST_DIR}/index_absent.json" yes yes
@@ -488,7 +890,7 @@ export FIXTURE_CARGO_AUTH
 : > "${TEST_DIR}/argv.txt"
 run_body "${TEST_DIR}/pc.sh"
 expect_eq "the auth failure reds the step" "1" "${BODY_RC}"
-expect_eq "it aborts after one crate, not seven" "1" "$(stub_tool_calls cargo)"
+expect_eq "it aborts after one crate, not the whole set" "1" "$(stub_tool_calls cargo)"
 expect_has "the annotation names the credential class" "credential rejected while publishing"
 expect_not_has "it does not reach the aggregate publish-failed message" "Publish failed for:"
 FIXTURE_CARGO_AUTH=0
@@ -529,6 +931,122 @@ else
     fail "the provenance probe does not reproduce the positive controls"
     printf '%s\n' "${PROBE_OUT}" >&2
 fi
+
+printf '\n== ADR-0104: a release run dispatches the crates.io publish and waits for it ==\n'
+if ! extract_step "${TEST_DIR}/trig.sh" "${WORKFLOW}" trigger-crates-io-publish \
+    "Dispatch publish-crates.yml" "${FIXTURE_VERSION}"; then
+    printf 'ERROR: could not extract the dispatch step from %s\n' "${WORKFLOW}" >&2
+    exit 2
+fi
+
+# The three Actions API answers the step reads. `run_list.json` deliberately holds a
+# NEWER run on someone else's sha: recency alone would pick 102 and credit this release
+# with a publish it did not cause, so the run id the stub records is the assertion.
+cat > "${TEST_DIR}/last_run.json" <<'EOF'
+{"workflow_runs":[{"id":100}]}
+EOF
+cat > "${TEST_DIR}/run_list.json" <<'EOF'
+{"workflow_runs":[
+  {"id":101,"head_sha":"0000000000000000000000000000000000000000","event":"workflow_dispatch"},
+  {"id":102,"head_sha":"1111111111111111111111111111111111111111","event":"workflow_dispatch"}
+]}
+EOF
+cat > "${TEST_DIR}/run_list_empty.json" <<'EOF'
+{"workflow_runs":[]}
+EOF
+cat > "${TEST_DIR}/run_success.json" <<'EOF'
+{"status":"completed","conclusion":"success"}
+EOF
+cat > "${TEST_DIR}/run_failure.json" <<'EOF'
+{"status":"completed","conclusion":"failure"}
+EOF
+cat > "${TEST_DIR}/run_waiting.json" <<'EOF'
+{"status":"waiting","conclusion":null}
+EOF
+cp "${TEST_DIR}/run_success.json" "${TEST_DIR}/run_state.json"
+
+set_registry_state "${TEST_DIR}/index_present.json" yes yes
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a publish that succeeds greens the release" "0" "${BODY_RC}"
+expect_eq "the dispatch is posted exactly once" "1" "$(stub_tool_calls dispatch)"
+expect_eq "the matching run is polled" "1" "$(stub_tool_calls 'run 101')"
+expect_eq "the newer run on a foreign sha is never polled" "0" "$(stub_tool_calls 'run 102')"
+expect_has "the summary records the outcome" "outcome: \`completed\` / \`success\`"
+expect_has "the run is linked, not just counted" "actions/runs/101"
+PAYLOAD=""
+if [[ -s "${TEST_DIR}/dispatch-payload.json" ]]; then
+    PAYLOAD="$(cat "${TEST_DIR}/dispatch-payload.json")"
+fi
+# The two refs must be the same string: the top-level one selects the workflow revision,
+# inputs.ref selects the tree that gets published, and a release that split them would
+# run one file against another tree. Compared as one joined value so the equality is the
+# assertion rather than something a later reader has to reconstruct.
+if [[ "$(jq -r '"\(.ref) \(.inputs.ref) \(.inputs.version)"' <<< "${PAYLOAD}")" \
+    == "refs/tags/v9.9.9 refs/tags/v9.9.9 9.9.9" ]]; then
+    pass "the payload dispatches this release's tag and version, with both refs equal"
+else
+    fail "the payload does not name this release's tag and version — got [${PAYLOAD}]"
+fi
+if grep -qF 'dry_run' <<< "${PAYLOAD}"; then
+    fail "a release dispatch asked for a dry run"
+else
+    pass "a release dispatch never asks for a dry run"
+fi
+
+# A first-ever dispatch has no run to read a "last id" from, and `// 0` is what lets the
+# match work anyway. Without this case, the empty-list path is only reasoned about.
+FIXTURE_GH_LAST_RUN_FILE="run_list_empty.json"
+export FIXTURE_GH_LAST_RUN_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a workflow with no previous run still dispatches" "0" "${BODY_RC}"
+expect_eq "and its run is found" "1" "$(stub_tool_calls 'run 101')"
+FIXTURE_GH_LAST_RUN_FILE="last_run.json"
+
+# The dispatch was refused. The POST's own exit is the only signal available here, and a
+# step that fell through to the green sentence would report a release that published none.
+FIXTURE_DISPATCH_RC=1
+export FIXTURE_DISPATCH_RC
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a rejected dispatch reds the job" "1" "${BODY_RC}"
+expect_eq "and no run is waited on" "0" "$(stub_tool_calls 'run 101')"
+FIXTURE_DISPATCH_RC=0
+
+# Without a readable "last run id" there is nothing to tell this release's run apart from
+# an older one, so the step must refuse to post rather than match on noise.
+FIXTURE_GH_NO_LAST_RUN=1
+export FIXTURE_GH_NO_LAST_RUN
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "an unreadable run list blocks the dispatch" "1" "${BODY_RC}"
+expect_eq "and nothing is posted" "0" "$(stub_tool_calls dispatch)"
+expect_has "it says nothing was published" "Nothing was published"
+FIXTURE_GH_NO_LAST_RUN=0
+
+# workflow_dispatch only fires for a file already on the default branch, so "the POST
+# worked and no run appeared" is a specific, recoverable mistake — and the only way this
+# job can learn that publish-crates.yml has not merged yet.
+FIXTURE_GH_RUNS_FILE="run_list_empty.json"
+export FIXTURE_GH_RUNS_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a dispatch that spawns no run reds the job" "1" "${BODY_RC}"
+expect_has "it names the missing-run state" "::error title=No crates.io run::"
+expect_has "it names the default-branch cause" "not on the default branch yet"
+expect_eq "and no run is polled" "0" "$(stub_tool_calls 'run 101')"
+FIXTURE_GH_RUNS_FILE="run_list.json"
+
+FIXTURE_GH_RUN_FILE="run_failure.json"
+export FIXTURE_GH_RUN_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a failed publish run reds the release" "1" "${BODY_RC}"
+expect_has "it names the run and its conclusion" "finished \`failure\`"
+expect_has "it points at the reconciliation step for the gap" "names every crate missing"
+expect_has "and says verify-release stays red" "verify-release stays red"
+FIXTURE_GH_RUN_FILE="run_waiting.json"
+export FIXTURE_GH_RUN_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a run held by an environment expires the wait red" "1" "${BODY_RC}"
+expect_has "and says which state it stopped in" "was still \`waiting\`"
+expect_has "and blames the guard, not the registry" "environment approval"
+FIXTURE_GH_RUN_FILE="run_state.json"
 
 printf '\n----\n'
 printf 'verify-release fixture: %s case(s), %s failure(s)\n' "${RUNS}" "${FAILURES}"

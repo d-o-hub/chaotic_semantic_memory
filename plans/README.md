@@ -25,7 +25,7 @@ Earlier recommendation backlogs (2026-07-20, 2026-09-29) are archived under
 | Doc | Purpose |
 |-----|---------|
 | [`ADR_REGISTRY.md`](ADR_REGISTRY.md) | Registry ↔ disk parity |
-| [`adr/`](adr/) | Individual ADRs (latest: 0100–0103) |
+| [`adr/`](adr/) | Individual ADRs (latest: 0101–0104) |
 
 ## Archive
 
