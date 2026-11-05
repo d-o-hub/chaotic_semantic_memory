@@ -115,11 +115,13 @@ CLOSED … delete this action from plans/ACTIONS.md`. Two consequences:
 
 ### A green run on an older head is not a passed check (2026-11-05)
 
-State files that record `ci_all_checks_passed: true` from `gh run list --limit N` will cite whichever recent
-run succeeded, not the current tip. The measured gap: the flag cited run 41833935753 (`c9b69ca5`) while the
-two newer `main` pushes above it were both red — three heads of drift, and `lint` is a required ruleset
-context, so the flag was simultaneously stale *and* implied merges that were unavailable. Always pair the
-run id with the SHA and re-derive:
+A stored `ci_all_checks_passed` cites whichever recent run succeeded, not the current tip. The measured gap:
+the flag cited run 41833935753 (`c9b69ca5`) while the two newer `main` pushes above it were both red — three
+heads of drift, and `lint` is a required ruleset context, so the flag was simultaneously stale *and* implied
+merges that were unavailable. Both it and `main_head` are now **banned from `plans/GOAP_STATE.md`** —
+`scripts/check-goap-queue-issues.sh` fails closed if either key reappears — and the verdict is derived instead:
+`scripts/goap-orchestrator.sh status` prints `ci-truth tip=<sha> state=green|red|pending|stale|unavailable`.
+To audit the derivation by hand, always pair the run id with the SHA and re-measure the tip:
 
 ```bash
 TIP=$(git rev-parse --short=8 origin/main)

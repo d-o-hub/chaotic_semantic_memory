@@ -167,6 +167,18 @@ if [[ "${LAST_COMPLETED_COUNT}" -ne 1 ]]; then
     add_error "STATE: action_last_completed appears ${LAST_COMPLETED_COUNT} time(s) as a key in ${STATE}, must be exactly once (YAML last-key-wins makes every earlier duplicate silently dead)"
 fi
 
+# CI truth is derived, never stored (2026-11-05). `ci_all_checks_passed` and
+# `main_head` are per-head facts: the stored pair certified a green run three heads
+# behind a red `main`, which also read as "merges are available" while `lint` — a
+# required ruleset context — was failing. Anchored to two spaces like the check above,
+# because this file's header and the world_state comments name both keys in prose.
+for banned_key in ci_all_checks_passed main_head; do
+    banned_hits="$(grep -c "^  ${banned_key}:" "${STATE}" || true)"
+    if [[ "${banned_hits}" -ne 0 ]]; then
+        add_error "STATE: ${STATE} stores '${banned_key}' (${banned_hits} key line(s)) — CI truth is per-head and goes stale the moment main moves; derive it from scripts/goap-orchestrator.sh status (ci-truth tip=<sha> state=green|red|pending|stale|unavailable) instead"
+    fi
+done
+
 DECLARED_COUNT="$(grep -m1 '^  queued_actions_count:' "${STATE}" \
     | sed -e 's/^  queued_actions_count:[ \t]*//' -e 's/[ \t#].*$//' || true)"
 QUEUE_COUNT="$(grep -c '^  - name:' "${ACTIONS}" || true)"

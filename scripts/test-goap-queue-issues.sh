@@ -347,6 +347,26 @@ run_gate
 expect_pass "a queued effect nobody declared is not reported"
 expect_output_lacks "absent effect key is not an error" "beta_effect"
 
+echo "Test 9d: STATE — CI truth is derived, so storing it fails"
+write_baseline
+run_gate
+expect_pass "a state file without CI-truth keys passes"
+for banned in 'main_head: "546727d0"' 'ci_all_checks_passed: true' 'ci_all_checks_passed: false'; do
+    write_baseline
+    printf '  %s\n' "${banned}" >> "${TEST_DIR}/plans/GOAP_STATE.md"
+    run_gate
+    expect_fail_naming "stored ${banned%%:*} fails closed" \
+        "stores '${banned%%:*}'" "goap-orchestrator.sh status"
+done
+write_baseline
+# The line carries `main_head:` with the colon, so this asserts the gate is
+# *anchored* — an explanation that names a banned key with a colon after it is
+# prose, not a stored key, and only `^  <key>:` distinguishes the two.
+printf '  # main_head: removed 2026-11-05 — derived now, never stored\n' \
+    >> "${TEST_DIR}/plans/GOAP_STATE.md"
+run_gate
+expect_pass "the comment explaining the removal is not a stored key"
+
 echo "Test 10: notes prose at six spaces is NOT read as an effect key"
 write_queue "$(action_block alpha_test 101 alpha_effect)"
 {

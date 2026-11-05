@@ -2341,3 +2341,20 @@ without executing them (`git status` was clean, `sed` showed the old line), so n
 shellcheck clean, `check-actionlint.sh` rc 0 (10 workflows), catalog drift gate pass, `harness-check.sh all`
 exit 0. Filed as #1011 first, then fixed, per the issue-then-fix choice.
 
+**Hand-stored CI truth is deleted and gated, not just re-set (2026-11-05)**. `ci_all_checks_passed` and
+`main_head` are gone from `plans/GOAP_STATE.md` (17 lines of stale narrative → a pointer): both are per-head
+facts, so any stored copy is unverified the moment `main` moves, and the truth is already computed elsewhere —
+`scripts/goap-orchestrator.sh status` prints `ci-truth tip=<sha> state=green|red|pending|stale|unavailable
+run=<id>`, and `state=unavailable` (no gh auth) is *unverified*, never green. A comment saying "don't store
+these" would itself decay, so the durable form is a sensor: `scripts/check-goap-queue-issues.sh` now fails
+closed on `^  ci_all_checks_passed:` / `^  main_head:` — anchored to two spaces, because this file's header and
+the world_state comments name both keys in prose, which is the same anchoring reason as the existing
+`action_last_completed` rule. `scripts/test-goap-queue-issues.sh` Test 9d pins four directions (keys absent →
+pass; each key stored → fail naming the key and the deriving command; the explanatory comment → *not* a key),
+59/59 assertions green, and mutation-proved non-vacuous: stubbing the loop's key list turns 3 assertions red
+(rc 1). AGENTS.md step 4 and `skill://github-ci-guardrails` `references/gh-ci-truth.md` now cite the derived
+verdict instead of the flag. Self-caught during the edit: the AGENTS.md rewrite left the old infra sentence
+duplicated at the end of the same line, and `grep -c` reported **1** — these instruction lines are hundreds of
+characters, so occurrence counting needs `grep -o … | wc -l`; fixed, re-counted, verified.
+
+
