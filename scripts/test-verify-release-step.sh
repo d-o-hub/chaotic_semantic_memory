@@ -325,6 +325,86 @@ check('release.yml no longer reads the removed job context',
 check('release.yml no longer reads the identity variable the dead probe used',
       'vars.CRATES_IO_EXPECTED_LOGIN' not in rel_raw)
 
+# The release-to-crates.io handoff: release.yml cannot publish itself (crates.io refuses
+# a workflow_run token), so it dispatches publish-crates.yml and waits for that run's own
+# verdict. These are the properties that keep the handoff from becoming a silent no-op:
+# a POST whose response nobody reads would turn "we forgot crates.io again" into a green
+# release, which is the exact failure this whole change is meant to end.
+trig = (rel.get('jobs') or {}).get('trigger-crates-io-publish')
+check('release.yml dispatches the crates.io publish instead of skipping it',
+      isinstance(trig, dict), sorted((rel.get('jobs') or {})))
+if isinstance(trig, dict):
+    tsteps = trig.get('steps') or []
+    tbodies = [str(s.get('run', '')) for s in tsteps]
+    tall = '\n'.join(tbodies)
+    check('the dispatch job asks for exactly contents:read + actions:write',
+          trig.get('permissions') == {'contents': 'read', 'actions': 'write'},
+          trig.get('permissions'))
+    check('the dispatch job has no crates.io environment of its own',
+          'environment' not in trig, trig.get('environment'))
+    check('the dispatch only runs for a release that was actually made',
+          trig.get('if') == "needs.validate.outputs.release-needed == 'true'", trig.get('if'))
+    tneeds = ([trig['needs']] if isinstance(trig.get('needs'), str)
+              else (trig.get('needs') or []))
+    check('the tag and the release exist before a ref is dispatched on',
+          {'validate', 'create-github-release'} <= set(tneeds), tneeds)
+    tb = trig.get('timeout-minutes')
+    check('the dispatch job is bounded, so a hung publish cannot hang the release',
+          isinstance(tb, int) and 0 < tb <= 40, tb)
+    check('the dispatch job posts the dispatch and then waits for that run',
+          '/dispatches' in tall and 'actions/runs/' in tall,
+          ['/dispatches' in b for b in tbodies])
+    check('the wait exits on a run that is not completed, not on a POST that returned 2xx',
+          '!= "completed"' in tall and 'return 1 2>/dev/null || exit 1' in tall)
+    check('the dispatched run is matched by its tag sha, not by recency alone',
+          '.head_sha == $sha' in tall and '--arg sha' in tall)
+    tcode = '\n'.join(ln for b in tbodies for ln in b.splitlines()
+                      if not ln.strip().startswith('#'))
+    check('the dispatch payload is ref + inputs.ref + inputs.version, from one variable',
+          '{ref: $ref, inputs: {ref: $ref, version: $ver}}' in tall, tall.count('inputs:'))
+    # Comment-insensitive on purpose: a comment cannot put an input in a payload, and an
+    # assertion that reads prose as code reds a job for what it says, not what it does.
+    check('a release dispatch never asks for a dry run', 'dry_run' not in tcode)
+    check('the dispatch job writes no expression into a run: body',
+          not [b for b in tbodies if '${{' in b],
+          [s.get('name', '<unnamed>') for s in tsteps if '${{' in str(s.get('run', ''))])
+    check('the dispatch names the workflow file that actually exists',
+          'WORKFLOW_FILE="publish-crates.yml"' in tall)
+    vr = (rel.get('jobs') or {}).get('verify-release') or {}
+    vr_needs = ([vr['needs']] if isinstance(vr.get('needs'), str) else (vr.get('needs') or []))
+    check('verify-release waits for the publish it is about to probe',
+          'trigger-crates-io-publish' in vr_needs, vr_needs)
+    check('verify-release still runs when the dispatch failed, to say which half is short',
+          'always()' in str(vr.get('if', '')), vr.get('if'))
+    check('notify reports the dispatch job result',
+          'needs.trigger-crates-io-publish.result' in rel_raw)
+    check('the dispatch job tells a crates.io miss where to look',
+          'trigger-crates-io-publish' in str(
+              (rel.get('jobs') or {}).get('verify-release', {}).get('steps', [{}])[-1]
+              .get('run', '')))
+
+winputs = ((triggers.get('workflow_dispatch') or {}) if isinstance(triggers, dict) else {})
+winputs = winputs.get('inputs') or {}
+check('publish-crates.yml defaults dry_run to false, which is what release.yml relies on '
+      'by omitting it', (winputs.get('dry_run') or {}).get('default') is False,
+      winputs.get('dry_run'))
+
+# Cross-file schema gate. This is the only assertion in the suite that can see the defect
+# class a step replay cannot: a well-formed step posting a payload the *receiver* rejects.
+# publish-crates.yml declares `ref` as required, so a payload without inputs.ref gets a 422
+# and every release goes red for a reason no replay of either step would show.
+required_inputs = sorted(k for k, v in winputs.items()
+                         if isinstance(v, dict) and v.get('required') is True)
+check('the receiver declares the required inputs the sender has to satisfy (not a vacuous check)',
+      len(required_inputs) >= 2, required_inputs)
+if isinstance(trig, dict):
+    sent = set()
+    match = re.search(r'inputs:\s*\{([^}]*)\}', tall)
+    if match:
+        sent = {k.strip() for k in re.findall(r'([A-Za-z_][A-Za-z0-9_]*)\s*:', match.group(1))}
+    check('the dispatch payload supplies every input publish-crates.yml requires',
+          set(required_inputs) <= sent, (required_inputs, sorted(sent)))
+
 for name, ok, detail in checks:
     sys.stdout.write('%s\t%s%s\n' % ('PASS' if ok else 'FAIL', name, detail))
 PY
@@ -387,11 +467,39 @@ STUB
     cat > "${STUBS}/gh" <<'STUB'
 #!/usr/bin/env bash
 printf 'gh\n' >> "${FIXTURE_CALLS}"
+allargs="$*"
 if [[ "${FIXTURE_GH_OK}" != "yes" ]]; then
     exit 1
 fi
-if [[ "$*" == *"--json assets"* ]]; then
+if [[ "${allargs}" == *"--json assets"* ]]; then
     cat "${FIXTURE_GH_ASSETS:-${TEST_DIR}/assets_all.txt}"
+    exit 0
+fi
+# The dispatch-and-wait replay. Each Actions API shape the step reads is answered from
+# its own fixture file, so a case states the exact run-list state it is testing instead
+# of relying on one generic answer. Names fall back to the all-green defaults, and every
+# file is written by the fixture — no case can reach a live GitHub API by accident.
+if [[ "${allargs}" == *"--method POST"* ]]; then
+    printf 'dispatch\n' >> "${FIXTURE_CALLS}"
+    cat > "${TEST_DIR}/dispatch-payload.json"
+    exit "${FIXTURE_DISPATCH_RC:-0}"
+fi
+if [[ "${allargs}" == *"runs?per_page=1"* ]]; then
+    if [[ "${FIXTURE_GH_NO_LAST_RUN:-0}" == "1" ]]; then
+        exit 1
+    fi
+    cat "${TEST_DIR}/${FIXTURE_GH_LAST_RUN_FILE:-last_run.json}"
+    exit 0
+fi
+if [[ "${allargs}" == *"runs?event=workflow_dispatch"* ]]; then
+    cat "${TEST_DIR}/${FIXTURE_GH_RUNS_FILE:-run_list.json}"
+    exit 0
+fi
+if [[ "${allargs}" == *"/actions/runs/"* ]]; then
+    # Recorded by id: "which run did the wait actually poll" is the whole point of the
+    # sha match, and a stub that answered every run the same way could not show it.
+    printf 'run %s\n' "${allargs##*/actions/runs/}" >> "${FIXTURE_CALLS}"
+    cat "${TEST_DIR}/${FIXTURE_GH_RUN_FILE:-run_state.json}"
     exit 0
 fi
 printf '{"tagName":"v9.9.9"}\n'
@@ -421,12 +529,21 @@ run_body() {
     local body="$1"
     : > "${FIXTURE_CALLS}"
     : > "${TEST_DIR}/summary.md"
+    # Cleared per case: a run that never POSTs must not be judged on the payload the
+    # previous case left behind.
+    : > "${TEST_DIR}/dispatch-payload.json"
     local -a assigns=(
         "PATH=${STUBS}:${PATH}"
         "GITHUB_STEP_SUMMARY=${TEST_DIR}/summary.md"
         "GH_TOKEN=fixture-token"
         "VERSION=${FIXTURE_VERSION}"
         "DRY_RUN=${FIXTURE_DRY_RUN}"
+        # The trigger job reads REPO/VERSION/RELEASE_SHA from its job `env:` block, and
+        # RELEASE_SHA is a run output the runner would have interpolated. The fixture
+        # pins it, because a replay that inherited the machine's git state would match
+        # (or fail to match) the run list on something other than the code under test.
+        "REPO=d-o-hub/chaotic_semantic_memory"
+        "RELEASE_SHA=${FIXTURE_SHA}"
     )
     # FIXTURE_NO_TOKEN models the exchange producing nothing: the guard step must red
     # before a single cargo call, and only an absent variable can prove that.
@@ -483,8 +600,16 @@ FIXTURE_VERSION="9.9.9"
 FIXTURE_DRY_RUN="false"
 FIXTURE_NO_TOKEN="0"
 FIXTURE_INDEX_LIVE=""
+FIXTURE_SHA="0000000000000000000000000000000000000000"
+FIXTURE_DISPATCH_RC="0"
+FIXTURE_GH_NO_LAST_RUN="0"
+FIXTURE_GH_LAST_RUN_FILE="last_run.json"
+FIXTURE_GH_RUNS_FILE="run_list.json"
+FIXTURE_GH_RUN_FILE="run_state.json"
 export FIXTURE_CARGO_AUTH FIXTURE_NPM_PACKUMENT FIXTURE_GH_ASSETS
 export FIXTURE_VERSION FIXTURE_DRY_RUN FIXTURE_NO_TOKEN FIXTURE_INDEX_LIVE
+export FIXTURE_SHA FIXTURE_DISPATCH_RC FIXTURE_GH_NO_LAST_RUN
+export FIXTURE_GH_LAST_RUN_FILE FIXTURE_GH_RUNS_FILE FIXTURE_GH_RUN_FILE
 
 cat > "${TEST_DIR}/npm_attested.json" <<'JSON'
 {"versions":{
@@ -806,6 +931,122 @@ else
     fail "the provenance probe does not reproduce the positive controls"
     printf '%s\n' "${PROBE_OUT}" >&2
 fi
+
+printf '\n== ADR-0104: a release run dispatches the crates.io publish and waits for it ==\n'
+if ! extract_step "${TEST_DIR}/trig.sh" "${WORKFLOW}" trigger-crates-io-publish \
+    "Dispatch publish-crates.yml" "${FIXTURE_VERSION}"; then
+    printf 'ERROR: could not extract the dispatch step from %s\n' "${WORKFLOW}" >&2
+    exit 2
+fi
+
+# The three Actions API answers the step reads. `run_list.json` deliberately holds a
+# NEWER run on someone else's sha: recency alone would pick 102 and credit this release
+# with a publish it did not cause, so the run id the stub records is the assertion.
+cat > "${TEST_DIR}/last_run.json" <<'EOF'
+{"workflow_runs":[{"id":100}]}
+EOF
+cat > "${TEST_DIR}/run_list.json" <<'EOF'
+{"workflow_runs":[
+  {"id":101,"head_sha":"0000000000000000000000000000000000000000","event":"workflow_dispatch"},
+  {"id":102,"head_sha":"1111111111111111111111111111111111111111","event":"workflow_dispatch"}
+]}
+EOF
+cat > "${TEST_DIR}/run_list_empty.json" <<'EOF'
+{"workflow_runs":[]}
+EOF
+cat > "${TEST_DIR}/run_success.json" <<'EOF'
+{"status":"completed","conclusion":"success"}
+EOF
+cat > "${TEST_DIR}/run_failure.json" <<'EOF'
+{"status":"completed","conclusion":"failure"}
+EOF
+cat > "${TEST_DIR}/run_waiting.json" <<'EOF'
+{"status":"waiting","conclusion":null}
+EOF
+cp "${TEST_DIR}/run_success.json" "${TEST_DIR}/run_state.json"
+
+set_registry_state "${TEST_DIR}/index_present.json" yes yes
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a publish that succeeds greens the release" "0" "${BODY_RC}"
+expect_eq "the dispatch is posted exactly once" "1" "$(stub_tool_calls dispatch)"
+expect_eq "the matching run is polled" "1" "$(stub_tool_calls 'run 101')"
+expect_eq "the newer run on a foreign sha is never polled" "0" "$(stub_tool_calls 'run 102')"
+expect_has "the summary records the outcome" "outcome: \`completed\` / \`success\`"
+expect_has "the run is linked, not just counted" "actions/runs/101"
+PAYLOAD=""
+if [[ -s "${TEST_DIR}/dispatch-payload.json" ]]; then
+    PAYLOAD="$(cat "${TEST_DIR}/dispatch-payload.json")"
+fi
+# The two refs must be the same string: the top-level one selects the workflow revision,
+# inputs.ref selects the tree that gets published, and a release that split them would
+# run one file against another tree. Compared as one joined value so the equality is the
+# assertion rather than something a later reader has to reconstruct.
+if [[ "$(jq -r '"\(.ref) \(.inputs.ref) \(.inputs.version)"' <<< "${PAYLOAD}")" \
+    == "refs/tags/v9.9.9 refs/tags/v9.9.9 9.9.9" ]]; then
+    pass "the payload dispatches this release's tag and version, with both refs equal"
+else
+    fail "the payload does not name this release's tag and version — got [${PAYLOAD}]"
+fi
+if grep -qF 'dry_run' <<< "${PAYLOAD}"; then
+    fail "a release dispatch asked for a dry run"
+else
+    pass "a release dispatch never asks for a dry run"
+fi
+
+# A first-ever dispatch has no run to read a "last id" from, and `// 0` is what lets the
+# match work anyway. Without this case, the empty-list path is only reasoned about.
+FIXTURE_GH_LAST_RUN_FILE="run_list_empty.json"
+export FIXTURE_GH_LAST_RUN_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a workflow with no previous run still dispatches" "0" "${BODY_RC}"
+expect_eq "and its run is found" "1" "$(stub_tool_calls 'run 101')"
+FIXTURE_GH_LAST_RUN_FILE="last_run.json"
+
+# The dispatch was refused. The POST's own exit is the only signal available here, and a
+# step that fell through to the green sentence would report a release that published none.
+FIXTURE_DISPATCH_RC=1
+export FIXTURE_DISPATCH_RC
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a rejected dispatch reds the job" "1" "${BODY_RC}"
+expect_eq "and no run is waited on" "0" "$(stub_tool_calls 'run 101')"
+FIXTURE_DISPATCH_RC=0
+
+# Without a readable "last run id" there is nothing to tell this release's run apart from
+# an older one, so the step must refuse to post rather than match on noise.
+FIXTURE_GH_NO_LAST_RUN=1
+export FIXTURE_GH_NO_LAST_RUN
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "an unreadable run list blocks the dispatch" "1" "${BODY_RC}"
+expect_eq "and nothing is posted" "0" "$(stub_tool_calls dispatch)"
+expect_has "it says nothing was published" "Nothing was published"
+FIXTURE_GH_NO_LAST_RUN=0
+
+# workflow_dispatch only fires for a file already on the default branch, so "the POST
+# worked and no run appeared" is a specific, recoverable mistake — and the only way this
+# job can learn that publish-crates.yml has not merged yet.
+FIXTURE_GH_RUNS_FILE="run_list_empty.json"
+export FIXTURE_GH_RUNS_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a dispatch that spawns no run reds the job" "1" "${BODY_RC}"
+expect_has "it names the missing-run state" "::error title=No crates.io run::"
+expect_has "it names the default-branch cause" "not on the default branch yet"
+expect_eq "and no run is polled" "0" "$(stub_tool_calls 'run 101')"
+FIXTURE_GH_RUNS_FILE="run_list.json"
+
+FIXTURE_GH_RUN_FILE="run_failure.json"
+export FIXTURE_GH_RUN_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a failed publish run reds the release" "1" "${BODY_RC}"
+expect_has "it names the run and its conclusion" "finished \`failure\`"
+expect_has "it points at the reconciliation step for the gap" "names every crate missing"
+expect_has "and says verify-release stays red" "verify-release stays red"
+FIXTURE_GH_RUN_FILE="run_waiting.json"
+export FIXTURE_GH_RUN_FILE
+run_body "${TEST_DIR}/trig.sh"
+expect_eq "a run held by an environment expires the wait red" "1" "${BODY_RC}"
+expect_has "and says which state it stopped in" "was still \`waiting\`"
+expect_has "and blames the guard, not the registry" "environment approval"
+FIXTURE_GH_RUN_FILE="run_state.json"
 
 printf '\n----\n'
 printf 'verify-release fixture: %s case(s), %s failure(s)\n' "${RUNS}" "${FAILURES}"

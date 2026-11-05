@@ -6,10 +6,16 @@ name: Publish crates.io
 # release.yml is triggered by `workflow_run: CI` (release.yml:4-7). So no edit to a
 # job inside release.yml could ever work: the trigger itself had to move here.
 #
-# A tag trigger is not the answer either — release.yml pushes the release tag with
-# secrets.GITHUB_TOKEN (release.yml:250) and a GITHUB_TOKEN push does not spawn a
+# A tag trigger is not the answer either — release.yml pushes the release tag with the
+# runner's own GITHUB_TOKEN (release.yml:237-242) and a GITHUB_TOKEN push does not spawn a
 # workflow run, so a `push: tags` publish workflow would never fire for a new release.
-# workflow_dispatch is the honest trigger: a human names the ref and the version.
+#
+# workflow_dispatch is the honest trigger: an event crates.io accepts, naming a ref and a
+# version. What names it does not have to be a human — release.yml's
+# trigger-crates-io-publish posts this dispatch for the tag it just created (GitHub's
+# GITHUB_TOKEN recursion guard exempts workflow_dispatch, so that POST does create a run)
+# and waits for the verdict below. A hand dispatch stays the recovery path and the only way
+# to ask for dry_run.
 on:
   workflow_dispatch:
     inputs:

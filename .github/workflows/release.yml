@@ -347,15 +347,13 @@ jobs:
         path: release/*.tar.gz
         retention-days: 30
 
-  # crates.io publishing lives in publish-crates.yml, not in this file. crates.io
+  # crates.io publishing lives in publish-crates.yml, not in a job here. crates.io
   # refuses OIDC tokens minted from the `workflow_run` event that triggers release.yml
-  # (release.yml:4-7), so no edit to a job here could ever have used Trusted
-  # Publishing: the trigger had to move, not the job.
-  #
-  # `verify-release` still probes the nine crates and still reds the run when they are
-  # absent, by design — that is how v0.3.9 ended up missing from crates.io for weeks
-  # while the release itself looked finished. It now names the remedy instead of
-  # waiting for a job: dispatch publish-crates.yml, then re-run verify-release.
+  # (release.yml:4-7), so no edit to a job in this file could ever have used Trusted
+  # Publishing: the trigger had to move, not the job. What release.yml can still do is
+  # cause a `workflow_dispatch` run of that workflow — the documented GITHUB_TOKEN
+  # recursion block exempts workflow_dispatch, so a dispatch posted from inside a run
+  # does create one. See trigger-crates-io-publish, right after create-github-release.
 
   create-github-release:
     runs-on: ubuntu-24.04
@@ -434,6 +432,138 @@ jobs:
         fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trigger-crates-io-publish:
+    runs-on: ubuntu-24.04
+    # The tag exists once validate has tagged it (release.yml:237-242); waiting on
+    # create-github-release means the ref dispatched here is public and final.
+    needs: [validate, create-github-release]
+    if: needs.validate.outputs.release-needed == 'true'
+    permissions:
+      contents: read
+      actions: write
+    # publish-crates.yml bounds its own publish job at 25 min (ADR-0104 item 5, under
+    # crates.io's 30-minute token); this covers that plus queue time, and stays under
+    # the 40-minute job bound so the job reports the gap itself instead of the runner
+    # killing it mid-poll.
+    timeout-minutes: 40
+    env:
+      REPO: ${{ github.repository }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE_SHA: ${{ needs.validate.outputs.release-sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - name: Dispatch publish-crates.yml and wait for its verdict
+      run: |
+        WORKFLOW_FILE="publish-crates.yml"
+        TAG_REF="refs/tags/v${VERSION}"
+        POLL_SECONDS=30
+        DISCOVER_LIMIT=180
+        WAIT_LIMIT=2100
+
+        # Nothing below is interpolated by the runner: REPO/VERSION/RELEASE_SHA arrive
+        # through the job `env:` block, so dispatch and event text can only ever reach the
+        # shell as data.
+        before="$(gh api "repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1" \
+          2>/dev/null | jq -r '.workflow_runs[0].id // 0' 2>/dev/null || true)"
+        if ! [[ "${before}" =~ ^[0-9]+$ ]]; then
+          MSG="could not read the last run id of ${WORKFLOW_FILE}, so a run this job "
+          MSG="${MSG}dispatches could not be told apart from an older one. Nothing was "
+          MSG="${MSG}published. Fix the Actions API read, then dispatch publish-crates.yml by hand."
+          echo "::error title=Crates.io dispatch blocked::${MSG}"
+          return 1 2>/dev/null || exit 1
+        fi
+
+        # The ref is sent twice, from one variable, on purpose: the top-level `ref` chooses
+        # which revision of publish-crates.yml runs, `inputs.ref` chooses the tree it checks
+        # out and publishes. Allow them to differ and a release would run one file against
+        # another tree. `version` is a required input there, and GitHub answers 422 for a
+        # missing one — so a wrong payload is a red job, not a silent no-op. `dry_run` is
+        # absent, so publish-crates.yml's default (false) applies: a release publishes for
+        # real, and a dry run stays a human decision.
+        jq -n --arg ref "${TAG_REF}" --arg ver "${VERSION}" \
+          '{ref: $ref, inputs: {ref: $ref, version: $ver}}' \
+          | gh api --method POST \
+              "repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches" --input -
+        echo "Dispatched ${WORKFLOW_FILE} for ${TAG_REF}, version ${VERSION}."
+
+        # Match the spawned run by its head sha, not by recency alone: run ids are
+        # monotonic, but a concurrent manual dispatch of the same workflow would
+        # otherwise be waited on and credited with this release's outcome.
+        RUN_ID=""
+        waited=0
+        while [ "${waited}" -lt "${DISCOVER_LIMIT}" ]; do
+          RUN_ID="$(gh api \
+            "repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs?event=workflow_dispatch&per_page=20" \
+            2>/dev/null \
+            | jq -r --argjson after "${before}" --arg sha "${RELEASE_SHA}" \
+              '[(.workflow_runs // [])[] | select(.id > $after and .head_sha == $sha)] | (.[0].id // empty)' \
+            2>/dev/null || true)"
+          if [ -n "${RUN_ID}" ]; then
+            break
+          fi
+          sleep "${POLL_SECONDS}"
+          waited=$((waited + POLL_SECONDS))
+        done
+
+        if [ -z "${RUN_ID}" ]; then
+          MSG="${WORKFLOW_FILE} created no workflow_dispatch run for ${RELEASE_SHA} within "
+          MSG="${MSG}$((DISCOVER_LIMIT / 60)) min. The usual cause is that ${WORKFLOW_FILE} is "
+          MSG="${MSG}not on the default branch yet — workflow_dispatch only fires for a file "
+          MSG="${MSG}that has already merged. crates.io is not proven for ${VERSION}."
+          echo "::error title=No crates.io run::${MSG}"
+          return 1 2>/dev/null || exit 1
+        fi
+        RUN_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+        echo "Found run ${RUN_ID}: ${RUN_URL}"
+
+        STATE=""
+        CONCLUSION=""
+        waited=0
+        while [ "${waited}" -lt "${WAIT_LIMIT}" ]; do
+          run_json="$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" 2>/dev/null || true)"
+          STATE="$(jq -r '.status // "unknown"' <<< "${run_json}" 2>/dev/null || echo unknown)"
+          if [ "${STATE}" = "completed" ]; then
+            CONCLUSION="$(jq -r '.conclusion // "none"' <<< "${run_json}" 2>/dev/null || echo none)"
+            break
+          fi
+          sleep "${POLL_SECONDS}"
+          waited=$((waited + POLL_SECONDS))
+        done
+
+        {
+          echo "## crates.io publish (v${VERSION})"
+          echo ""
+          echo "- dispatched \`${WORKFLOW_FILE}\` at \`${TAG_REF}\`"
+          echo "- run: <${RUN_URL}>"
+          echo "- outcome: \`${STATE}\` / \`${CONCLUSION}\`"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        if [ "${STATE}" != "completed" ]; then
+          if [ "${STATE}" = "waiting" ]; then
+            MSG="run ${RUN_ID} is parked on an environment approval; keep the crates.io "
+            MSG="${MSG}environment unguarded (agents-docs/release-safety.md) or a release "
+            MSG="${MSG}waits this long and still publishes nothing"
+            echo "::warning title=Crates.io environment held::${MSG}"
+          fi
+          MSG="${WORKFLOW_FILE} run ${RUN_ID} was still \`${STATE}\` after "
+          MSG="${MSG}$((WAIT_LIMIT / 60)) min, so crates.io is not proven for ${VERSION}. "
+          MSG="${MSG}Re-run that workflow, then re-run verify-release."
+          echo "::error title=Crates.io unpublished::${MSG}"
+          return 1 2>/dev/null || exit 1
+        fi
+        # publish-crates.yml exits 1 unless all nine crates are in the sparse index at
+        # this version, so its own success is the crates.io proof; nothing here re-probes
+        # the index — that would be a second, weaker copy of the same check.
+        if [ "${CONCLUSION}" != "success" ]; then
+          MSG="${WORKFLOW_FILE} run ${RUN_ID} finished \`${CONCLUSION}\` (${RUN_URL}). "
+          MSG="${MSG}Its reconciliation step names every crate missing at ${VERSION}, and "
+          MSG="${MSG}publishing is idempotent, so re-dispatch the same ref and version to "
+          MSG="${MSG}land the rest. verify-release stays red until then."
+          echo "::error title=Crates.io publish failed::${MSG}"
+          return 1 2>/dev/null || exit 1
+        fi
+        echo "✅ crates.io run ${RUN_ID} succeeded; its reconciliation step proved all nine crates at ${VERSION}."
 
   publish-npm-wasm:
     runs-on: ubuntu-24.04
@@ -579,7 +709,10 @@ jobs:
 
   verify-release:
     runs-on: ubuntu-24.04
-    needs: [validate, create-github-release, publish-npm-wasm, publish-npm-cli]
+    # trigger-crates-io-publish is in this list so the nine index probes are not racing
+    # the publish that is supposed to fill them. `if: always()` keeps the job running
+    # when that sibling fails, which is what names the half that is missing.
+    needs: [validate, create-github-release, publish-npm-wasm, publish-npm-cli, trigger-crates-io-publish]
     if: always() && needs.validate.outputs.release-needed == 'true'
     steps:
     - name: Verify complete release across all registries
@@ -690,12 +823,17 @@ jobs:
 
         if [ -n "$ERRORS" ]; then
           echo "::error::Partial release detected! Missing: ${ERRORS}"
-          # A crates.io miss is no longer a failed job to re-run: publishing there is a
-          # human dispatch now, because crates.io refuses OIDC tokens minted from this
-          # file's `workflow_run` trigger. Say what closes the gap, or the red run reads
-          # as a flake and the release ships half-done — which is how 0.3.9 happened.
+          # A crates.io miss now has a named cause in this same run: publishing there is
+          # a workflow_dispatch of publish-crates.yml (crates.io refuses OIDC tokens minted
+          # from this file's workflow_run trigger), and trigger-crates-io-publish is the job
+          # that dispatches it and waits. Read that job first; the manual dispatch below is
+          # the recovery when it never ran. Say this or the red run reads as a flake, which
+          # is how 0.3.9 shipped half-done.
           if [[ "$ERRORS" == *crates.io/* ]]; then
-            echo "::error title=Crates.io not published::dispatch publish-crates.yml with ref refs/tags/v${VERSION} and version ${VERSION}, then re-run this job"
+            MSG="see trigger-crates-io-publish in this run, then dispatch "
+            MSG="${MSG}publish-crates.yml with ref refs/tags/v${VERSION} and version "
+            MSG="${MSG}${VERSION} and re-run this job"
+            echo "::error title=Crates.io not published::${MSG}"
           fi
           return 1 2>/dev/null || exit 1
         fi
@@ -727,7 +865,7 @@ jobs:
     # Issue #969: render the verdict from explicit sibling results, not a fixed
     # sentence. `if: always()` alone is what let a partial or absent release read
     # as routine; the results are read in scripts/release-verdict.sh.
-    needs: [validate, build-cli-matrix, build-wasm, create-github-release, publish-npm-wasm, publish-npm-cli, verify-release, no-verdict]
+    needs: [validate, build-cli-matrix, build-wasm, create-github-release, publish-npm-wasm, publish-npm-cli, trigger-crates-io-publish, verify-release, no-verdict]
     if: always()
     permissions:
       contents: read
@@ -745,4 +883,5 @@ jobs:
         NPM_WASM_RESULT: ${{ needs.publish-npm-wasm.result }}
         NPM_CLI_RESULT: ${{ needs.publish-npm-cli.result }}
         RELEASE_RESULT: ${{ needs.create-github-release.result }}
+        CRATES_TRIGGER_RESULT: ${{ needs.trigger-crates-io-publish.result }}
         VERIFY_RESULT: ${{ needs.verify-release.result }}
