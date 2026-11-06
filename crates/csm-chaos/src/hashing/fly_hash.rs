@@ -63,7 +63,7 @@ impl FlyHash {
             // Transform v1 into a uniform [0, 1] probability
             let prob = (v1 + 1.0) / 2.0;
 
-            if prob < sparsity_f64 {
+            if prob <= sparsity_f64 {
                 #[allow(clippy::cast_possible_truncation)]
                 projection_matrix.push(v2 as f32);
             } else {
