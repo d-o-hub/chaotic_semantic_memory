@@ -1,4 +1,6 @@
 pub mod chaotic_lsh;
+#[cfg(feature = "experimental-fly-hash")]
+pub mod fly_hash;
 #[cfg(feature = "experimental-voronoi-lsh")]
 pub mod voronoi_lsh;
 
