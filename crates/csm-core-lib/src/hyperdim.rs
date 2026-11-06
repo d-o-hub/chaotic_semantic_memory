@@ -407,11 +407,22 @@ impl HVec10240 {
         #[cfg(target_endian = "little")]
         {
             // Performance Optimization: [u128; 80] is bit-compatible with [u8; 1280]
-            // on little-endian platforms. Using extend_from_slice with a casted
-            // byte reference avoids 80 bounds checks and word-by-word serialization.
-            // SAFETY: Alignment of u128 is stricter than u8. Pointers are valid.
-            let data_bytes: &[u8; 1280] = unsafe { &*(self.data.as_ptr() as *const [u8; 1280]) };
-            bytes.extend_from_slice(data_bytes);
+            // on little-endian platforms. Copying directly into the uninitialized vector
+            // allocation bypasses extend_from_slice bounds and spare capacity checks.
+            // SAFETY:
+            // 1. `bytes` was allocated with capacity 1280, so `bytes.as_mut_ptr()` has
+            //    space for 1280 contiguous bytes.
+            // 2. `self.data` points to 80 initialized `u128` values (1280 bytes).
+            // 3. Source and destination are non-overlapping (`bytes` buffer is freshly allocated).
+            // 4. `set_len(1280)` is sound because exactly 1280 bytes were initialized by copy.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.data.as_ptr().cast::<u8>(),
+                    bytes.as_mut_ptr(),
+                    1280,
+                );
+                bytes.set_len(1280);
+            }
         }
         #[cfg(not(target_endian = "little"))]
         {
