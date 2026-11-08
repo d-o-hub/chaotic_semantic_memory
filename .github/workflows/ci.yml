@@ -278,6 +278,11 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+    # A cached libduckdb-sys source tree without its `.complete` marker makes the
+    # build's `fs::rename` fail with DirectoryNotEmpty before any test runs
+    # (issue #1004). Repair incomplete trees after cache restore.
+    - name: Repair incomplete DuckDB unpack
+      run: bash scripts/clean-incomplete-duckdb-unpack.sh
     # tests/performance_targets.rs asserts a 20 ms p50 ceiling on a persistence
     # roundtrip, but that number is a property of the storage medium: ~1.2 ms on
     # RAM-backed storage vs 24.47 ms on the runner's disk-backed /tmp for the
@@ -465,6 +470,11 @@ jobs:
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
+    # The `test` shared key is shared with jobs building different feature sets.
+    # An interrupted unpack or stale tree can lack `.complete` and make this
+    # job's unpack fail with DirectoryNotEmpty (issue #1004); repair before cargo.
+    - name: Repair incomplete DuckDB unpack
+      run: bash scripts/clean-incomplete-duckdb-unpack.sh
     - name: Run DuckDB tests
       # --all-features: the crate defaults to no features, and the cli_tests
       # target is `required-features = ["cli"]`, so a default-feature run
@@ -643,6 +653,10 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-mutation-${{ hashFiles('**/Cargo.lock') }}
+    # A diff touching csm-duckdb adds it to the mutation package scope; repair
+    # any incomplete bundled DuckDB tree in the restored target cache (issue #1004).
+    - name: Repair incomplete DuckDB unpack
+      run: bash scripts/clean-incomplete-duckdb-unpack.sh
 
     - name: Warm the mcp feature build the mutation profile compiles
       # src/cli/mcp.rs and src/mcp/** are cfg(feature = "mcp") and `mcp` is not a
@@ -810,6 +824,11 @@ jobs:
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.7.3
       with:
         shared-key: test
+    # lint compiles every workspace crate with --all-targets --all-features, so
+    # it too can receive a half-unpacked libduckdb-sys tree from the `test`
+    # shared key (issue #1004).
+    - name: Repair incomplete DuckDB unpack
+      run: bash scripts/clean-incomplete-duckdb-unpack.sh
     - name: Format check
       run: cargo fmt --all -- --check
     - name: Clippy

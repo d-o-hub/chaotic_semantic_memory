@@ -863,3 +863,13 @@
   its abstract says the FlyHash quality advantage does not translate — codes are larger and slower
   than SimHash at equal bits, and HNSW dominates at ordinary scale. Always read the abstract of the
   "research basis", not just that the link resolves: a real citation is not a supporting one.
+- **`libduckdb-sys` unpacks into `<target>/duckdb-sources/<hash>` with non-atomic directory publish (2026-11-08, #1004)**:
+  `libduckdb-sys` unpacks bundled DuckDB into a temporary `.duckdb-unpack-*` staging directory and then publishes with
+  `fs::rename(staging, dest)` where dest is `<target>/duckdb-sources/<hash>` (or `<target>/<triple>/duckdb-sources/<hash>`),
+  creating `.complete` inside when finished. If a previous run or interrupted build leaves that destination existing
+  without `.complete`, `fs::rename` panics with `Os { code: 39, kind: DirectoryNotEmpty }`. Purging abandoned staging
+  dirs and incomplete source trees restores idempotency across cached CI runs.
+- **Verify on-disk layout against actual build artifacts, not documentation or assumption (2026-11-08, #1004/#1020)**:
+  PR #1020 asserted `<target>/<profile>/build/libduckdb-sys-*/out/duckdb-sources/<hash>`, whereas `build_paths::sources_root()`
+  actually places `duckdb-sources` directly in the target root (`<target>/duckdb-sources/<hash>`). Always inspect
+  `find target -type d -name ...` on real target trees before pinning fixture assertions.

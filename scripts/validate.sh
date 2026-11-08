@@ -11,6 +11,13 @@ fi
 MAX_SRC_LOC=500
 WASM_TARGET="wasm32-unknown-unknown"
 
+# A cached libduckdb-sys tree without `.complete` makes the next build abort in
+# its unpack (DirectoryNotEmpty) before a test runs (issue #1004). Repair it
+# first so the local gate fails on the diff, not on a stale target/ entry.
+if [[ -x "${SCRIPT_DIR}/clean-incomplete-duckdb-unpack.sh" ]]; then
+    "${SCRIPT_DIR}/clean-incomplete-duckdb-unpack.sh"
+fi
+
 echo "==> cargo fmt --all -- --check"
 cargo fmt --all -- --check
 
@@ -205,6 +212,13 @@ echo "==> Mutation shard union fixture"
 # missing manifest or an unusable cargo must not read as "lock is fresh".
 echo "==> Fuzz lock fixture"
 "${SCRIPT_DIR}/test-check-fuzz-lock.sh"
+
+# Cached bundled DuckDB repair (issue #1004): remove a `duckdb-sources/<hash>`
+# tree that lacks `.complete`, keep a complete one, and clear an abandoned
+# staging directory. Both directions are asserted so a no-op repair cannot look
+# like a fix.
+echo "==> DuckDB cache repair fixture"
+"${SCRIPT_DIR}/test-clean-incomplete-duckdb-unpack.sh"
 
 # Squash-subject length (issue #965): the boundary a title has to clear before
 # GitHub appends " (#<n>)", the character-vs-byte unit commitlint actually enforces,

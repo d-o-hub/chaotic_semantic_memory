@@ -2455,3 +2455,16 @@ Four open PRs, all from the weekly Jules research/perf agents. Three closed with
   context were green on the current base, and it **merged as `53052df1`**. The crates.io publish is
   now automatic and tokenless, but still unproven live: the nine trusted-publisher configs and the
   v0.3.9 backfill remain operator steps (ADR-0104).
+## 2026-11-08 — Repair incomplete DuckDB source trees in CI caches (#1004)
+
+Re-created clean resolution for issue #1004 off post-#1019 `main` (`74017275`), addressing all four roast
+verdicts from PR #1020:
+- **Accurate layout & fixture**: `clean-incomplete-duckdb-unpack.sh` and its fixture `test-clean-incomplete-duckdb-unpack.sh`
+  target the real layout produced by `libduckdb-sys` (`<target>/duckdb-sources/<hash>` and cross-target
+  `<target>/<triple>/duckdb-sources/<hash>`), rather than intermediate build dirs.
+- **Staging & incomplete directory cleanup**: Any abandoned `.duckdb-unpack-*` staging dir is purged, and any
+  `duckdb-sources/<hash>` missing its `.complete` sentinel is removed, preventing `DirectoryNotEmpty` on `fs::rename`.
+- **Workflow & gate wiring**: Wired into `.github/workflows/ci.yml` across `test`, `test-duckdb`, `lint`, and
+  `mutation-shard` immediately after cache restore; wired into `scripts/validate.sh` before compilation.
+- **Script catalog**: Added to `scripts/SCRIPT_CATALOG.md` with full fixture pairing; drift gate passes.
+
