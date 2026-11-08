@@ -464,26 +464,29 @@ impl BHVec10240 {
                 actual: bytes.len(),
             });
         }
-        #[allow(unused_mut)]
-        let mut bits = [0u64; 160];
         #[cfg(target_endian = "little")]
         {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 160 loop iterations and multiple bounds checks per word.
-            // SAFETY: bytes length is verified to be 1280. [u64; 160] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
+            // Performance Optimization: Direct memcpy into uninitialized memory for little-endian platforms.
+            // Bypasses 1,280 bytes of redundant zero-initialization before writing vector bytes.
+            // SAFETY: bytes length is verified to be 1280. [u64; 160] is bit-compatible with
+            // [u8; 1280] on little-endian targets, and copy_nonoverlapping fully initializes all 160 words.
+            let mut bits = [const { MaybeUninit::<u64>::uninit() }; 160];
             unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), bits.as_mut_ptr() as *mut u8, 1280);
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), bits.as_mut_ptr().cast::<u8>(), 1280);
+                Ok(Self {
+                    bits: bits.as_ptr().cast::<[u64; 160]>().read(),
+                })
             }
         }
         #[cfg(not(target_endian = "little"))]
         {
+            let mut bits = [0u64; 160];
             for i in 0..160 {
                 let mut word_bytes = [0u8; 8];
                 word_bytes.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
                 bits[i] = u64::from_le_bytes(word_bytes);
             }
+            Ok(Self { bits })
         }
-        Ok(Self { bits })
     }
 }
