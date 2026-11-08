@@ -2431,3 +2431,27 @@ workflow — `agents-docs/release-safety.md` version-bump step 7 and recovery it
 (measured: `scripts/release-cli-matrix.sh` emits 5 targets → 7 assets). Two more stale claims fell out of
 reading while editing: the npm trusted-publisher doc named a workflow file this repo does not have, and the SKILL
 prose still described crates.io publishing as human-only.
+## 2026-11-08 — PR queue roasted: three zero-impact PRs closed, only the crates.io OIDC keeper remains
+
+Four open PRs, all from the weekly Jules research/perf agents. Three closed with roast comments
+(`plans/PR_ROAST_2026_11_08.md`), one kept and driven to green:
+
+- **#1018** (`perf(core)` `BHVec10240::from_bytes` zeroing) — old/new bodies fold to the **same
+  address** (`0x179c0`, rustc 1.88.0), so the 1,280-byte zero-fill it claims to remove is already
+  dead-store-eliminated; interleaved A/B/A/B sign-flips (−19.9/+12.5/−32.5/+1.3 %). Same function
+  closed at #783/#893/#875. Its cited "baseline" is `hvec_from_bytes` — a different type — and
+  `canonical.json` has no `bhvec_from_bytes` row at all.
+- **#1017** (`perf(core)` `HVec10240::to_bytes`) — differs from `main` by store ordering around one
+  `memcpy` only; no bounds/capacity check exists in either body, so the stated mechanism is absent.
+  The 2 % claim sits below this host's ±25 % noise (rounds −23.7/+1.5/−3.4/+17.8 %), and the cited
+  96.04 ns "before" does not match the canonical 88.91 ns median.
+- **#1016** (FlyHash) — closed as submitted: a 3,695,968-byte compiled ELF plus three scratch files
+  in the repo root; `prob = (v1 + 1.0) / 2.0` maps a `[0,1)` sampler to `[0.5,1)`, so the mask is
+  empty for every documented sparsity (its own bench uses 0.1) and the "~25.4 ms" is sorting zeros;
+  the cited paper itself says FlyHash codes are larger/slower than SimHash and HNSW wins at ordinary
+  scale; 60–160 MiB dense matrix behind a non-default feature with no consumer.
+- **#1015** (crates.io OIDC, already roasted 2026-11-05) — the only red was the DuckDB unpack
+  `ENOTEMPTY` infra flake on `lint`; a re-run passed it in 40m31s, Codacy/CodeQL and every required
+  context were green on the current base, and it **merged as `53052df1`**. The crates.io publish is
+  now automatic and tokenless, but still unproven live: the nine trusted-publisher configs and the
+  v0.3.9 backfill remain operator steps (ADR-0104).

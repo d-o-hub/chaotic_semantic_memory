@@ -845,3 +845,21 @@
   and asserts the sender's payload covers it, plus a second assertion that the receiver declares enough inputs —
   otherwise an empty or renamed schema makes the coverage check quietly vacuous. Whenever two files must agree and
   every test looks at one of them, the missing test is the one that reads both.
+- **A `perf(...)` resubmission's cited baseline must name the same benchmark id (2026-11-08,
+  #1018/#1017)**: both PRs put a `## Performance Evidence` section in the body and passed the
+  shape gate while citing `hvec_from_bytes` / `hvec_to_bytes` — benchmarks of a *different type* —
+  and neither number pair matched `plans/evidence/bench/canonical.json` (`hvec_from_bytes` 51.60 ns,
+  `hvec_to_bytes` 88.91 ns). One PR changed `BHVec10240`, whose benchmark has no canonical row at
+  all. Open the cited file and confirm the row exists for the changed function; a baseline that
+  cannot be the source of the "before" number is evidence the claim was assembled, not measured.
+- **Check a probability sampler's declared range before trusting a "sparsity" knob (2026-11-08,
+  #1016)**: `Slhm2d::next_value()` is uniform `[0,1)`; the PR did `prob = (v1 + 1.0) / 2.0`, so
+  `prob ∈ [0.5,1)` and `prob <= sparsity` was false for every documented `0.1–0.5`. The matrix was
+  all zeros, including in the PR's own benchmark. The tests could not see it because they asserted
+  only `non_zero > 0` (at `sparsity = 1.0`) and compared `0.9` vs `0.5`, where one side is
+  trivially empty. A distribution test must pin the *ratio* at named values, not the existence of
+  any non-zero entry.
+- **A cited paper can refute the PR that cites it (2026-11-08, #1016)**: arXiv:2611.05791 exists and
+  its abstract says the FlyHash quality advantage does not translate — codes are larger and slower
+  than SimHash at equal bits, and HNSW dominates at ordinary scale. Always read the abstract of the
+  "research basis", not just that the link resolves: a real citation is not a supporting one.
