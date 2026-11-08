@@ -2358,3 +2358,19 @@ duplicated at the end of the same line, and `grep -c` reported **1** — these i
 characters, so occurrence counting needs `grep -o … | wc -l`; fixed, re-counted, verified.
 
 
+
+## 2026-11-08 — open-issue wave: DuckDB cache repair (#1004)
+
+`main` tip `1210f732` was red in `lint` on `libduckdb-sys v1.20000.1` →
+`DirectoryNotEmpty` at `build_bundled_cc.rs:65`. The crate publishes
+`duckdb-sources/<hash>` with `fs::rename`, so a cached tree without `.complete`
+aborts the next build before a test runs; `lint`, `test`, `test-duckdb` and one
+`test-workspace-crates` leg all build it through shared caches.
+
+Added `scripts/clean-incomplete-duckdb-unpack.sh` (runs after cache restore in
+those jobs and at the start of `validate.sh`), its both-directions fixture
+`scripts/test-clean-duckdb-unpack.sh` (8 checks), and wired the fixture into
+`validate.sh`. The repair is a no-op on a healthy cache and removes only trees
+without `.complete` plus abandoned `.duckdb-unpack-*` staging dirs. Issue #1004's
+acceptance item "restore `ci_all_checks_passed`" is stale: that key is
+deliberately derived, never stored (`AGENTS.md` Phase 1 step 4).

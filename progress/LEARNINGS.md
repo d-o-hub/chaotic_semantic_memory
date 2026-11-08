@@ -786,3 +786,12 @@
   into a status branch. It fired twice, both times wrong. Report `state=completed:failure step=<from the log>`
   and leave the causal claim to whoever reads `--log-failed`.
 
+
+- **A cached bundled-source tree can fail a build before any test runs, and the failure is
+  cache-key-shaped (2026-11-08, #1004).** `libduckdb-sys` stages the unpack and publishes with
+  `fs::rename`; a destination directory without its `.complete` marker makes the rename fail with
+  `DirectoryNotEmpty`, which `cargo-mutants` and the job both report as a generic exit. Jobs that
+  share a rust-cache key but build different feature sets can hand each other exactly that tree.
+  Repair the incomplete children after restore (cheap, idempotent) instead of deleting the cache or
+  re-running; the failed re-run restores the same bytes. `lint` compiled the workspace, so it hit
+  the same cache defect that #1004 first reported on `test-duckdb` only.

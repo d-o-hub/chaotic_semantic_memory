@@ -16,12 +16,61 @@
 > reconciliation snapshot the file. Do not re-add completed entries.
 
 ```yaml
-# Queue empty as of 2026-11-05. The last active action,
-# bound_chaotic_lsh_and_voronoi_lsh_input_dim (#961), landed as PR #1008 -> 546727d0
-# and is recorded as `action_last_completed` in GOAP_STATE.md. Do not re-add it here.
-# The next action must come from the open-work flags in GOAP_STATE.md
-# (`release_pipeline_validated: false` is the one that blocks shipping), and per AGENTS.md
-# Phase 1 step 5 it gets roasted before anything is implemented.
+# Queue opened 2026-11-08 from the six open issues; roast verdicts in
+# plans/PR_ROAST_2026_11_08_ISSUES.md. Order is the merge plan there: #1004
+# unblocks main (lint is a required context), then the independent script/workflow
+# fixes. #1014 is operator-only and stays blocked until crates.io access exists.
+
+  - name: repair_the_cached_duckdb_unpack
+    github_issue: 1004
+    preconditions: []
+    effects:
+      duckdb_cache_pollution_repaired: true
+    cost: 2
+    status: queued
+
+  - name: extract_the_ci_path_selector
+    github_issue: 992
+    preconditions: []
+    effects:
+      ci_path_selection_tested_and_mcp_complete: true
+    cost: 5
+    status: queued
+
+  - name: resolve_hyphen_underscore_fixture_pairs
+    github_issue: 1003
+    preconditions: []
+    effects:
+      script_catalog_fixture_pairs_resolved: true
+    cost: 2
+    status: queued
+
+  - name: gate_actions_sha_pins_in_ci
+    github_issue: 1002
+    preconditions: []
+    effects:
+      actions_sha_pins_validated_in_ci: true
+    cost: 4
+    status: queued
+
+  - name: compile_only_the_lib_target_in_mutation_builds
+    github_issue: 1005
+    preconditions: []
+    effects:
+      mutation_build_scope_matches_scored_scope: true
+    cost: 4
+    status: queued
+
+  - name: operator_publish_v0_3_9_over_oidc
+    github_issue: 1014
+    preconditions:
+      release_pipeline_validated: true
+    effects:
+      crates_io_0_3_9_published_9_of_9: true
+    cost: 8
+    status: blocked
+    # Operator-only: nine trusted-publisher configs, the recovery dispatch, and
+    # revoking the old API token. The repository half is PR #1015 (ADR-0104).
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the

@@ -86,8 +86,8 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 0            # `grep -c '^  - name:' plans/ACTIONS.md` — queue empty after #961 landed;
-                                     #   next action must come from the open-work flags below (release chain).
+  queued_actions_count: 6            # 2026-11-08: six open issues queued; roast + order in
+                                     #   plans/PR_ROAST_2026_11_08_ISSUES.md. #1014 is operator-only.
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
