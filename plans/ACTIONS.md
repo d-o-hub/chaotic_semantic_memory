@@ -21,14 +21,6 @@
 # unblocks main (lint is a required context), then the independent script/workflow
 # fixes. #1014 is operator-only and stays blocked until crates.io access exists.
 
-  - name: repair_the_cached_duckdb_unpack
-    github_issue: 1004
-    preconditions: []
-    effects:
-      duckdb_cache_pollution_repaired: true
-    cost: 2
-    status: queued
-
   - name: extract_the_ci_path_selector
     github_issue: 992
     preconditions: []

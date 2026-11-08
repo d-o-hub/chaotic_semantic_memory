@@ -86,8 +86,8 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 6            # 2026-11-08: six open issues queued; roast + order in
-                                     #   plans/PR_ROAST_2026_11_08_ISSUES.md. #1014 is operator-only.
+  queued_actions_count: 5            # 2026-11-08: #1004 landed; five issue actions remain.
+                                     #   Roast + order: plans/PR_ROAST_2026_11_08_ISSUES.md.
 
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -130,6 +130,7 @@ world_state:
   persistence_implementation_owner_unique: true   # root re-exports csm-persistence; no second body
   mcp_full_width_vector_wire_contract: true       # base64 1280-byte HVec + high-bit tests
   no_state_lock_across_io_await: true             # durable I/O before singularity locks
+  duckdb_cache_pollution_repaired: true           # #1004: incomplete duckdb-sources trees are removed after cache restore
   benchmark_metrics_mathematically_correct: true  # multi-label recall/NDCG/abstention with hand checks
   public_f32_apis_validate_input: true            # public f32 entry points reject NaN/inf/out-of-range
   workspace_ci_matrix_complete: true              # csm-chaos + benchmarks covered; matrix machine-derived
@@ -193,13 +194,11 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: derive_ci_truth_and_delete_stored_keys # 2026-11-05 (PR #1010 -> #1013):
-                               #   ci_truth_on_main_tip replaced run-listing in goap-orchestrator.sh, and
-                               #   ci_all_checks_passed / main_head were deleted from this file with
-                               #   scripts/check-goap-queue-issues.sh failing closed if either key returns.
-                               #   Two landed CI-truth fixes precede it un-named here: PR #1012 (release CLI
-                               #   matrix written to $GITHUB_OUTPUT in heredoc form, #1011) and PR #1009
-                               #   (the stale #961 queue entry that made `main` red).
-                               #   Queue is empty (see plans/ACTIONS.md); CI truth comes from
-                               #   `scripts/goap-orchestrator.sh status` (ci-truth tip=<sha> state=…), never
-                               #   from a stored flag.
+  action_last_completed: repair_the_cached_duckdb_unpack # 2026-11-08 (#1004): cached
+                               #   libduckdb-sys trees without `.complete` failed the build with
+                               #   DirectoryNotEmpty in lint/test/test-duckdb; the repair runs after
+                               #   every cache restore and its fixture proves both directions.
+                               #   Predecessor: derive_ci_truth_and_delete_stored_keys (PR #1010 -> #1013),
+                               #   which derived CI truth from the current main tip; #1012 and #1009 precede it.
+                               #   Queue holds the remaining 2026-11-08 issue actions (plans/ACTIONS.md);
+                               #   CI truth comes from `scripts/goap-orchestrator.sh status`, never a stored flag.
