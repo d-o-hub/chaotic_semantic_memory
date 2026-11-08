@@ -216,19 +216,33 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: publish_crates_io_over_oidc_from_dispatch # 2026-11-05 (ADR-0104):
-                               #   publish-crates.yml (workflow_dispatch, OIDC, timeout under the
-                               #   30-minute token life, index reconciliation over all nine) replaces
-                               #   release.yml's publish-crates job, and release.yml's new
+  action_last_completed: roast_and_close_zero_impact_prs_1016_1017_1018 # 2026-11-08:
+                               #   Three of the four open PRs closed with roast comments after the
+                               #   mechanism was checked, not inherited: #1018's old/new from_bytes fold
+                               #   to the same address (0x179c0 on 1.88.0), so its 1,280-byte zero-fill
+                               #   does not exist; #1017 differs from main by Vec-header store ordering
+                               #   around one memcpy and its 2 % sign-flips; #1016 committed a 3.7 MB
+                               #   binary and mapped a [0,1) sampler to [0.5,1), so its sparsity mask was
+                               #   empty for every documented value. #1015 (crates.io OIDC) was kept and
+                               #   landed as 53052df1; its only red was the DuckDB unpack ENOTEMPTY flake
+                               #   on lint, cleared by a re-run. Record: plans/PR_ROAST_2026_11_08.md.
+                               #   Immediate predecessor, publish_crates_io_over_oidc_from_dispatch
+                               #   (ADR-0104, PR #1015 -> 53052df1): publish-crates.yml (workflow_dispatch,
+                               #   OIDC, timeout under the 30-minute token life, index reconciliation over
+                               #   all nine) replaces release.yml's publish-crates job, and
                                #   trigger-crates-io-publish dispatches it for the tag it just made and
-                               #   waits for that run's verdict (crates.io refuses a workflow_run token
-                               #   but accepts a dispatch a run posts). The /api/v1/me probe is gone
-                               #   because that route is cookie-only and could never answer 200;
-                               #   scripts/test-verify-release-step.sh now covers both files (137 cases)
-                               #   and scripts/test-release-verdict.sh 31. Its predecessor,
-                               #   derive_ci_truth_and_delete_stored_keys (PR #1010 -> #1013), deleted
-                               #   ci_all_checks_passed / main_head from this file and made
-                               #   scripts/check-goap-queue-issues.sh fail closed if either returns.
+                               #   waits for that run's verdict (crates.io refuses a workflow_run token but
+                               #   accepts a dispatch a run posts). The /api/v1/me probe is gone because that
+                               #   route is cookie-only and could never answer 200;
+                               #   scripts/test-verify-release-step.sh covers both files and
+                               #   scripts/test-release-verdict.sh 31 cases.
+                               #   Before that, derive_ci_truth_and_delete_stored_keys (PR #1010 -> #1013):
+                               #   ci_truth_on_main_tip replaced run-listing in goap-orchestrator.sh, and
+                               #   ci_all_checks_passed / main_head were deleted from this file with
+                               #   scripts/check-goap-queue-issues.sh failing closed if either key returns.
+                               #   Two landed CI-truth fixes precede it un-named here: PR #1012 (release CLI
+                               #   matrix written to $GITHUB_OUTPUT in heredoc form, #1011) and PR #1009
+                               #   (the stale #961 queue entry that made `main` red).
                                #   Queue is empty (see plans/ACTIONS.md); CI truth comes from
                                #   `scripts/goap-orchestrator.sh status`, never from a stored flag — the
                                #   run that last needed reading, attempt 2 of push run 42041881050 at

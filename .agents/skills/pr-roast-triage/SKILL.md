@@ -125,37 +125,31 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
 - **deny.toml**: must only ADD ignores with advisory ID + reason. Deleting or
   commenting out existing ignores re-breaks `cargo deny` — reject.
 - **Perf claims**: no `criterion` output or flamegraph = not review-ready.
-  - **A green evidence gate proves shape, not coverage (PR #763, 2026-09-25).**
-    `scripts/check-perf-pr-evidence.py` checks that the PR body *has* a
-    `## Performance Evidence` section naming a baseline, an artifact and a
-    before/after pair — it never runs the bench. So the reviewer must trace the
-    cited benchmark to the changed lines: find the bench id in `benches/`, then
-    follow the guards it hits. #763 defers scaling inside `merge_single_list`,
-    but the cited `merge_results_N1000_K20` passes *both* lists non-empty, so
-    `merge_results` takes its HashMap path and the changed helper is never
-    called — the "after" number was slower (92.5 → 93.3 µs) because it timed
-    unrelated code. Check the sign too: an "after" that is *worse* is evidence
-    against the claim, not neutral.
+  - **A green evidence gate proves shape, not coverage (PR #763).**
+    `scripts/check-perf-pr-evidence.py` only checks that the body *has* a `## Performance
+    Evidence` section naming a baseline, an artifact and a before/after pair; it never runs the
+    bench. Trace the cited id to the changed lines and their guards: #763's bench passed both
+    lists non-empty, so the changed helper never ran and the "after" timed unrelated code. An
+    "after" that is *worse* is evidence against the claim, not neutral.
   - State all three in the verdict: the benchmark reaches changed code, its input distribution exercises the affected case, and the measured direction/sign supports the claim. A `perf` → `refactor` title change never bypasses this evidence bar.
   - **A bench can be blind four ways (#800; #909/#891; #917; #977).** By its *arguments*
-    (`permute(321)` never reaches the word-aligned path); by the *callee's fast path*
-    (`make_candidates` prefills `score = 1.0`, so `rerank`'s `>= 0.99` return starved every
-    `mmr_rerank/*` id); by a *flat corpus* (#917's sort reordered nothing — every bm25 bench
-    feeds equal-length posting lists); and by a *dispatch arm* (#977: `hvec_bind` enters only
-    the two AVX2 kernels, so the `bind_simd_x86` fallback it regressed +5.3 % is unreachable).
-    Reachability shows at the call site; **blindness lives in the data and in the host**: read
-    the corpus keys and every changed `cfg` arm (`references/bench-blindness.md`).
-  - **Separate zero-fill elimination from scheduling effects (PR #783, 2026-09-28).** LLVM
-    already removes the overwritten zero-init — an old-only body disassembles to a bare
-    `memcpy`, old/new `from_hvec`/`from_bytes` folding to the *same address* — so "no
-    demonstrated zero-fill benefit" is not "zero codegen delta": a scheduling claim needs
-    reproducible affected-path benchmarks. Disassembly recipe (`#[no_mangle]
-    #[inline(never)]` in a linked binary — raw `--emit obj/asm` drops unreferenced `pub fn`s)
-    and #893's initializer-*position* caveat: `references/codegen-and-measured-claims.md`.
-  - **Evidence belongs in the PR body.** A `## Performance Evidence` section in a commit
-    message satisfies neither the gate nor a reviewer. A passing gate prints what it accepted
-    (`shape OK — benchmark ids: …; artifact: …`) plus a one-line scope warning; read that CI
-    log line to see the claim without opening the body.
+    (`permute(321)` skips the aligned path); by the *callee's fast path* (`make_candidates`
+    prefills `1.0`, starving `rerank`); by a *flat corpus* (#917's equal-length posting lists);
+    by a *dispatch arm* (#977's `hvec_bind` never enters the regressed fallback). Reachability
+    shows at the call site; **blindness lives in the data and the host** — read the corpus keys
+    and every changed `cfg` arm (`references/bench-blindness.md`).
+  - **Separate zero-fill elimination from scheduling effects (PR #783).** LLVM already removes
+    the overwritten zero-init — old-only bodies disassemble to a bare `memcpy`, old/new folding
+    to the *same address* — so "no demonstrated zero-fill benefit" is not "zero codegen delta":
+    a scheduling claim needs reproducible affected-path benchmarks. Recipe (#893's
+    initializer-*position* caveat): `references/codegen-and-measured-claims.md`.
+  - **Evidence belongs in the PR body.** A `## Performance Evidence` section in a commit message
+    satisfies neither the gate nor a reviewer; a passing gate prints the ids it accepted plus a
+    scope warning, so read that CI log line. A body edit triggers no run — set it before pushing.
+  - **The cited baseline must name the *same* benchmark id (2026-11-08, #1018/#1017).** Both bodies
+    passed the shape gate citing the other type's id, with "before" numbers matching no canonical
+    median. Check the row exists in `plans/evidence/bench/canonical.json`; a baseline that cannot
+    have produced "before" is assembled, not measured.
 - **Correctness and impact are separate verdicts** (PR #763, 2026-09-24). Never
   let a correct diff pass on a bad claim, nor a good claim excuse a wrong one.
   Adjudicate each independently:
@@ -168,6 +162,11 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
     public API: negative weights reverse raw-score ordering. Close an incorrect
     duplicate as submitted; do not call its separate unmeasured allocation idea
     a proven no-op. A resubmission needs corrected parity tests and path evidence.
+  - **Check a probability sampler's declared range before trusting its knob (#1016, 2026-11-08).**
+    `(v1 + 1.0) / 2.0` on a `[0,1)` sampler made `prob <= sparsity` false for every documented
+    `0.1–0.5` (all-zero matrix, benchmark included), and tests asserting `non_zero > 0` and
+    comparing `0.9` vs `0.5` could not see it. Pin the *ratio* at named values; a real arXiv link
+    can still refute the PR.
   - *Impact* — only by measurement on `csm-ref-01`. A FLOP-count reduction
     inside a function dominated by allocation/partitioning is **not** a
     speedup: check what the dominant term actually is before accepting the
