@@ -101,28 +101,18 @@ grep -q "^\[${VERSION}\]:" CHANGELOG.md
 
 | Target | Method | When |
 |--------|--------|------|
-| crates.io | OIDC Trusted Publishing | After tag from release workflow |
+| crates.io | OIDC Trusted Publishing | `release.yml` dispatches `publish-crates.yml` and waits; hand dispatch for recovery or `dry_run` |
 | npm packages | `npm publish --provenance` / OIDC | Same |
 | GitHub Release | `softprops/action-gh-release` | Same |
 | GitHub Pages | mdBook deploy | Docs path on main / release jobs |
 
 ## crates.io name verification (FIRST PUBLISH)
 
-Before first publish, verify workspace crate names are available on crates.io:
-
-```bash
-for crate in csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
-  echo -n "$crate: "
-  cargo search "$crate" 2>/dev/null | head -1
-done
-```
-
-If a name is taken by an unrelated project (e.g., `csm-core` was taken by Sesame CSM-1B TTS), rename the crate before publishing. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib` to avoid conflicts.
-
-**Known conflicts (as of 2026-07-22):**
-- `csm-core`: Taken by Sesame CSM-1B TTS project → renamed to `csm-core-lib`
-- `csm-chaos`: Available (published at 0.3.7)
-- `csm-traits`, `csm-embedding`, `csm-memory`, `csm-retrieval`, `csm-persistence`, `csm-wasm`: Not yet published, availability unknown
+Before a first publish, check all **nine** workspace names against crates.io in one loop. The command, the
+conflict history (`csm-core` → `csm-core-lib`) and the measured current state — every one of the nine is
+already owned by this repository and publishes through 0.3.8, while `csm-wasm` has no crates.io row at all —
+live in `references/release-workflow.md`, section "crates.io name conflicts". Do not fork that list here; two
+copies of a nine-item list drift.
 
 ## GitHub environment configuration
 
@@ -143,7 +133,8 @@ deployment still waiting — run it to confirm a wait exists, not to explain a f
 | Who | Action |
 |-----|--------|
 | **Human / PR** | Bump `Cargo.toml`, changelog, sync-version, merge via PR |
-| **`release.yml`** | Wait for CI → create+push `v{version}` → package → publish → GitHub release |
+| **`release.yml`** | Wait for CI → create+push `v{version}` → package → GitHub release + npm → dispatch the crates.io publish (never mints a crates.io token itself) |
+| **`publish-crates.yml`** | Dispatched by `release.yml`'s `trigger-crates-io-publish` with that release's `ref` + `version` (or by hand) → OIDC exchange → publish the nine crates |
 
 If the tag already exists, the workflow sets `release-needed=false` and skips re-publish paths (idempotent). Manual tag push is **recovery-only**, approval-gated — see `references/release-workflow.md`.
 
@@ -170,12 +161,15 @@ Also: `cargo deny check` before release when deps changed.
 
 ## Post-publish verification (the half the workflow cannot prove)
 
-`release.yml`'s own `verify-release` job probes **3** artifacts (root crate, two npm dist-tags, the release
-object). The full set is 12 — 9 crates.io + 2 npm + the GitHub release — so a green tick there is weak
-evidence about the other 8, and it accumulates errors under a default `bash -e {0}` shell that aborts at the
-first miss. Count the artifacts from the **owning job** (every `run:` block of `publish-crates`, not the
-`CRATES=` list: the root and `csm-duckdb` publish in later steps, `csm-duckdb` last because it dev-depends
-on the root and polls the index for it).
+`verify-release` enumerates the full set — **9** crates.io index paths, both npm packages, and the expected
+release assets (5 CLI targets → 7 files with `SHA256SUMS` and the WASM tarball, from the same
+`scripts/release-cli-matrix.sh` output that drives the build) — and accumulates misses instead of aborting at
+the first. It waits on `trigger-crates-io-publish`, so the crates it probes are the ones that workflow just
+tried to publish: a crates.io gap is a *failure with a named job to open*, not an instruction to go dispatch
+something by hand — that hand dispatch is the recovery path, and the only way to reach `dry_run`. Inside the
+publishing path, the set is split across steps — seven members in one loop, then the root crate, then
+`csm-duckdb` last because it path-depends on the root and polls the sparse index for it — so read every
+`run:` block, not just the loop header, before claiming a crate was covered.
 
 Rules that came out of validating the 0.3.9 scripts against the *previous* release:
 
@@ -204,12 +198,17 @@ Rules that came out of validating the 0.3.9 scripts against the *previous* relea
   `✓ All local versions synchronized`. `python3 scripts/workspace-version-edges.py --check`
   is the sensor; `--sync <ver>` is the writer, from the same parser.
   Detail: [references/version-pin-edges.md](references/version-pin-edges.md).
-- **Probe the crates.io token before the publish loop, not during it** (measured on v0.3.9, run 41110522627:
-  nine `403 authentication failed` uploads ≈142 s apart, because each crate only fails at *its own* upload
-  after a full verify build). `curl -H "Authorization: api-token $T" https://crates.io/api/v1/me` answers
-  **200** (`.user.login` proves *which* identity), **401** malformed, **403** absent-or-revoked. Note the
-  scope trap: a job declaring `environment: crates.io` uses the **environment** secret, which takes
-  precedence over a differing repo-level copy.
+- **A crates.io credential cannot be probed; only the publish itself is evidence.** v0.3.9 burned nine
+  `403 authentication failed` uploads ≈142 s apart (run 41110522627) because each crate only fails at *its
+  own* upload, after a full verify build. The #967 fix tried to pre-flight that with
+  `curl -H "Authorization: api-token $T" https://crates.io/api/v1/me` and require **200** — a probe that can
+  never pass: crates.io serves `/api/v1/me` behind `AuthCheck::only_cookie()`, so no token, valid or dead,
+  returns 200. It survived review because its own fixture stubbed the 200 (ADR-0104). What actually closes
+  the window: guard on an **empty** exchange output, abort the loop on the first 401/403 instead of repeating
+  a dead credential per crate, and re-probe the sparse index for all nine at the end and red the run on any
+  gap. The related trap moved too: a token-based job declaring `environment: crates.io` silently used the
+  *environment* secret over a differing repo copy; under OIDC the environment is a claim in the assertion, so
+  the config must name environment `crates.io` exactly or that crate's exchange fails alone.
 - **Do not chase the `E0432` you see in a later crate's verify build.** `cargo publish` verifies in an
   isolated build that resolves companions from the **registry**, so when the root crate's upload 403s, the
   next crate rebuilds against the *previous* published version and fails on symbols that exist in the tree.

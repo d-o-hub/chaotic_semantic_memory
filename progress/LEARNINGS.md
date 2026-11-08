@@ -318,6 +318,21 @@
 - **`git commit --amend` after another file cites the commit invalidates the citation (2026-10-17, #910, twice)**: staging the hook-regenerated `llms.txt` with `--amend` moved the rebuild commit `891e8892 → 93046900` *after* `plans/PR_ROAST_2026_10_17.md` had cited the old value, and a second amend did it again to `b89e1aa7`'s sibling. Either commit the citing file last, or write the citation only once the cited commit is final — and re-check the file against `git log --format=%h` immediately before pushing.
 - **`llms.txt` embeds the root `Cargo.toml`, so a manifest change regenerates it (2026-10-17, #910)**: `gen-llms-txt.sh` reproduces the manifest, so adding `default-members` and `doc = false` left `llms.txt` dirty after the commit that had staged the pre-hook copy — the `check-llms-sync.sh` stage in `validate.sh` compares it, and the diff is exactly the added manifest lines. Stage the regenerated file with the manifest change; the pre-existing `src/**/*.rs` case in these notes has the same shape.
 
+- **A registry credential can be validated only by using it (2026-11-05, ADR-0104)**: crates.io serves
+  `/api/v1/me` behind `AuthCheck::only_cookie()`, so a bearer token never gets 200 — valid, expired or revoked.
+  The #967 pre-flight required 200 and therefore could only ever fail, and its fixture stubbed the 200, so the
+  dead step survived review. With no read-only endpoint for trusted-publisher configs either, the decidable
+  checks are: did the exchange return a non-empty token, did any publish hit 401/403, and does the sparse index
+  agree with the version the run claimed. Ask what an endpoint *can* answer before writing a gate on it.
+- **Trusted publishing constrains the trigger, not the job (2026-11-05, ADR-0104)**: `handle_github_token_inner`
+  refuses OIDC assertions minted from `workflow_run` and `pull_request_target`, so a crate-publishing job
+  inside a `workflow_run`-triggered workflow cannot be fixed by editing that job. And a tag trigger is not a
+  substitute when the tag is pushed with `secrets.GITHUB_TOKEN` — a `GITHUB_TOKEN` push spawns no run. Both
+  dead ends are invisible in the RFC's happy path and obvious in the server's code; read the verifier before
+  designing the caller. The minted token is also scoped to the subset of crates whose configs match, so N
+  crates with N configs fail as a **partial publish** — the answer is an idempotent loop plus a final
+  reconciliation over the whole set, not a pre-flight query.
+
 ## CI Gate Semantics (2026-10-17, #903)
 
 - `workflow_run` cannot filter by conclusion. An `always()` summary must treat an unsuccessful
@@ -786,3 +801,47 @@
   into a status branch. It fired twice, both times wrong. Report `state=completed:failure step=<from the log>`
   and leave the causal claim to whoever reads `--log-failed`.
 
+- **A fixture that returns the assertion's own expected value proves wiring, not behavior (2026-11-05,
+  ADR-0104)**: `scripts/test-verify-release-step.sh` stubbed `{"user":{"login":…}}` at HTTP 200 for the step
+  that required 200, so a gate that could never pass in production stayed green for a month. The replacement
+  assertions are *structural* over the YAML (permission set, one pinned auth action, the token step ordered
+  before every consumer, zero secret references, timeout under the credential's lifetime, forbidden triggers
+  absent) plus replays whose fixtures are index rows and absent tokens — and each was mutation-proved by
+  breaking a copy of the workflow. If mutating the target keeps the fixture green, the fixture is decoration.
+- **A doc capability claim has no sensor; only a named file does (2026-11-05)**: `check-adr-parity.sh` proved
+  registry row ↔ ADR file, and `check-docs-links.sh` proved the links resolve, while ADR-0039 asserted
+  "Trusted Publishing for crates.io (OIDC-based, no tokens)" as delivered and `book/src/release.md` repeated
+  "No long-lived API tokens" — all green, all false. Path/number gates catch drift they were told about; a
+  wrong *capability* sentence passes every one of them. When a doc line describes a mechanism, name the file
+  and step that implement it so a future structural assertion can falsify it.
+- **Classify a build-script panic by *where* in the script it died, not by which crate failed (2026-11-05)**:
+  `libduckdb-sys` at `build_bundled_cc.rs:65` with `Os { code: 39, DirectoryNotEmpty }` is an unpack colliding
+  with pre-existing build state, 69 s after the step started against this repo's own ~20 min cold C++
+  measurement — not a compile error, and exit 101 is Rust's panic code rather than a `cc` failure. Reading the
+  step timeline plus the message's `kind:` separates "retry the attempt" from "fix the code" faster than any
+  badge, and the cache state that carries the residue is queryable (`gh cache list --ref refs/heads/main`).
+- **An upstream event blacklist constrains where the token is minted, not who may start the run
+  (2026-11-05, ADR-0104)**: this branch first shipped "crates.io publishing is a human dispatch, and a
+  release run no longer proves it" — written straight from crates.io refusing OIDC assertions for
+  `workflow_run`. That refusal is about the *exchange*, and GitHub's `GITHUB_TOKEN` recursion guard is
+  documented to exempt `workflow_dispatch`, so a job inside the release run can POST a dispatch and read
+  the spawned run's verdict. Before documenting a channel as manual-only, ask which link in the chain the
+  restriction actually lands on; "the job cannot move" is not evidence that "the run cannot be caused".
+- **A text-shaped gate reads comments as code (2026-11-05)**: two of the new structural assertions red a
+  correct workflow — one because a prose line mentioned `dry_run`, one because a comment quoted the very
+  `${{ }}` syntax the rule forbids. An assertion over source either strips comment lines or pins the
+  positive artifact instead of the absence of a word (here: the payload is exactly `ref` + `inputs.version`),
+  because a checker that punishes documentation teaches the next reader to phrase the rule away.
+- **Match a run you caused by the ref you caused it on, not by recency (2026-11-05)**: "newest run of that
+  workflow" silently credits a concurrent manual dispatch with this release's outcome. The bound is
+  `id > last-seen-before-POST AND head_sha == <release commit>`, and the fixture carries a *newer* run on a
+  foreign sha so the assertion can actually fail. If the unreadable-run-list case is not tested too, the
+  matcher degrades to guessing on noise the day the API hiccups.
+- **A replay of one file cannot see a contract broken between two files (2026-11-05, ADR-0104)**: the dispatch
+  step I wrote was well-formed, replayed green against a stubbed API, and would have failed every real release —
+  `publish-crates.yml` declares `ref` as a required `workflow_dispatch` input, my payload sent only `version`, so
+  GitHub answers 422. The fixture step-replays a body and structurally reads one YAML at a time; nothing joined
+  them. The gate that closes the class parses the *receiver's* schema (`on.workflow_dispatch.inputs[*].required`)
+  and asserts the sender's payload covers it, plus a second assertion that the receiver declares enough inputs —
+  otherwise an empty or renamed schema makes the coverage check quietly vacuous. Whenever two files must agree and
+  every test looks at one of them, the missing test is the one that reads both.

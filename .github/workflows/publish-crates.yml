@@ -1,0 +1,269 @@
+name: Publish crates.io
+
+# Crates.io publishing is deliberately NOT part of release.yml. crates.io's token
+# exchange (crates_io_api::handlers::github::handle_github_token_inner) refuses OIDC
+# tokens minted from the `workflow_run` and `pull_request_target` events, and
+# release.yml is triggered by `workflow_run: CI` (release.yml:4-7). So no edit to a
+# job inside release.yml could ever work: the trigger itself had to move here.
+#
+# A tag trigger is not the answer either — release.yml pushes the release tag with the
+# runner's own GITHUB_TOKEN (release.yml:237-242) and a GITHUB_TOKEN push does not spawn a
+# workflow run, so a `push: tags` publish workflow would never fire for a new release.
+#
+# workflow_dispatch is the honest trigger: an event crates.io accepts, naming a ref and a
+# version. What names it does not have to be a human — release.yml's
+# trigger-crates-io-publish posts this dispatch for the tag it just created (GitHub's
+# GITHUB_TOKEN recursion guard exempts workflow_dispatch, so that POST does create a run)
+# and waits for the verdict below. A hand dispatch stays the recovery path and the only way
+# to ask for dry_run.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to publish from (e.g. refs/tags/v0.3.9)
+        required: true
+        type: string
+      version:
+        description: Version that ref declares for all nine crates (e.g. 0.3.9)
+        required: true
+        type: string
+      dry_run:
+        description: Package only — pass --dry-run to cargo and publish nothing
+        required: false
+        default: false
+        type: boolean
+
+# One publish at a time, and never cancel one mid-upload: a cancelled publish can
+# leave some crates live and some not.
+concurrency:
+  group: crates-io-publish-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    # crates.io mints the exchange token with ACCESS_TOKEN_LIFETIME = 30 minutes.
+    # The bound sits under it so an over-long run dies on the job, not mid-upload
+    # with a 403 the loop would then report as a credential problem.
+    timeout-minutes: 25
+    environment: crates.io
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ inputs.version }}
+      # Dispatch inputs are attacker-reachable text. They reach this job only ever
+      # through env, never inside a `run:` body, so a value containing a quote or a
+      # `;` stays a string.
+      CHECKOUT_REF: ${{ inputs.ref }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      # Publish order is a dependency order: members, then the root crate they all
+      # path-depend on, then csm-duckdb, which needs the root in the index first.
+      # This is the only place the set is written; the member loop below skips the two
+      # crates that have their own steps rather than restating a second list.
+      CSM_PUBLISH_CRATES: >-
+        csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval
+        csm-persistence chaotic_semantic_memory csm-duckdb
+      CSM_ROOT_CRATE: chaotic_semantic_memory
+      CSM_DUCKDB_CRATE: csm-duckdb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          # Nothing in this job talks to GitHub over git: publishing needs the
+          # crates.io token only, so the runner should not keep a write-capable
+          # credential checked out against a ref named at dispatch time.
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          cache: false
+          toolchain: stable
+
+      - name: Confirm the ref declares the version being published
+        run: |
+          set -euo pipefail
+          case "${CHECKOUT_REF}" in
+            *[!A-Za-z0-9._/-]*|'')
+              echo "::error title=Bad ref::'${CHECKOUT_REF//[^A-Za-z0-9._/-]/?}' is not a git ref (letters, digits, dot, slash, underscore, hyphen only)"
+              exit 1
+              ;;
+          esac
+          # cargo metadata is the same view cargo publish will use, so this compares
+          # the dispatch input against what would actually go on the wire — including
+          # a version inherited from [workspace.package], which a manifest grep misses.
+          # An unknown crate name reads as "none" and fails here rather than at the
+          # publish step, where it would fail after other crates had already landed.
+          METADATA="$(cargo metadata --format-version 1 --no-deps)"
+          MISMATCH=""
+          for crate in ${CSM_PUBLISH_CRATES}; do
+            declared="$(printf '%s' "${METADATA}" | jq -r --arg n "${crate}" \
+              '[.packages[] | select(.name == $n) | .version] | unique | join(",")')"
+            if [ "${declared}" != "${VERSION}" ]; then
+              MISMATCH="${MISMATCH} ${crate}=$( [ -n "${declared}" ] && echo "${declared}" || echo none )"
+            fi
+          done
+          if [ -n "${MISMATCH}" ]; then
+            echo "::error title=Version mismatch::${CHECKOUT_REF//[^A-Za-z0-9._/-]/?} declares${MISMATCH}, dispatch said ${VERSION//[^0-9.A-Za-z-]/?}"
+            exit 1
+          fi
+          echo "All nine crates declare ${VERSION} at ${CHECKOUT_REF}"
+
+      - name: Request a crates.io OIDC token
+        id: crates-auth
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+
+      # The #967 predecessor of this step curled /api/v1/me with the registry
+      # credential and required HTTP 200. crates.io serves that route behind
+      # AuthCheck::only_cookie(), so a token — valid or not — can never get 200: the
+      # probe could only ever fail, and its fixture kept it alive. There is no
+      # read-only endpoint for trusted-publishing configs either, so the check that
+      # remains here is the one that is actually decidable: did the exchange return
+      # anything. The nine-config gap itself is caught by the reconciliation step.
+      - name: Refuse to publish on an empty token
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "::error title=Crates.io OIDC::the exchange returned no token for ${VERSION}"
+            echo "Each crate needs a trusted publisher: owner d-o-hub, repository" \
+              "chaotic_semantic_memory, workflow publish-crates.yml, environment crates.io."
+            exit 1
+          fi
+          echo "crates.io exchange returned a token (lifetime 30 min, job bound 25 min)"
+
+      - name: Publish workspace crates incrementally
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          PUBLISH_FLAGS="--allow-dirty"
+          if [ "${DRY_RUN}" = "true" ]; then
+            PUBLISH_FLAGS="${PUBLISH_FLAGS} --dry-run"
+            echo "dry-run: packaging only, nothing will be uploaded"
+          fi
+
+          # The pattern must be `-F` with escaped quotes: `""vers":"$VERSION""` is
+          # quote-spliced by bash into `vers:0.3.9`, which the sparse index never
+          # contains (it stores `"vers":"0.3.9"`), so every check said "not published"
+          # for versions that were (#971) — seven needless publish calls per run.
+          version_published() {
+            local crate="$1" path
+            path="$(bash scripts/crates-io-index-path.sh "${crate}")"
+            curl -sL "https://index.crates.io/${path}" | grep -qF "\"vers\":\"${VERSION}\""
+          }
+
+          FAILED=""
+          for crate in ${CSM_PUBLISH_CRATES}; do
+            case "${crate}" in
+              "${CSM_ROOT_CRATE}"|"${CSM_DUCKDB_CRATE}") continue ;;
+            esac
+            if version_published "${crate}"; then
+              echo "⏭️ ${crate}@${VERSION} already on crates.io, skipping"
+              continue
+            fi
+            echo "Publishing ${crate}@${VERSION}..."
+            if cargo publish -p "${crate}" ${PUBLISH_FLAGS} > /tmp/publish.log 2>&1; then
+              echo "  ✅ ${crate}@${VERSION} published"
+            elif grep -qiE 'already (uploaded|exists)' /tmp/publish.log; then
+              echo "  ⏭️ ${crate}@${VERSION} already uploaded"
+            else
+              echo "  ❌ ${crate}@${VERSION} publish failed:"
+              tail -20 /tmp/publish.log
+              if grep -qiE 'authentication failed|403 Forbidden|401 Unauthorized' /tmp/publish.log; then
+                # An exchange that succeeded for some crates can still 403 for a crate
+                # with no matching trusted publisher: the token is scoped to the subset
+                # that matched. Aborting here is what makes the gap visible instead of
+                # burning the rest of the run; the reconciliation step names what landed.
+                echo "::error title=Crates.io credential::credential rejected while publishing ${crate}; aborting instead of repeating it per crate"
+                exit 1
+              fi
+              FAILED="${FAILED} ${crate}"
+            fi
+            sleep 15
+          done
+
+          if [ -n "${FAILED}" ]; then
+            echo "::error::Publish failed for:${FAILED}"
+            exit 1
+          fi
+
+      - name: Publish root crate to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          PUBLISH_FLAGS="--locked --allow-dirty"
+          if [ "${DRY_RUN}" = "true" ]; then
+            PUBLISH_FLAGS="${PUBLISH_FLAGS} --dry-run"
+          fi
+          CRATE_PATH="$(bash scripts/crates-io-index-path.sh "${CSM_ROOT_CRATE}")"
+          if curl -sL "https://index.crates.io/${CRATE_PATH}" | grep -qF "\"vers\":\"${VERSION}\""; then
+            echo "⏭️ ${CSM_ROOT_CRATE}@${VERSION} already on crates.io, skipping"
+          else
+            echo "Publishing ${CSM_ROOT_CRATE}@${VERSION}..."
+            cargo publish -p "${CSM_ROOT_CRATE}" ${PUBLISH_FLAGS}
+          fi
+
+      - name: Publish csm-duckdb
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          PUBLISH_FLAGS="--allow-dirty"
+          if [ "${DRY_RUN}" = "true" ]; then
+            PUBLISH_FLAGS="${PUBLISH_FLAGS} --dry-run"
+          fi
+          DUCKDB_PATH="$(bash scripts/crates-io-index-path.sh "${CSM_DUCKDB_CRATE}")"
+          ROOT_PATH="$(bash scripts/crates-io-index-path.sh "${CSM_ROOT_CRATE}")"
+          if curl -sL "https://index.crates.io/${DUCKDB_PATH}" | grep -qF "\"vers\":\"${VERSION}\""; then
+            echo "⏭️ ${CSM_DUCKDB_CRATE}@${VERSION} already on crates.io, skipping"
+            exit 0
+          fi
+          # csm-duckdb path-depends on the root crate, so cargo resolves it from the
+          # registry: the root version has to be in the index before this publish.
+          echo "Waiting for ${CSM_ROOT_CRATE}@${VERSION} in sparse index..."
+          for attempt in $(seq 1 30); do
+            if curl -sL "https://index.crates.io/${ROOT_PATH}" | grep -qF "\"vers\":\"${VERSION}\""; then
+              echo "✅ ${CSM_ROOT_CRATE}@${VERSION} visible"
+              break
+            fi
+            sleep 15
+          done
+          cargo publish -p "${CSM_DUCKDB_CRATE}" ${PUBLISH_FLAGS}
+
+      - name: Reconcile the sparse index against the published set
+        run: |
+          set -euo pipefail
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "dry-run: nothing was published, so there is nothing to reconcile"
+            exit 0
+          fi
+          # A partial publish is the failure mode this run cannot see from inside:
+          # crates.io scopes the exchange token to the subset of crates whose trusted
+          # publishers match, so one missing config 403s that crate alone and the loop
+          # still reports success for the rest. Re-probe every crate at the version the
+          # dispatch claimed, and red the run when the index disagrees. The publish loop
+          # above is idempotent, so re-running this workflow finishes what it lists here.
+          MISSING=""
+          for crate in ${CSM_PUBLISH_CRATES}; do
+            path="$(bash scripts/crates-io-index-path.sh "${crate}")"
+            if curl -sL "https://index.crates.io/${path}" | grep -qF "\"vers\":\"${VERSION}\""; then
+              echo "✅ crates.io/${crate}@${VERSION}: Published"
+            else
+              echo "❌ crates.io/${crate}@${VERSION}: Missing"
+              MISSING="${MISSING} ${crate}"
+            fi
+          done
+          if [ -n "${MISSING}" ]; then
+            echo "::error title=Partial publish::still missing from the index:${MISSING} — re-dispatch this workflow once the trusted publisher for each of them exists"
+            exit 1
+          fi
+          echo "All nine crates are live at ${VERSION}"
