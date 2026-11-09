@@ -153,9 +153,17 @@ impl ConceptGraph {
     /// the labels borrow from the graph, so a caller may truncate the result to
     /// its top-k before any caller materialises owned strings.
     pub fn expand_ref<'a>(&'a self, concept_ids: &[&'a str], max_depth: u8) -> Vec<&'a str> {
-        let mut expanded = std::collections::HashSet::new();
-        let mut to_visit: Vec<(&str, u8)> = concept_ids.iter().map(|id| (*id, 0)).collect();
-        let mut visited = std::collections::HashSet::new();
+        if concept_ids.is_empty() {
+            return Vec::new();
+        }
+
+        // Memory & Algorithmic Optimization: Pre-allocate collection capacities based on input size.
+        // Assuming typical graphs have at least 2 labels per concept, pre-allocating avoids
+        // repeated rehashes and buffer reallocations during breadth/depth-first expansion.
+        let mut expanded = std::collections::HashSet::with_capacity(concept_ids.len() * 2);
+        let mut to_visit: Vec<(&str, u8)> = Vec::with_capacity(concept_ids.len());
+        to_visit.extend(concept_ids.iter().map(|id| (*id, 0)));
+        let mut visited = std::collections::HashSet::with_capacity(concept_ids.len());
 
         while let Some((id, depth)) = to_visit.pop() {
             // Algorithmic Optimization: Use insert() result to combine check and mark in one lookup.
