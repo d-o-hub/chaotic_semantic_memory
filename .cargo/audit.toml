@@ -24,4 +24,5 @@ ignore = [
     "RUSTSEC-2026-0398", # zstd-safe 7.2.4 behind tantivy pin; seekable decompress never called
     "RUSTSEC-2026-0403", # zstd-safe 7.2.4 behind tantivy pin; DCtx::decompress_stream never called
     "RUSTSEC-2026-0410", # zstd-sys wasm32-only shim; zstd absent from the csm-wasm dependency tree
+    "RUSTSEC-2026-0462", # rmcp client response body buffering vulnerability; CSM only uses rmcp server features
 ]

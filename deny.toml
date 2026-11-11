@@ -45,6 +45,10 @@ ignore = [
     { id = "RUSTSEC-2026-0398", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; seekable decompress never called" },
     { id = "RUSTSEC-2026-0403", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; DCtx::decompress_stream never called" },
     { id = "RUSTSEC-2026-0410", reason = "zstd-sys wasm32-only allocator shim; zstd-sys is absent from the csm-wasm dependency tree" },
+    # RUSTSEC-2026-0462: Unbounded response body buffering in Streamable HTTP clients in rmcp.
+    # CSM only enables rmcp server features (transport-streamable-http-server, transport-io);
+    # client features (transport-streamable-http-client-reqwest/unix-socket) are not used.
+    { id = "RUSTSEC-2026-0462", reason = "rmcp client response body buffering vulnerability; CSM only uses rmcp server features" },
     # Dependabot alerts #1, #4: libsql-sqlite3-parser crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5)
     # No patch available upstream. Low severity, requires malformed SQL input.
     # No RUSTSEC ID; will add when assigned.
