@@ -2467,4 +2467,17 @@ verdicts from PR #1020:
 - **Workflow & gate wiring**: Wired into `.github/workflows/ci.yml` across `test`, `test-duckdb`, `lint`, and
   `mutation-shard` immediately after cache restore; wired into `scripts/validate.sh` before compilation.
 - **Script catalog**: Added to `scripts/SCRIPT_CATALOG.md` with full fixture pairing; drift gate passes.
+## 2026-11-11 — Script catalog fixture variant resolution (#1003) & PR #1022 roast
+
+Resolved issue #1003 by making `fixture_for()` in `scripts/gen_script_catalog.py` probe alternate
+hyphen/underscore stem representations (`stem.replace("_", "-")` and vice versa):
+- **Eliminated false negatives**: `scripts/mutation_union.py` $\to$ `scripts/test-mutation-union.sh`,
+  `scripts/check_cfg_mutants.py` $\to$ `scripts/test-check-cfg-mutants.sh`, and `scripts/mutation_inventory.py` $\to$
+  `scripts/test-mutation-inventory.sh` now correctly report `called + fixture` instead of `called; no fixture`.
+- **Unit test coverage**: Added `test_resolves_hyphen_underscore_fixture_variants` in `scripts/test-script-catalog.py`.
+- **Drift gate green**: `scripts/check-script-catalog.sh` passes 3/3 tests.
+- **Roast PR #1022**: Closed as no-op per `skill://pr-roast-triage`: fabricated baseline claims (`1.56/1.87/1.71 µs`
+  vs canonical `1.30/1.32/1.37 µs`), redundant allocation mechanics, and failed CI on mutation testing.
+- **Workflow impact encoded**: Updated `AGENTS.md` and `.agents/skills/pr-roast-triage/SKILL.md` to mandate evaluating
+  workflow impact across skills, AGENTS.md, HARNESS.md, guardrails, and GitHub workflows on every PR.
 

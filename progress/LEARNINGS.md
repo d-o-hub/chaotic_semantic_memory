@@ -873,3 +873,12 @@
   PR #1020 asserted `<target>/<profile>/build/libduckdb-sys-*/out/duckdb-sources/<hash>`, whereas `build_paths::sources_root()`
   actually places `duckdb-sources` directly in the target root (`<target>/duckdb-sources/<hash>`). Always inspect
   `find target -type d -name ...` on real target trees before pinning fixture assertions.
+- **Probing script fixtures must resolve hyphen/underscore stem variants (2026-11-11, #1003)**:
+  Static fixture resolution via naive `test-{stem}.*` misses cross-language naming conventions (Python scripts
+  use underscores while bash tests prefer hyphens, e.g. `mutation_union.py` $\to$ `test-mutation-union.sh`).
+  Probing the dual representation prevents generated catalogs from asserting false gaps that mislead operators.
+- **Always review and roast PRs across both codebase impact and workflow tooling impact (2026-11-11)**:
+  A PR's viability is not only whether Rust code passes unit tests, but how it impacts the broader engineering
+  workflow: skills (`.agents/skills/`), `AGENTS.md`, `HARNESS.md`, guardrails (`validate.sh`, drift gates),
+  and GitHub workflows (`.github/workflows/*.yml`). Any code change that shifts preconditions, tools, or
+  invariants must reconcile its workflow contracts before merge.

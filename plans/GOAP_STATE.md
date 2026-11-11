@@ -207,6 +207,10 @@ world_state:
   duckdb_cache_unpack_repaired: true          # 2026-11-08 (#1004): clean-incomplete-duckdb-unpack.sh
                                               #   purges <target>/duckdb-sources/<hash> trees lacking .complete
                                               #   and staging dirs before cargo builds across test/lint/test-duckdb.
+  script_catalog_fixture_pairs_resolved: true  # 2026-11-11 (#1003): gen_script_catalog.py probes alternate
+                                              #   hyphen/underscore stem variants, correctly pairing mutation_union.py,
+                                              #   check_cfg_mutants.py, and mutation_inventory.py with their fixtures.
+
 
 
   # ── GOAP bookkeeping ─────────────────────────────────────────
@@ -220,9 +224,8 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_incomplete_duckdb_unpack_in_ci_cache # 2026-11-08:
-                               #   #1004: clean-incomplete-duckdb-unpack.sh and test fixture purge
-                               #   <target>/duckdb-sources/<hash> trees lacking .complete and staging
-                               #   dirs before cargo builds in test, test-duckdb, lint, mutation-shard,
-                               #   and validate.sh. Fixes DirectoryNotEmpty on cached libduckdb-sys unpacks.
-                               #   Predecessor: roast_and_close_zero_impact_prs_1016_1017_1018 (#1019 -> 74017275).
+  action_last_completed: resolve_hyphen_underscore_fixture_pairs_in_script_catalog # 2026-11-11:
+                               #   #1003: gen_script_catalog.py resolves hyphen/underscore fixture pairs,
+                               #   pairing mutation_union.py, check_cfg_mutants.py, and mutation_inventory.py
+                               #   with test fixtures; PR #1022 roasted and closed as no-op.
+                               #   Predecessor: repair_incomplete_duckdb_unpack_in_ci_cache (#1004 -> a9de691d).

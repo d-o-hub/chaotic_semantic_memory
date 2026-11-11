@@ -44,6 +44,21 @@ class ScriptCatalogTests(unittest.TestCase):
             catalog = render(root)
             self.assertIn("operator-only (no caller/fixture detected)", catalog)
             self.assertIn("none detected | none detected | none detected | none found", catalog)
+    def test_resolves_hyphen_underscore_fixture_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            scripts = root / "scripts"
+            workflows = root / ".github" / "workflows"
+            scripts.mkdir()
+            workflows.mkdir(parents=True)
+            (scripts / "mutation_union.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+            (scripts / "test-mutation-union.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            (workflows / "ci.yml").write_text("run: python3 scripts/mutation_union.py\n", encoding="utf-8")
+            catalog = render(root)
+            self.assertIn("| `scripts/mutation_union.py` |", catalog)
+            self.assertIn("scripts/test-mutation-union.sh", catalog)
+            self.assertIn("called + fixture", catalog)
+
 
 
 if __name__ == "__main__":

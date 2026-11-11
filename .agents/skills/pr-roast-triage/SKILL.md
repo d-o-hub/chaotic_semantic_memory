@@ -205,13 +205,9 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
   select only `workspace_default_members` (here the root package); build member features with `-p`.
 - **`export.json` / `Cargo.lock` noise**: timestamp-only or resolver-churn hunks
   must be dropped before merge.
-- **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.
-  Zero human comments = no hidden requirements, but also no approval.
-- **GitHub CLI shapes that fail quietly**: `gh pr edit`/`gh issue view` break on deprecated
-  `projectCards` — query specific `--json` fields, or `gh api -X PATCH …/pulls/<id> -f title=…`. This
-  build's `gh pr close` has **no `--comment-file`** and `--comment "$(cat f)"` command-substitutes the
-  backticks a roast body is full of: `gh pr comment <n> --body-file f`, then close, then re-read `gh pr
-  list --state open` — three "successful" closes here left three PRs open.
+- **Bot comments** (Jules/Sonar/Codacy) are noise, not approvals.
+- **GitHub CLI shapes that fail quietly**: `gh pr edit`/`gh issue view` break on deprecated `projectCards` — query specific `--json` fields. `gh pr close` has no `--comment-file`: use `gh pr comment <n> --body-file f` then close, and re-check `gh pr list`.
+- **Workflow impact (codebase + engineering tooling)**: Verify whether changes affect skills (`.agents/skills/`), `AGENTS.md`, `HARNESS.md`, guardrails, or GitHub workflows (`.github/workflows/`). Reconcile and update workflow contracts before merge; CI green on code is never sufficient if workflow tooling drifts.
 - **Multi-issue parent linkage**: a parent PR implementing several child issues declares each
   (`Fixes #A`, `Fixes #B`) in the body, so all issues close cleanly on merge.
 
