@@ -2467,4 +2467,8 @@ verdicts from PR #1020:
 - **Workflow & gate wiring**: Wired into `.github/workflows/ci.yml` across `test`, `test-duckdb`, `lint`, and
   `mutation-shard` immediately after cache restore; wired into `scripts/validate.sh` before compilation.
 - **Script catalog**: Added to `scripts/SCRIPT_CATALOG.md` with full fixture pairing; drift gate passes.
+## 2026-11-11 — Script catalog fixture variants (#1003)
+
+Resolved issue #1003: `fixture_for()` probes hyphenated and underscored stem variants and resolves fixture pairs for `mutation_union.py`, `check_cfg_mutants.py`, and `mutation_inventory.py`.
+- Added behavioral coverage for both mismatch directions and exact-stem precedence; `scripts/test-script-catalog.py` and the catalog drift gate passed.
 
