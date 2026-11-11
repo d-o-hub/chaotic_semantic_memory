@@ -60,9 +60,9 @@ AGENTS.md / skills                     LOC + ADR parity      (never push main)
 1. **Plan** — Load `plans/GOAP_STATE.md` + `plans/ACTIONS.md`; scope from uncommitted diff.
 2. **Implement** — Feature branch only; match style; read before edit (`AGENTS.md`).
 3. **Validate** — `./scripts/harness-check.sh all` then `./scripts/validate.sh`.
-4. **PR** — Branch → commit → `gh pr create` → wait for CI → merge. **Never push `main`.**
+4. **PR** — Branch → roast code and workflow impact (skills, `AGENTS.md`, `HARNESS.md`, guardrails, GitHub workflows) → create PR → verify CI on the exact head → merge only after the roast verdict is recorded. **Never push `main`.**
 
-Skills: `goap-planning`, `rust-development`, `testing-validation`, `git-workflow`, `github-ci-guardrails`.
+Skills: `goap-planning`, `rust-development`, `testing-validation`, `git-workflow`, `github-ci-guardrails`, `pr-roast-triage`.
 
 ---
 

@@ -2468,3 +2468,10 @@ verdicts from PR #1020:
   `mutation-shard` immediately after cache restore; wired into `scripts/validate.sh` before compilation.
 - **Script catalog**: Added to `scripts/SCRIPT_CATALOG.md` with full fixture pairing; drift gate passes.
 
+## 2026-11-11 — PR #1022 review correction and PR workflow guardrails
+
+Corrected the PR #1022 review: the baseline mismatch only invalidates the cited baseline, not the change; CI's incomplete failed-job evidence did not prove a mutation failure. Posted a correction and reopened the PR with evidence requests.
+- Updated `AGENTS.md`, `HARNESS.md`, and `.agents/skills/pr-roast-triage/SKILL.md` to require code-plus-workflow impact review and distinguish zero-delta from correct-but-unmeasured changes.
+- Reviewed PR #1028: its #1003 fix is valid, but the unrelated #1022 correction/policy changes make the nine-file PR non-atomic; plan is to split before merge.
+- PR #1028 run `43041984379` failed at apt package installation due runner DNS resolution errors; validation did not run on that head.
+
