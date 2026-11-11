@@ -2472,6 +2472,7 @@ verdicts from PR #1020:
 
 Corrected the PR #1022 review: the baseline mismatch only invalidates the cited baseline, not the change; CI's incomplete failed-job evidence did not prove a mutation failure. Posted a correction and reopened the PR with evidence requests.
 - Updated `AGENTS.md`, `HARNESS.md`, and `.agents/skills/pr-roast-triage/SKILL.md` to require code-plus-workflow impact review and distinguish zero-delta from correct-but-unmeasured changes.
-- Reviewed PR #1028: its #1003 fix is valid, but the unrelated #1022 correction/policy changes make the nine-file PR non-atomic; plan is to split before merge.
-- PR #1028 run `43041984379` failed at apt package installation due runner DNS resolution errors; validation did not run on that head.
+- Closed PR #1028 after the atomicity roast. Recreated its policy/review correction as PR #1029 and the clean #1003 code fix as PR #1030.
+- CI and tooling guard passed on the reviewed initial heads for #1029 (`43070807459`, `43070808678`) and #1030 (`43070898683`, `43070898839`). The roast-record follow-up changes #1029's head and requires a fresh run; rebase #1030 after #1029 merges.
+- Local `validate.sh` and `harness-check.sh all` both stopped at `libduckdb-sys` compilation after exhausting disk; hosted CI supplied the passing full-suite verdicts for these heads.
 
