@@ -863,3 +863,23 @@
   its abstract says the FlyHash quality advantage does not translate — codes are larger and slower
   than SimHash at equal bits, and HNSW dominates at ordinary scale. Always read the abstract of the
   "research basis", not just that the link resolves: a real citation is not a supporting one.
+- **`libduckdb-sys` unpacks into `<target>/duckdb-sources/<hash>` with non-atomic directory publish (2026-11-08, #1004)**:
+  `libduckdb-sys` unpacks bundled DuckDB into a temporary `.duckdb-unpack-*` staging directory and then publishes with
+  `fs::rename(staging, dest)` where dest is `<target>/duckdb-sources/<hash>` (or `<target>/<triple>/duckdb-sources/<hash>`),
+  creating `.complete` inside when finished. If a previous run or interrupted build leaves that destination existing
+  without `.complete`, `fs::rename` panics with `Os { code: 39, kind: DirectoryNotEmpty }`. Purging abandoned staging
+  dirs and incomplete source trees restores idempotency across cached CI runs.
+- **Verify on-disk layout against actual build artifacts, not documentation or assumption (2026-11-08, #1004/#1020)**:
+  PR #1020 asserted `<target>/<profile>/build/libduckdb-sys-*/out/duckdb-sources/<hash>`, whereas `build_paths::sources_root()`
+  actually places `duckdb-sources` directly in the target root (`<target>/duckdb-sources/<hash>`). Always inspect
+  `find target -type d -name ...` on real target trees before pinning fixture assertions.
+- **Probing script fixtures must resolve hyphen/underscore stem variants (2026-11-11, #1003)**:
+  Static fixture resolution via naive `test-{stem}.*` misses cross-language naming conventions (Python scripts
+  use underscores while bash tests prefer hyphens, e.g. `mutation_union.py` $\to$ `test-mutation-union.sh`).
+  Probing the dual representation prevents generated catalogs from asserting false gaps that mislead operators.
+- **Always review and roast PRs across both codebase impact and workflow tooling impact (2026-11-11)**:
+  A PR's viability is not only whether Rust code passes unit tests, but how it impacts the broader engineering
+  workflow: skills (`.agents/skills/`), `AGENTS.md`, `HARNESS.md`, guardrails (`validate.sh`, drift gates),
+  and GitHub workflows (`.github/workflows/*.yml`). Any code change that shifts preconditions, tools, or
+  invariants must reconcile its workflow contracts before merge.
+- **Evidence gaps are not negative findings (2026-11-11, PR #1022 correction)**: a benchmark number that disagrees with `canonical.json` means the cited baseline is unsupported, not that the number was fabricated or that the change has no impact. A failed workflow with missing jobs/annotations names no root cause. Preserve uncertainty, retrieve complete jobs and annotations, and keep a correct-but-unmeasured PR open.

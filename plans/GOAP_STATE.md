@@ -204,6 +204,14 @@ world_state:
                                                   #   is doc-commented and detectable via the new input_dim()
                                                   #   accessor, so an oversized caller cannot get all-zero codes
                                                   #   without either an error or a readable shape mismatch.
+  duckdb_cache_unpack_repaired: true          # 2026-11-08 (#1004): clean-incomplete-duckdb-unpack.sh
+                                              #   purges <target>/duckdb-sources/<hash> trees lacking .complete
+                                              #   and staging dirs before cargo builds across test/lint/test-duckdb.
+  script_catalog_fixture_pairs_resolved: true  # 2026-11-11 (#1003): gen_script_catalog.py probes alternate
+                                              #   hyphen/underscore stem variants, correctly pairing mutation_union.py,
+                                              #   check_cfg_mutants.py, and mutation_inventory.py with their fixtures.
+
+
 
   # ── GOAP bookkeeping ─────────────────────────────────────────
   goap_reconciliations_complete:
@@ -216,36 +224,8 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: roast_and_close_zero_impact_prs_1016_1017_1018 # 2026-11-08:
-                               #   Three of the four open PRs closed with roast comments after the
-                               #   mechanism was checked, not inherited: #1018's old/new from_bytes fold
-                               #   to the same address (0x179c0 on 1.88.0), so its 1,280-byte zero-fill
-                               #   does not exist; #1017 differs from main by Vec-header store ordering
-                               #   around one memcpy and its 2 % sign-flips; #1016 committed a 3.7 MB
-                               #   binary and mapped a [0,1) sampler to [0.5,1), so its sparsity mask was
-                               #   empty for every documented value. #1015 (crates.io OIDC) was kept and
-                               #   landed as 53052df1; its only red was the DuckDB unpack ENOTEMPTY flake
-                               #   on lint, cleared by a re-run. Record: plans/PR_ROAST_2026_11_08.md.
-                               #   Immediate predecessor, publish_crates_io_over_oidc_from_dispatch
-                               #   (ADR-0104, PR #1015 -> 53052df1): publish-crates.yml (workflow_dispatch,
-                               #   OIDC, timeout under the 30-minute token life, index reconciliation over
-                               #   all nine) replaces release.yml's publish-crates job, and
-                               #   trigger-crates-io-publish dispatches it for the tag it just made and
-                               #   waits for that run's verdict (crates.io refuses a workflow_run token but
-                               #   accepts a dispatch a run posts). The /api/v1/me probe is gone because that
-                               #   route is cookie-only and could never answer 200;
-                               #   scripts/test-verify-release-step.sh covers both files and
-                               #   scripts/test-release-verdict.sh 31 cases.
-                               #   Before that, derive_ci_truth_and_delete_stored_keys (PR #1010 -> #1013):
-                               #   ci_truth_on_main_tip replaced run-listing in goap-orchestrator.sh, and
-                               #   ci_all_checks_passed / main_head were deleted from this file with
-                               #   scripts/check-goap-queue-issues.sh failing closed if either key returns.
-                               #   Two landed CI-truth fixes precede it un-named here: PR #1012 (release CLI
-                               #   matrix written to $GITHUB_OUTPUT in heredoc form, #1011) and PR #1009
-                               #   (the stale #961 queue entry that made `main` red).
-                               #   Queue is empty (see plans/ACTIONS.md); CI truth comes from
-                               #   `scripts/goap-orchestrator.sh status`, never from a stored flag — the
-                               #   run that last needed reading, attempt 2 of push run 42041881050 at
-                               #   123e5e89, is recorded here as history, not as a verdict.
-                               #   Not done yet: the nine trusted-publisher configs, the v0.3.9 dispatch,
-                               #   revoking the crates.io API token, and any live run of the dispatch job.
+  action_last_completed: resolve_hyphen_underscore_fixture_pairs_in_script_catalog # 2026-11-11:
+                               #   #1003: gen_script_catalog.py resolves hyphen/underscore fixture pairs,
+                               #   pairing mutation_union.py, check_cfg_mutants.py, and mutation_inventory.py
+                               #   with test fixtures.
+                               #   Predecessor: repair_incomplete_duckdb_unpack_in_ci_cache (#1004 -> a9de691d).

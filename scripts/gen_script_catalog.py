@@ -76,14 +76,21 @@ def fixture_for(root: pathlib.Path, script: pathlib.Path) -> str:
     if script.name.startswith("test-"):
         return "self (test script)"
     stem = script.stem
-    candidates = [
-        root / "scripts" / f"test-{stem}.sh",
-        root / "scripts" / f"test-{stem}.py",
-        script.with_name(f"test-{stem}{script.suffix}"),
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate.relative_to(root).as_posix()
+    stems = [stem]
+    for source, replacement in (("_", "-"), ("-", "_")):
+        variant = stem.replace(source, replacement)
+        if variant not in stems:
+            stems.append(variant)
+
+    for candidate_stem in stems:
+        candidates = [
+            root / "scripts" / f"test-{candidate_stem}.sh",
+            root / "scripts" / f"test-{candidate_stem}.py",
+            script.with_name(f"test-{candidate_stem}{script.suffix}"),
+        ]
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate.relative_to(root).as_posix()
     return "none found"
 
 
