@@ -45,6 +45,36 @@ class ScriptCatalogTests(unittest.TestCase):
             self.assertIn("operator-only (no caller/fixture detected)", catalog)
             self.assertIn("none detected | none detected | none detected | none found", catalog)
 
+    def test_resolves_hyphen_underscore_fixture_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            scripts = root / "scripts"
+            workflows = root / ".github" / "workflows"
+            scripts.mkdir()
+            workflows.mkdir(parents=True)
+
+            cases = {
+                "mutation_union.py": "test-mutation-union.sh",
+                "mutation-inventory.py": "test-mutation_inventory.sh",
+                "action_case_name.py": "test-action_case_name.sh",
+            }
+            for script_name, fixture_name in cases.items():
+                (scripts / script_name).write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+                (scripts / fixture_name).write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            (scripts / "test-action-case-name.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            workflow_calls = "".join(f"run: python3 scripts/{name}\n" for name in cases)
+            (workflows / "ci.yml").write_text(workflow_calls, encoding="utf-8")
+
+            catalog = render(root)
+            for script_name, fixture_name in cases.items():
+                row = next(
+                    line for line in catalog.splitlines() if line.startswith(f"| `scripts/{script_name}` |")
+                )
+                columns = [column.strip() for column in row.split("|")]
+                self.assertEqual(columns[7], f"scripts/{fixture_name}")
+                self.assertEqual(columns[8], "called + fixture")
+
+
 
 if __name__ == "__main__":
     unittest.main()
