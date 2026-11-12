@@ -2480,6 +2480,22 @@ Corrected the PR #1022 review: the baseline mismatch only invalidates the cited 
 - CI and tooling guard passed on the reviewed initial heads for #1029 (`43070807459`, `43070808678`) and #1030 (`43070898683`, `43070898839`). The roast-record follow-up changes #1029's head and requires a fresh run; rebase #1030 after #1029 merges.
 - Local `validate.sh` and `harness-check.sh all` both stopped at `libduckdb-sys` compilation after exhausting disk; hosted CI supplied the passing full-suite verdicts for these heads.
 
+
+## 2026-11-12 — Require online GitHub Actions SHA verification in CI (#1002)
+
+- The validator now scans every nested `.yml`/`.yaml` workflow, handles `owner/repo/path@sha` using the root repository endpoint, and rejects dynamic or unpinned remote references.
+- Only GitHub's explicit `422` response with `No commit found for SHA` proves a bad pin. `404`, other `422`, rate limits, network/auth failures, and server errors report `SKIP — NOT A PASS`; required mode fails closed. Repeated refs are cached, and rate-limit/network/auth/server failures stop further API requests.
+- `validate.sh` runs a deterministic validator fixture; the CI `lint` step enables online validation and marks it required. The generated script catalog now pairs the validator with its fixture.
+- Verification: 17 fixture cases, ShellCheck, online required scan (11 workflow files, 119 action refs; 0 errors/unverified), actionlint gate + fixture, workflow YAML gate (0 errors; existing warnings/advisories remain), script catalog drift, GOAP queue reconciliation, and ADR parity passed.
+
+- PR #1031's code/workflow roast is recorded in `plans/PR_ROAST_2026_11_12.md`. Review found meaningful preventive impact despite the historical invalid pin already being fixed; the required online gate prevents recurrence. No Rust API change; existing skill guidance covers cross-workflow review, so no unrelated skills/AGENTS/HARNESS edits were added.
+- CI on code-bearing head `8b67581e` passed after a targeted retry of the cancelled macOS arm64 job, which had no runner assigned or steps; CodeQL passed. The PR was git-mergeable but `mergeStateStatus=BLOCKED` at review. This roast-record follow-up requires fresh checks; no merge was attempted.
+
+## 2026-11-13 — PR #1031 SonarCloud annotation remediation
+
+- Reviewed annotations on current head `ff902aa5`: the SonarCloud check was green but carried two open critical `shell:S131` findings in the validator and one minor duplicated-literal finding in the fixture; the `main` ruleset's code-quality severity is `errors`.
+- Added explicit cache-state and unknown-HTTP-status handling, an HTTP 418 regression fixture, and a shared skip-marker constant. Focused fixture: 20/20; ShellCheck: clean.
+- Full repository gates and fresh hosted checks remain required before merge. Commit/push to PR #1031 is authorized; merge is not.
 ## 2026-11-13 — Restore the `Current Stable Rust Smoke` canary on stable 1.100.0
 
 Rust 1.100.0 (released 2026-11-09) reached the floating `stable` channel that the

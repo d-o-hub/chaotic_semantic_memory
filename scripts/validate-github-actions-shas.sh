@@ -3,14 +3,14 @@
 #
 # Usage: validate-github-actions-shas.sh [--help] [--offline] [--verbose]
 #
-# Validates that all GitHub Actions in workflow files are:
-# 1. Pinned to a SHA (not tags or branches)
-# 2. SHA is 40 hex characters (git SHA format)
-# 3. SHA matches the referenced version (if version comment present)
+# Validates GitHub Actions in every .yml/.yaml file under .github/workflows:
+# 1. Remote actions use a full commit SHA, not a tag or branch
+# 2. The SHA has the expected 40-hex format
+# 3. The SHA resolves in the upstream repository when the GitHub API is available
 #
 # Exit codes:
-#   0 - All actions properly pinned
-#   1 - One or more validation errors
+#   0 - No confirmed invalid pins; unavailable checks are SKIP unless required
+#   1 - An invalid pin, or required online verification was unavailable
 #   2 - Script error (missing files, etc.)
 
 set -euo pipefail
@@ -19,9 +19,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKFLOW_DIR="${REPO_ROOT}/.github/workflows"
 
-# Default options
 OFFLINE=false
 VERBOSE=false
+REQUIRED=false
+if [[ "${CSM_VALIDATE_GITHUB_ACTIONS_SHAS_REQUIRED:-}" == "true" ]]; then
+    REQUIRED=true
+fi
 
 # Colors for output (disabled if not terminal)
 if [[ -t 1 ]]; then
@@ -38,10 +41,14 @@ else
     NC=''
 fi
 
-# Output counters
 ERRORS=0
 WARNINGS=0
+UNVERIFIED=0
 CHECKED=0
+API_UNAVAILABLE=false
+API_UNAVAILABLE_REASON=""
+declare -A SHA_LOOKUP_RESULT=()
+declare -A SHA_LOOKUP_REASON=()
 
 usage() {
     cat <<'EOF'
@@ -52,14 +59,18 @@ USAGE:
 
 OPTIONS:
     -h, --help      Show this help message
-    -o, --offline   Skip network-based SHA existence checks
+    -o, --offline   Skip network-based SHA checks (reports SKIP — NOT A PASS)
     -v, --verbose   Show detailed output for each action
 
 DESCRIPTION:
-    Scans all .github/workflows/*.yml files and validates that:
-    1. Actions are pinned to SHA (not version tags or branches)
+    Recursively scans .github/workflows for .yml and .yaml files and validates:
+    1. Remote actions are pinned to a full commit SHA (not a tag or branch)
     2. SHA format is valid (40 hex characters)
-    3. SHA matches version comment (if present, optional network check)
+    3. SHA resolves upstream when the GitHub API is available
+
+    Set CSM_VALIDATE_GITHUB_ACTIONS_SHAS_REQUIRED=true to fail when online
+    verification is unavailable. Without that flag, unavailable checks remain
+    nonfatal but are explicitly reported as SKIP — NOT A PASS.
 
 EXAMPLES:
     # Run with network checks (requires gh CLI)
@@ -119,6 +130,10 @@ done < <(find "${WORKFLOW_DIR}" -type f \( -name "*.yml" -o -name "*.yaml" \) -p
 
 if [[ ${#WORKFLOW_FILES[@]} -eq 0 ]]; then
     echo "${YELLOW}WARNING:${NC} No workflow files found in ${WORKFLOW_DIR}"
+    if [[ "${REQUIRED}" == "true" ]]; then
+        echo "${YELLOW}SKIP — NOT A PASS:${NC} required verification found no workflow files"
+        exit 1
+    fi
     exit 0
 fi
 
@@ -140,6 +155,10 @@ log_warning() {
     echo "${YELLOW}WARNING:${NC} $1"
     WARNINGS=$((WARNINGS + 1))
 }
+log_skip() {
+    echo "${YELLOW}SKIP — NOT A PASS:${NC} $1"
+    UNVERIFIED=$((UNVERIFIED + 1))
+}
 
 # Helper: validate SHA format (40 hex characters)
 is_valid_sha() {
@@ -152,31 +171,95 @@ is_valid_sha() {
     fi
 }
 
-# Helper: check if SHA exists for action (requires gh CLI and network)
 check_sha_exists() {
     local owner_repo="$1"
     local sha="$2"
+    local file="$3"
+    local line_num="$4"
+    local endpoint="repos/${owner_repo}/commits/${sha}"
+    local cache_key="${owner_repo}@${sha}"
+    local cached_result="${SHA_LOOKUP_RESULT[${cache_key}]:-}"
+    local response
+    local status_line
+    local status_code=""
+    local reason
 
-    if [[ "$OFFLINE" == "true" ]]; then
-        log_verbose "Skipping network check for ${owner_repo}@${sha} (--offline mode)"
+    case "${cached_result}" in
+        verified)
+            log_verbose "SHA ${sha} exists in ${owner_repo} (cached)"
+            return 0
+            ;;
+        invalid)
+            log_error "${file}:${line_num}: SHA ${sha} does not exist in ${owner_repo} (GitHub confirmed no commit)"
+            return 1
+            ;;
+        unverified)
+            log_skip "cached result for ${owner_repo}@${sha} is unverified: ${SHA_LOOKUP_REASON[${cache_key}]}"
+            return 0
+            ;;
+    esac
+
+    if [[ "${OFFLINE}" == "true" ]]; then
+        reason="online verification disabled (--offline)"
+        SHA_LOOKUP_RESULT["${cache_key}"]="unverified"
+        SHA_LOOKUP_REASON["${cache_key}"]="${reason}"
+        API_UNAVAILABLE=true
+        API_UNAVAILABLE_REASON="${reason}"
+        log_skip "${reason} for ${owner_repo}@${sha}"
         return 0
     fi
 
-    # Check if gh CLI is available
-    if ! command -v gh &>/dev/null; then
-        log_warning "gh CLI not available, skipping SHA existence check for ${owner_repo}@${sha}"
+    if [[ "${API_UNAVAILABLE}" == "true" ]]; then
+        reason="online verification stopped after ${API_UNAVAILABLE_REASON}"
+        SHA_LOOKUP_RESULT["${cache_key}"]="unverified"
+        SHA_LOOKUP_REASON["${cache_key}"]="${reason}"
+        log_skip "${reason}; cannot verify ${owner_repo}@${sha}"
         return 0
     fi
 
-    # Use gh api to check if commit exists
-    # This checks if the SHA is a valid commit in the repository
-    if gh api "repos/${owner_repo}/commits/${sha}" --silent 2>/dev/null; then
+    if ! command -v gh >/dev/null 2>&1; then
+        reason="gh CLI is unavailable"
+        SHA_LOOKUP_RESULT["${cache_key}"]="unverified"
+        SHA_LOOKUP_REASON["${cache_key}"]="${reason}"
+        API_UNAVAILABLE=true
+        API_UNAVAILABLE_REASON="${reason}"
+        log_skip "${reason}; cannot verify ${owner_repo}@${sha}"
+        return 0
+    fi
+
+    # --include preserves the HTTP status. Only GitHub's explicit 422
+    # "No commit found for SHA" proves a pin invalid; 404 can also mean the
+    # repository is private or the token cannot access it.
+    if response="$(gh api --include --jq '.sha // .message' "${endpoint}" 2>&1)"; then
+        SHA_LOOKUP_RESULT["${cache_key}"]="verified"
         log_verbose "SHA ${sha} exists in ${owner_repo}"
         return 0
-    else
-        log_error "SHA ${sha} does not exist in ${owner_repo}"
+    fi
+
+    status_line="${response%%$'\n'*}"
+    if [[ "${status_line}" =~ ^HTTP/[0-9.]+[[:space:]]422[[:space:]] ]] \
+        && [[ "${response}" == *"No commit found for SHA: ${sha}"* ]]; then
+        SHA_LOOKUP_RESULT["${cache_key}"]="invalid"
+        log_error "${file}:${line_num}: SHA ${sha} does not exist in ${owner_repo} (GitHub confirmed no commit)"
         return 1
     fi
+
+    if [[ "${status_line}" =~ ^HTTP/[0-9.]+[[:space:]]([0-9]{3}) ]]; then
+        status_code="${BASH_REMATCH[1]}"
+    else
+        status_line="network or gh API error"
+    fi
+    reason="${status_line}"
+    case "${status_code}" in
+        401|403|429|5??|"")
+            API_UNAVAILABLE=true
+            API_UNAVAILABLE_REASON="${reason}"
+            ;;
+    esac
+    SHA_LOOKUP_RESULT["${cache_key}"]="unverified"
+    SHA_LOOKUP_REASON["${cache_key}"]="${reason}"
+    log_skip "could not verify ${owner_repo}@${sha}: ${reason}"
+    return 0
 }
 
 # Helper: extract version from comment (if present)
@@ -205,47 +288,68 @@ is_version_tag() {
     fi
 }
 
-# Main validation function for a single uses line
 validate_action() {
     local uses_line="$1"
     local file="$2"
     local line_num="$3"
+    local uses_pattern='^([a-zA-Z0-9_.-]+)/([a-zA-Z0-9_.-]+)(/[^@[:space:]#]+)?@([^[:space:]#]+)$'
+    local unpinned_pattern='^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+(/[^@[:space:]#]+)?$'
+    local action_value
+    local owner_repo
+    local ref
 
-    # Extract action reference: owner/repo@ref or owner/repo/path@ref
-    # Pattern: uses: owner/repo@ref or uses: owner/repo/path@ref or uses: owner/repo@ref # comment
-    # Store regex in variable to avoid special char interpretation issues
-    # Supports both simple actions (owner/repo) and subpath actions (owner/repo/path)
-    # Note: Bash ERE doesn't support non-capturing groups, use alternation instead
-    local uses_pattern='uses:[[:space:]]*([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(/[a-zA-Z0-9_.-]+)?)@([a-zA-Z0-9_.-]+)'
-    local action_ref=""
-    if [[ "$uses_line" =~ $uses_pattern ]]; then
-        # BASH_REMATCH[1] contains owner/repo (or owner/repo/path if subpath present)
-        # BASH_REMATCH[2] contains /path if present (or empty)
-        # BASH_REMATCH[3] contains the ref
-        local owner_repo="${BASH_REMATCH[1]}"
-        local ref="${BASH_REMATCH[3]}"
-        action_ref="${owner_repo}@${ref}"
+    action_value="${uses_line#*uses:}"
+    action_value="${action_value%%#*}"
+    action_value="${action_value#"${action_value%%[![:space:]]*}"}"
+    action_value="${action_value%"${action_value##*[![:space:]]}"}"
+    if [[ "${action_value}" == \"*\" ]] || [[ "${action_value}" == \'*\' ]]; then
+        action_value="${action_value:1:${#action_value}-2}"
+    fi
+
+    # Local and Docker actions do not resolve to commits in an upstream repo.
+    if [[ "${action_value}" == ./* || "${action_value}" == ../* \
+        || "${action_value}" == docker://* ]]; then
+        log_verbose "Skipping local or Docker action: ${action_value}"
+        return 0
+    fi
+
+    if [[ "${action_value}" =~ ${uses_pattern} ]]; then
+        # A nested action path still resolves its commit in owner/repo.
+        owner_repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+        ref="${BASH_REMATCH[4]}"
     else
-        # Docker actions or local paths - skip validation
-        log_verbose "Skipping non-GitHub action: ${uses_line}"
+        if [[ "${action_value}" == *"\${{"* ]]; then
+            CHECKED=$((CHECKED + 1))
+            log_error "${file}:${line_num}: dynamic action reference cannot be verified; use a literal SHA pin"
+            return 1
+        fi
+        if [[ "${action_value}" =~ ${unpinned_pattern} ]]; then
+            CHECKED=$((CHECKED + 1))
+            log_error "${file}:${line_num}: ${action_value} has no @ref (remote actions must be SHA-pinned)"
+            return 1
+        fi
+        if [[ "${action_value}" =~ ^[a-zA-Z0-9_.-]+/ ]]; then
+            CHECKED=$((CHECKED + 1))
+            log_error "${file}:${line_num}: malformed remote action reference: ${action_value}"
+            return 1
+        fi
+
+        log_verbose "Skipping non-GitHub action: ${action_value}"
         return 0
     fi
 
     CHECKED=$((CHECKED + 1))
 
-    # owner_repo and ref already extracted above
-
-    # Check 1: Must be SHA-pinned, not version tag or branch
-    if is_version_tag "$ref"; then
+    # Check 1: Must be SHA-pinned, not a version tag or branch.
+    if is_version_tag "${ref}"; then
         log_error "${file}:${line_num}: ${owner_repo}@${ref} uses version tag (should be SHA-pinned)"
         log_verbose "  Suggested fix: Find SHA with: gh api repos/${owner_repo}/git/refs/tags/${ref}"
         return 1
     fi
 
-    # Check 2: SHA must be valid format (40 hex chars)
-    if ! is_valid_sha "$ref"; then
-        # Could be a branch name or other reference
-        if [[ "$ref" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    # Check 2: SHA must be valid format (40 hex chars).
+    if ! is_valid_sha "${ref}"; then
+        if [[ "${ref}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
             log_error "${file}:${line_num}: ${owner_repo}@${ref} uses branch name (should be SHA-pinned)"
         else
             log_error "${file}:${line_num}: ${owner_repo}@${ref} has invalid SHA format (expected 40 hex chars)"
@@ -253,14 +357,13 @@ validate_action() {
         return 1
     fi
 
-    # Check 3: Optionally verify SHA exists (network check)
-    if ! check_sha_exists "$owner_repo" "$ref"; then
-        return 1
-    fi
+    # Check 3: Verify the SHA when the GitHub API is reachable.
+    check_sha_exists "${owner_repo}" "${ref}" "${file}" "${line_num}" || return 1
 
-    # Check 4: Version comment should match SHA (optional, informational)
-    local version_comment=$(extract_version_comment "$uses_line")
-    if [[ -n "$version_comment" ]]; then
+    # Check 4: Version comments are informational.
+    local version_comment
+    version_comment="$(extract_version_comment "${uses_line}")"
+    if [[ -n "${version_comment}" ]]; then
         log_verbose "${file}:${line_num}: ${owner_repo}@${ref} # ${version_comment} - SHA pinned correctly"
     else
         log_warning "${file}:${line_num}: ${owner_repo}@${ref} - missing version comment (recommended: add # vX.Y.Z)"
@@ -290,29 +393,32 @@ for workflow_file in "${WORKFLOW_FILES[@]}"; do
     done < "$workflow_file"
 done
 
-# Summary
 echo ""
 echo "=== Validation Summary ==="
 echo "Workflow files: ${#WORKFLOW_FILES[@]}"
 echo "Actions checked: ${CHECKED}"
 echo "Errors: ${ERRORS}"
 echo "Warnings: ${WARNINGS}"
+echo "Unverified: ${UNVERIFIED}"
 echo ""
 
-if [[ $ERRORS -gt 0 ]]; then
-    echo "${RED}FAILED:${NC} ${ERRORS} actions need SHA pinning"
+if [[ "${ERRORS}" -gt 0 ]]; then
+    echo "${RED}FAILED:${NC} ${ERRORS} actions need SHA pinning or contain invalid SHAs"
     echo ""
     echo "How to fix:"
-    echo "  1. Find SHA for a version tag:"
-    echo "     gh api repos/OWNER/REPO/git/refs/tags/vTAG --jq '.object.sha'"
-    echo ""
-    echo "  2. Update workflow to use SHA with version comment:"
-    echo "     uses: OWNER/REPO@SHA # vTAG"
-    echo ""
-    echo "  Example:"
-    echo "     uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380af847 # v4"
+    echo "  1. Find the commit SHA for the intended action release."
+    echo "  2. Update the workflow to use OWNER/REPO@SHA # version."
+    echo "  3. Re-run this validator with GitHub API access."
     exit 1
+elif [[ "${UNVERIFIED}" -gt 0 ]]; then
+    echo "${YELLOW}SKIP — NOT A PASS:${NC} ${UNVERIFIED} action SHA reference(s) could not be verified"
+    if [[ "${REQUIRED}" == "true" ]]; then
+        echo "${RED}FAILED:${NC} CSM_VALIDATE_GITHUB_ACTIONS_SHAS_REQUIRED=true"
+        exit 1
+    fi
+    echo "No invalid SHA was confirmed; online verification remains incomplete."
+    exit 0
 else
-    echo "${GREEN}PASSED:${NC} All actions properly pinned to SHA"
+    echo "${GREEN}PASSED:${NC} All remote actions are pinned to existing SHAs"
     exit 0
 fi

@@ -883,6 +883,10 @@
   and GitHub workflows (`.github/workflows/*.yml`). Any code change that shifts preconditions, tools, or
   invariants must reconcile its workflow contracts before merge.
 - **Evidence gaps are not negative findings (2026-11-11, PR #1022 correction)**: a benchmark number that disagrees with `canonical.json` means the cited baseline is unsupported, not that the number was fabricated or that the change has no impact. A failed workflow with missing jobs/annotations names no root cause. Preserve uncertainty, retrieve complete jobs and annotations, and keep a correct-but-unmeasured PR open.
+
+- **Classify GitHub commit lookup failures before judging a pin (2026-11-12, #1002)**: For `GET /repos/{owner}/{repo}/commits/{sha}`, only the explicit `422` message `No commit found for SHA` proves the commit is absent. A `404` can conceal private-resource or access failures; generic `422`, `401`/`403`/`429`, server, and transport failures are unverified. Use `gh api --include` to retain the HTTP status, cache repeated `owner/repo@sha` lookups, and stop additional calls after rate-limit/auth/network/server failures. Keep local offline checks nonfatal but explicit; CI's required flag must fail on every unverified result. Sources: [GitHub REST troubleshooting](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api), [`gh api` manual](https://cli.github.com/manual/gh_api).
+
+- **A cancelled Actions job with no runner or steps is unverified, not a code verdict (2026-11-12, PR #1031):** `Build CLI (macos-arm64)` had `conclusion=cancelled`, empty `runner_name`, no steps, and no retrievable log. A targeted debug retry (`gh run rerun --job 131362307036 --debug`) passed in 2m55s as job `131373039857`. Treat the cancelled attempt as neither a pass nor proof of a code defect; inspect job metadata and retry that specific job before changing code.
 - **A floating `stable` canary turns new cargo *manifest* lints into hard errors (2026-11-13, #1031 run 43403864562)**:
   ci.yml's `stable-toolchain` job installs `toolchain: stable`, and
   `actions-rust-lang/setup-rust-toolchain` exports `CARGO_BUILD_WARNINGS=deny`, so a manifest that is merely

@@ -866,14 +866,14 @@ jobs:
     - name: Install repository hooks
       run: bash scripts/install-hooks.sh
     - name: LOC gate
-      # GITHUB_TOKEN is not in a step's environment unless the workflow puts it
-      # there — `gh` reads it from env, so without this line the queue gate's
-      # tracker half prints "SKIP — NOT A PASS" on every run and the STALE /
-      # UNQUEUED drift #851 exists to catch sails. REQUIRED makes that skip
-      # fatal here: on a runner with a token, silence is a bug, not a fallback.
+      # The step token serves the GOAP issue-tracker query. The Actions SHA validator
+      # checks public upstream commit endpoints; REQUIRED makes an unverified result
+      # fatal instead of allowing an API outage or missing token to read as a pass.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSM_GOAP_QUEUE_REQUIRED: "true"
+        CSM_VALIDATE_GITHUB_ACTIONS_SHAS: "true"
+        CSM_VALIDATE_GITHUB_ACTIONS_SHAS_REQUIRED: "true"
       run: nix develop --command scripts/run-with-libs.sh bash scripts/validate.sh
 
   cargo-deny:
