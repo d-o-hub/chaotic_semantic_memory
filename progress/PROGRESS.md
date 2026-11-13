@@ -2496,6 +2496,14 @@ Corrected the PR #1022 review: the baseline mismatch only invalidates the cited 
 - Reviewed annotations on current head `ff902aa5`: the SonarCloud check was green but carried two open critical `shell:S131` findings in the validator and one minor duplicated-literal finding in the fixture; the `main` ruleset's code-quality severity is `errors`.
 - Added explicit cache-state and unknown-HTTP-status handling, an HTTP 418 regression fixture, and a shared skip-marker constant. Focused fixture: 20/20; ShellCheck: clean.
 - Full repository gates and fresh hosted checks remain required before merge. Commit/push to PR #1031 is authorized; merge is not.
+
+## 2026-11-13 — PR #1031 rebased onto #1032: union doc resolution and cancelled-job classification
+
+- `main` advanced to `ddf56e99` (#1032, manifest fields that fail stable 1.100 lints) while #1031 was in review, so the branch was rebased onto it: `47214ac6` (validator + workflow gate), `097ed9cc` (roast record), `75db3a8b` (unexpected-state handling).
+- `plans/GOAP_STATE.md`, `progress/LEARNINGS.md`, and `progress/PROGRESS.md` conflicted at the same anchors; resolved as unions — both sides' dated entries kept, `action_last_completed` = `require_github_actions_sha_validation_in_ci` (#1031) with #1032's action as its predecessor. The replayed doc commits then conflicted only because the union already carried their additions.
+- Re-verified after the rebase: validator fixture 20/20, ShellCheck clean. Every earlier green ran against the pre-rebase tree, so hosted checks must be green on `75db3a8b` before merge.
+- Distilled the cancelled-job class into `references/ci-pitfalls-pr-triage.md` (github-ci-guardrails): a job that never acquired a runner (`conclusion=cancelled`, empty `runner_name`, zero steps, no log) is unverified infra. `gh pr checks --json` buckets it `cancel` — its own bucket — and `gh run view --json jobs` carries no runner field, so the runner must come from `gh api .../actions/jobs/<databaseId>`.
+
 ## 2026-11-13 — Restore the `Current Stable Rust Smoke` canary on stable 1.100.0
 
 Rust 1.100.0 (released 2026-11-09) reached the floating `stable` channel that the

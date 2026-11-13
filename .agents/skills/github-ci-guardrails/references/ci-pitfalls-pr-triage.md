@@ -5,7 +5,7 @@ or Jules bot PRs. Broader Wave 32 wasm/fuzz notes may live in agent docs if pres
 
 | Failure | Likely cause | Fix |
 |---------|--------------|-----|
-| **commitlint** | Scope not in `scope-enum` (`ops`, `plans`, …); bad early commit in range | Squash/reword to allowed scope; `npx commitlint --from origin/main --to HEAD` |
+| **commitlint** | Scope not in `scope-enum` (`ops`, `plans`, ...); bad early commit in range; a paragraph after the first blank line longer than 100 chars — `body-max-line-length` is disabled, but `footer-max-line-length` (default 100) still applies because commitlint classifies trailing paragraphs as footers | Squash/reword to allowed scope and wrap every paragraph at ≤100 chars; `npx commitlint --from origin/main --to HEAD` (read the whole output — only the failing input carries `✖`) |
 | **lint / clippy** | `duplicated_attributes`: `#![cfg(test)]` in file also loaded via `#[cfg(test)] mod` | Drop inner `#![cfg(test)]`; keep mod-level gate in `lib.rs` |
 | **mutation-test** score &lt; threshold | Unrelated functions in git diff; `Ok(1)` survives N=1 import test; `>` vs `>=` on top-k | Restore unrelated lines to main; assert multi/empty counts; boundary test `len == top_k`; exclude unkillable CLI entry (`run_query`) |
 | **mutation-test** timeouts | Pathological mutants or heavy modules in surface | Tighten excludes with rationale; do not blank-path-exclude production code |
@@ -14,6 +14,7 @@ or Jules bot PRs. Broader Wave 32 wasm/fuzz notes may live in agent docs if pres
 | **`release.yml` refuses a gate that passed** | `release.yml` and `pre-release-gate.yml` are **siblings on one CI completion** (`workflow_run: [CI] … branches: [main]`), so `validate`'s one-shot `gh run list --workflow=pre-release-gate.yml` samples a verdict ~1 min into a ~4½-min run (#953) | Bound a wait, keep it fail-closed and loud; or re-key the trigger to the gate — but that trades a visible refusal for *no run at all*, which is the failure this repo already lived through silently for eight days |
 | **Empty Jules PR** | Research-sim task pushed 0 files | Close as no-op; optional issue for research notes |
 | **Regressed after “green” fix** | Jules force-push rewrote branch | Re-diff `origin/main...HEAD`; restore sibling merges; force-with-lease clean tip |
+| **A required check reads `cancel`** | The job never acquired a runner — capacity/queueing, not code: `conclusion=cancelled`, empty `runner_name`, zero steps, no retrievable log. `gh pr checks --json` buckets it `cancel` (`pass`/`fail`/`pending`/`skipping`/`cancel`), and `gh run view --json jobs` carries no runner field, so neither the tick nor that JSON can separate infra from a defect | Take the cancelled job's `databaseId` from `gh run view <run> --json jobs`, then `gh api repos/{owner}/{repo}/actions/jobs/<databaseId> --jq '{runner_name,labels,steps}'` — an empty `runner_name` with an empty `steps` array is the tell. GitHub's own `notice` annotation names the cause (run `43100323728`: “Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.”). Re-run just that job: `gh run rerun --job <databaseId>` (add `--debug` for a full log). Measured 2026-11-12: a cancelled `Build CLI (macos-arm64)` passed 2m55s after a debug retry |
 
 ## Allowed commitlint scopes (canonical)
 
