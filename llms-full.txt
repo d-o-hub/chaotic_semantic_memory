@@ -5,7 +5,6 @@
 **Version:** 0.3.9
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
-**Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
 - anyhow

@@ -210,6 +210,13 @@ world_state:
   script_catalog_fixture_pairs_resolved: true  # 2026-11-11 (#1003): gen_script_catalog.py probes alternate
                                               #   hyphen/underscore stem variants, correctly pairing mutation_union.py,
                                               #   check_cfg_mutants.py, and mutation_inventory.py with their fixtures.
+  dead_manifest_fields_removed_for_stable_1_100: true  # 2026-11-13: the `stable-toolchain` canary denies new
+                                              #   cargo manifest lints (run 43403864562, rc 101). csm-core-lib dropped
+                                              #   `bincode`/`rand_chacha` and csm-retrieval dropped `async-trait`
+                                              #   (referenced nowhere), `[workspace.package]` keeps only the
+                                              #   `rust-version` that members inherit, and the root `[package]` lost
+                                              #   its redundant `homepage`. Verified with the job's own command at
+                                              #   1.100.0 + CARGO_BUILD_WARNINGS=deny (rc 0, zero warnings).
 
 
 
@@ -224,8 +231,11 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: resolve_hyphen_underscore_fixture_pairs_in_script_catalog # 2026-11-11:
-                               #   #1003: gen_script_catalog.py resolves hyphen/underscore fixture pairs,
-                               #   pairing mutation_union.py, check_cfg_mutants.py, and mutation_inventory.py
-                               #   with test fixtures.
-                               #   Predecessor: repair_incomplete_duckdb_unpack_in_ci_cache (#1004 -> a9de691d).
+  action_last_completed: remove_dead_manifest_fields_failing_stable_1_100_lints # 2026-11-13:
+                               #   stable 1.100.0 plus CARGO_BUILD_WARNINGS=deny turned cargo::unused_dependencies
+                               #   and cargo::redundant_homepage into hard errors in the `stable-toolchain` canary
+                               #   (run 43403864562, exit 101): csm-core-lib dropped the unused `bincode`/`rand_chacha`,
+                               #   csm-retrieval dropped `async-trait`, `[workspace.package]` keeps only the
+                               #   `rust-version` members inherit, and the root `[package]` lost its redundant
+                               #   `homepage`.
+                               #   Predecessor: resolve_hyphen_underscore_fixture_pairs_in_script_catalog (#1030 -> 8d96c4ef).

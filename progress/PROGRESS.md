@@ -2480,3 +2480,34 @@ Corrected the PR #1022 review: the baseline mismatch only invalidates the cited 
 - CI and tooling guard passed on the reviewed initial heads for #1029 (`43070807459`, `43070808678`) and #1030 (`43070898683`, `43070898839`). The roast-record follow-up changes #1029's head and requires a fresh run; rebase #1030 after #1029 merges.
 - Local `validate.sh` and `harness-check.sh all` both stopped at `libduckdb-sys` compilation after exhausting disk; hosted CI supplied the passing full-suite verdicts for these heads.
 
+## 2026-11-13 — Restore the `Current Stable Rust Smoke` canary on stable 1.100.0
+
+Rust 1.100.0 (released 2026-11-09) reached the floating `stable` channel that the
+`stable-toolchain` job installs, and its new *manifest* lints became hard errors because
+`actions-rust-lang/setup-rust-toolchain` exports `CARGO_BUILD_WARNINGS=deny`. CI run `43403864562`
+(job `131813201776`) exited 101 after eight warnings, none of which came from that PR's diff
+(`cargo::unused_dependencies`, `cargo::redundant_homepage`) — counted from the log's per-package
+totals: workspace 4, root 1, `csm-core-lib` 2, `csm-retrieval` 1:
+
+- `crates/csm-core-lib`: `bincode` and `rand_chacha` were declared but referenced nowhere in the
+  crate (only inside comments); `crates/csm-retrieval`: `async-trait` likewise.
+- `[workspace.package]` declared `edition`, `license`, `repository` and `homepage` while every
+  member hardcodes its own — only `rust-version` is inherited; the root `[package].homepage`
+  duplicated its own `repository`.
+
+Fixed by deleting the dead weight rather than allowing the lints. Verified with the job's own
+command: `CARGO_BUILD_WARNINGS=deny cargo +1.100.0 test -p csm-core-lib -p csm-retrieval --locked`
+exits 0 with zero warnings (rc 101 before the fix); `Cargo.lock` loses exactly three dependency
+edges. Pinned-toolchain gates: 139 tests pass (`-p csm-core-lib -p csm-retrieval`),
+`cargo clippy -p csm-core-lib -p csm-retrieval --all-targets --all-features -- -D warnings` clean,
+`cargo check --target wasm32-unknown-unknown -p csm-wasm` clean, and `check-llms-sync.sh`
+regenerated `llms.txt`/`llms-full.txt` (7 deleted lines) then passed.
+
+The PR's own first CI run (`43408922948`) then failed `Fuzz Workspace Build` in 29 s while
+`Current Stable Rust Smoke` passed in 52 s: `fuzz/` is a separate workspace with its own lockfile,
+so removing those three dependencies left `fuzz/Cargo.lock` stale under
+`cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked`. Refreshed (`-3` edges, same
+three) and amended into the same commit; the rule is distilled into the `git-workflow` skill and
+the episode recorded in `progress/LEARNINGS.md`. Roast verdict for #1032 in
+`plans/PR_ROAST_2026_11_13.md` — it also corrected this entry's warning count from seven to eight.
+

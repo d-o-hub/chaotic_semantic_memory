@@ -68,3 +68,22 @@ file-I/O modules (`framework_ops`, `framework_ops_import` — they use `tokio::f
   Delete it when the copied call site is gone.
 - Gate: `cargo check --target wasm32-unknown-unknown -p csm-wasm` (last stage of
   `scripts/validate.sh`, mirrored by the ci.yml `WASM` job).
+
+## 6. Manifest Hygiene: Cargo Lints Are Denied on the `stable` Canary
+
+The ci.yml `stable-toolchain` job installs `toolchain: stable` and
+`actions-rust-lang/setup-rust-toolchain` exports `CARGO_BUILD_WARNINGS=deny`, so a *manifest* lint
+that the pinned 1.88 toolchain only warns about becomes a hard error the day stable adds it
+(1.100.0: `cargo::unused_dependencies`, `cargo::redundant_homepage`; run `43403864562` failed with
+exit 101 on a PR whose diff was unrelated).
+
+- Delete the dead weight; do not allow the lint. `[lints.cargo]` is accepted by 1.100 but prints
+  "unused manifest key" on 1.88, and an allow silences the whole class — including the case below.
+- `unused_dependencies` is **per target**: a host build flags deps that only a
+  `wasm32-unknown-unknown` build consumes (csm-wasm's `wasm-bindgen`/`js-sys`/`web-sys`/`getrandom`
+  sit next to a `lib.rs` that only re-exports). Verify with the other target's gate
+  (`cargo check --target wasm32-unknown-unknown -p csm-wasm`) before deleting anything.
+- `[workspace.package]` keys must be inherited by someone (`rust-version.workspace = true`); a key
+  no member inherits is dead, and `homepage` equal to `repository` is redundant.
+- Reproduce locally before editing:
+  `rustup toolchain install 1.100.0 && CARGO_BUILD_WARNINGS=deny cargo +1.100.0 check --workspace --all-targets`.
