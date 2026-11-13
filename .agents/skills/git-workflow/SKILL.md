@@ -32,6 +32,14 @@ scripts/harness-check.sh all
 ```
 
 - If `Cargo.toml` or `Cargo.lock` changes, also run `cargo deny --locked check`.
+- **A dependency change edits *two* lockfiles.** `fuzz/` is a separate workspace with its own
+  `fuzz/Cargo.lock`, which lists the dependency list of every path dependency it reaches — so
+  *removing* a dependency from a workspace member invalidates it too, while the root lock stays
+  correct and silent. CI's `Fuzz Workspace Build` runs
+  `cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked` and fails in ~30 s on the drift
+  (measured 2026-11-13, #1032: exit 101, "the lock file … needs to be updated but `--locked` was
+  passed"). Refresh with the same command minus `--locked`, then re-run it; `scripts/check-fuzz-lock.sh`
+  is the local, lockfile-only probe (~1.5 s) that `validate.sh` runs.
 - Validate the full commit range with
   `npx commitlint --from origin/main --to HEAD --verbose`.
 - `commitlint` applies to the entire branch range on every change; include it in the pre-commit checklist even when cargo tests and repository gates pass.
