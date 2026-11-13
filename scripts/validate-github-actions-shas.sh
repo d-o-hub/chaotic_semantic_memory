@@ -197,6 +197,13 @@ check_sha_exists() {
             log_skip "cached result for ${owner_repo}@${sha} is unverified: ${SHA_LOOKUP_REASON[${cache_key}]}"
             return 0
             ;;
+        "")
+            log_verbose "SHA ${sha} has no cached result in ${owner_repo}"
+            ;;
+        *)
+            log_error "unexpected SHA verification cache state '${cached_result}' for ${owner_repo}@${sha}"
+            return 1
+            ;;
     esac
 
     if [[ "${OFFLINE}" == "true" ]]; then
@@ -254,6 +261,9 @@ check_sha_exists() {
         401|403|429|5??|"")
             API_UNAVAILABLE=true
             API_UNAVAILABLE_REASON="${reason}"
+            ;;
+        *)
+            log_verbose "HTTP ${status_code} is unverified but does not stop other SHA lookups"
             ;;
     esac
     SHA_LOOKUP_RESULT["${cache_key}"]="unverified"

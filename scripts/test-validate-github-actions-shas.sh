@@ -12,6 +12,7 @@ SUBJECT="${SCRIPT_DIR}/validate-github-actions-shas.sh"
 ORIG_PATH="${PATH}"
 GOOD_SHA="3d3c42e5aac5ba805825da76410c181273ba90b1"
 BAD_SHA="cf430e030ddbb5b0abf93d22962f4752f3646cd9"
+readonly SKIP_MESSAGE="SKIP — NOT A PASS"
 
 TEST_DIR="$(mktemp -d)"
 trap 'rm -rf "${TEST_DIR}"' EXIT
@@ -55,6 +56,11 @@ case "${CSM_GH_MODE:-success}" in
     rate-limit)
         printf 'HTTP/2.0 429 Too Many Requests\n\n{"message":"rate limited"}\n'
         echo "gh: rate limited (HTTP 429)" >&2
+        exit 1
+        ;;
+    unexpected-status)
+        printf 'HTTP/2.0 418 Unrecognized Status\n\n{"message":"unrecognized"}\n'
+        echo "gh: Unrecognized Status (HTTP 418)" >&2
         exit 1
         ;;
     ambiguous-422)
@@ -181,7 +187,7 @@ run_validator "${GH_PATH}" success false
 if [[ "${RUN_STATUS}" -ne 0 ]] \
     && [[ "${RUN_OUTPUT}" == *"does not exist in actions/download-artifact"* ]] \
     && [[ "${RUN_OUTPUT}" == *"Errors: 1"* ]] \
-    && [[ "${RUN_OUTPUT}" != *"SKIP — NOT A PASS"* ]]; then
+    && [[ "${RUN_OUTPUT}" != *"${SKIP_MESSAGE}"* ]]; then
     ok "GitHub's explicit no-commit 422 fails the bogus pin"
 else
     ko "bogus pin was not classified as definitively invalid"
@@ -197,10 +203,10 @@ jobs:
     steps:
       - uses: actions/checkout@${GOOD_SHA} # v4.1.7
 YAML
-for mode in not-found rate-limit ambiguous-422 network; do
+for mode in not-found rate-limit ambiguous-422 network unexpected-status; do
     run_validator "${GH_PATH}" "${mode}" false
     if [[ "${RUN_STATUS}" -eq 0 ]] \
-        && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]] \
+        && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]] \
         && [[ "${RUN_OUTPUT}" == *"Unverified: 1"* ]] \
         && [[ "${RUN_OUTPUT}" != *"does not exist"* ]]; then
         ok "${mode} API failure is reported as an optional unverified skip"
@@ -210,13 +216,22 @@ for mode in not-found rate-limit ambiguous-422 network; do
 
     run_validator "${GH_PATH}" "${mode}" true
     if [[ "${RUN_STATUS}" -ne 0 ]] \
-        && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]] \
+        && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]] \
         && [[ "${RUN_OUTPUT}" == *"CSM_VALIDATE_GITHUB_ACTIONS_SHAS_REQUIRED=true"* ]]; then
         ok "${mode} API failure fails required verification"
     else
         ko "${mode} API failure did not fail required verification"
     fi
 done
+run_validator "${GH_PATH}" unexpected-status false --verbose
+if [[ "${RUN_STATUS}" -eq 0 ]] \
+    && [[ "${RUN_OUTPUT}" == *"HTTP 418 is unverified but does not stop other SHA lookups"* ]] \
+    && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]] \
+    && [[ "${RUN_OUTPUT}" == *"Unverified: 1"* ]]; then
+    ok "unexpected HTTP status is explicitly retained as unverified"
+else
+    ko "unexpected HTTP status was not handled explicitly"
+fi
 
 # Repeated immutable pins are queried once. After a rate limit, no further API
 # requests are sent in the same run; remaining refs stay explicitly unverified.
@@ -231,7 +246,7 @@ jobs:
 YAML
 run_validator "${GH_PATH}" rate-limit false
 if [[ "${RUN_STATUS}" -eq 0 ]] \
-    && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]] \
+    && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]] \
     && [[ "${RUN_OUTPUT}" == *"Unverified: 2"* ]] \
     && [[ "$(wc -l < "${GH_CALL_LOG}")" -eq 1 ]]; then
     ok "duplicate refs are cached and rate limiting stops further API calls"
@@ -242,7 +257,7 @@ fi
 # Missing gh and explicit offline mode have the same skip-vs-required contract.
 run_validator "${NO_GH_PATH}" success false
 if [[ "${RUN_STATUS}" -eq 0 ]] \
-    && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]] \
+    && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]] \
     && [[ "${RUN_OUTPUT}" == *"gh CLI is unavailable"* ]]; then
     ok "missing gh is a nonfatal, explicit local skip"
 else
@@ -251,7 +266,7 @@ fi
 
 run_validator "${NO_GH_PATH}" success true
 if [[ "${RUN_STATUS}" -ne 0 ]] \
-    && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]]; then
+    && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]]; then
     ok "missing gh fails required verification"
 else
     ko "missing gh did not fail required verification"
@@ -259,7 +274,7 @@ fi
 
 run_validator "${GH_PATH}" success false --offline
 if [[ "${RUN_STATUS}" -eq 0 ]] \
-    && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]] \
+    && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]] \
     && [[ ! -s "${GH_CALL_LOG}" ]]; then
     ok "offline mode reports a skip without calling the API"
 else
@@ -268,7 +283,7 @@ fi
 
 run_validator "${GH_PATH}" success true --offline
 if [[ "${RUN_STATUS}" -ne 0 ]] \
-    && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]]; then
+    && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]]; then
     ok "offline mode fails when online verification is required"
 else
     ko "offline mode passed despite required online verification"
@@ -300,7 +315,7 @@ fi
 reset_workflows
 run_validator "${GH_PATH}" success true
 if [[ "${RUN_STATUS}" -ne 0 ]] \
-    && [[ "${RUN_OUTPUT}" == *"SKIP — NOT A PASS"* ]]; then
+    && [[ "${RUN_OUTPUT}" == *"${SKIP_MESSAGE}"* ]]; then
     ok "required mode fails when no workflow files were scanned"
 else
     ko "required mode accepted an empty workflow inventory"
