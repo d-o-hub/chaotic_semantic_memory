@@ -2511,3 +2511,13 @@ three) and amended into the same commit; the rule is distilled into the `git-wor
 the episode recorded in `progress/LEARNINGS.md`. Roast verdict for #1032 in
 `plans/PR_ROAST_2026_11_13.md` — it also corrected this entry's warning count from seven to eight.
 
+CI run `43446414838` on `4fda61b4` then passed end to end (`mergeStateStatus: CLEAN`, no failing
+check, `main` still at the branch's base `8d96c4ef`): `lint` 40m39s, `test` 32m46s, `mutation-test`,
+`Build CLI (linux-x64)`, `Codacy`, `Current Stable Rust Smoke` 35s, `Fuzz Workspace Build` 33s (the
+29 s failure the roast found), `Test DuckDB Companion` 14m51s, `wasm`, `miri`, `mcp-feature`, `CodeQL`.
+Locally, `./scripts/validate.sh` returned **rc 0** ("Validation complete.") and
+`./scripts/harness-check.sh all` **rc 0** with 6/6 sensors OK (workspace `--all-features` clippy and
+test included) — the first complete local gate pair in recent sessions, after removing a 10 GB
+`target/debug/incremental` (disk had been at 99%, 8.4 GB free; both gates had died at `libduckdb-sys`
+on disk exhaustion before).
+
