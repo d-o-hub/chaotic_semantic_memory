@@ -16,7 +16,6 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
-async-trait = "0.1.83"
 
 # Optional BM25 dependencies
 tantivy = { version = "0.22", optional = true }

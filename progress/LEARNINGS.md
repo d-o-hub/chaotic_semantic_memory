@@ -883,3 +883,31 @@
   and GitHub workflows (`.github/workflows/*.yml`). Any code change that shifts preconditions, tools, or
   invariants must reconcile its workflow contracts before merge.
 - **Evidence gaps are not negative findings (2026-11-11, PR #1022 correction)**: a benchmark number that disagrees with `canonical.json` means the cited baseline is unsupported, not that the number was fabricated or that the change has no impact. A failed workflow with missing jobs/annotations names no root cause. Preserve uncertainty, retrieve complete jobs and annotations, and keep a correct-but-unmeasured PR open.
+- **A floating `stable` canary turns new cargo *manifest* lints into hard errors (2026-11-13, #1031 run 43403864562)**:
+  ci.yml's `stable-toolchain` job installs `toolchain: stable`, and
+  `actions-rust-lang/setup-rust-toolchain` exports `CARGO_BUILD_WARNINGS=deny`, so a manifest that is merely
+  warned about on the pinned 1.88 toolchain fails there the moment stable adds a lint. Rust 1.100.0 added
+  `cargo::unused_dependencies` and `cargo::redundant_homepage`; the failing run named eight warnings
+  (workspace 4, root 1, `csm-core-lib` 2, `csm-retrieval` 1 — read the per-package "generated N warnings"
+  counters, not the eyeballed list), none of them caused by the PR under test. Reproduce with the job's own command before touching code:
+  `rustup toolchain install 1.100.0` then
+  `CARGO_BUILD_WARNINGS=deny cargo +1.100.0 test -p csm-core-lib -p csm-retrieval --locked` (rc 101 before, 0 after).
+  Fix by deleting the dead weight — `[lints.cargo]` allows do work (silently accepted by 1.100, printed as
+  "unused manifest key `lints.cargo` (may be supported in a future version)" by 1.88, still exit 0 under
+  `CARGO_BUILD_WARNINGS=deny`), but an allow silences the whole class, including the target-specific case below.
+- **cargo's unused-dependency analysis is per feature set and per target, so a host default build is wrong in both directions (2026-11-13)**:
+  the lint reasons about the compile units *it* is building. A host `--all-targets` default-feature build
+  reports `csm-wasm`'s `chaotic_semantic_memory` (used there only behind `#[cfg(target_arch = "wasm32")]`)
+  and the root's `rand_chacha` (`examples/scale_evidence/util.rs` uses it, but that example is never compiled
+  without its `required-features`). Delete a dependency only after grepping every path
+  (`rg -n '<crate>' src crates benches examples tests`) *and* re-running the other target's gate
+  (`cargo check --target wasm32-unknown-unknown -p csm-wasm`) — never on the host warning alone.
+- **A dependency change is not a one-lockfile change (2026-11-13, #1032)**: `fuzz/` is a **separate
+  workspace with its own lockfile**, so the root `Cargo.lock` says nothing about it — and because
+  `fuzz/`'s lock lists the dependency list of every path dependency it reaches (`csm-core-lib`,
+  `csm-retrieval`), *removing* a dependency from a workspace member also invalidates it. Measured: the
+  first CI run of the manifest-lint fix failed `Fuzz Workspace Build` in 29 s, exit 101, on
+  `cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked` — "the lock file … needs to be
+  updated but `--locked` was passed". Refresh with `cargo check --manifest-path fuzz/Cargo.toml
+  --all-targets` (no `--locked`) and re-run `--locked`; `scripts/check-fuzz-lock.sh` is the lockfile-only
+  probe (~1.5 s) that `validate.sh` runs, and it fails on exactly this drift.
