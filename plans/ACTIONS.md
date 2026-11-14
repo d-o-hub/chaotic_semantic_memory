@@ -37,7 +37,7 @@
     cost: 2
     status: in_progress
     # Scope: Cargo.lock only unless the compatible quinn range requires a minimal manifest update.
-    # Verify cargo audit + cargo deny; run repository gates; PR #1034 must pass its own CI.
+    # Verify cargo audit + cargo deny; run repository gates; PR #1035 must pass its own CI.
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the
