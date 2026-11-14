@@ -915,3 +915,27 @@
   updated but `--locked` was passed". Refresh with `cargo check --manifest-path fuzz/Cargo.toml
   --all-targets` (no `--locked`) and re-run `--locked`; `scripts/check-fuzz-lock.sh` is the lockfile-only
   probe (~1.5 s) that `validate.sh` runs, and it fails on exactly this drift.
+- **Criterion's printed `time:` centre is the slope, not the median (2026-11-13, #1022 roast)**: the
+  terminal line and the `change:` percentages come from the slope estimator. `estimates.json` carries
+  `.median.point_estimate` + `.median.confidence_interval` separately — one measured leg differed by 16 %
+  (slope 1550 ns vs median 1806 ns) — so quote the JSON when the number is evidence. Snapshot each leg's
+  `new/` before the next leg overwrites it: Criterion persists only the *named* baselines
+  (`--save-baseline`), and dropping the transient `new/` directories loses every intermediate leg's
+  medians (three of four legs in this session became unrecoverable exactly that way).
+- **On a shared host, alternating legs alone do not make an A/B valid (2026-11-13, #1022)**: three
+  interleaved rounds of the same two binaries gave 1036/996/1060 ns (unpatched) vs 649/684/664 ns
+  (patched) at load 3.7–5.5, then the **inverse** — 1152/1143/1173 vs 2479/1968/2517 — at comparable
+  load, then 2897/3172/3488 vs 1550/1644/1206 at load 8.8–10.7. Within-variant spread across rounds
+  (~3.5×) exceeded every between-variant gap, so no ratio was defensible and the claim stayed unproven.
+  Requirements beyond interleaving: a repeatable **sign**, the load recorded before each leg, the excluded
+  legs and the noise floor disclosed, and the same-load pair as the unit of comparison. One favourable
+  pair is not evidence — and neither is a loud claim in a PR body (`perf` gate reads presence and shape,
+  never truth).
+- **A cancellation is not a diagnosis (2026-11-13, #1032/#1031)**: a required check reading `cancel` with
+  empty `runner_name` and zero steps has at least two candidate causes — a *superseded-run cancellation*
+  (`ci.yml`'s concurrency group cancels in-flight runs for the same ref, PR runs included) and runner
+  *capacity/queueing*. Check `gh run list --branch <ref> --limit 3` for a newer run on the same head
+  before reaching for capacity: a generic `notice` annotation on some other, older run does not identify
+  this job's cause, and asserting one from a cancellation alone is a made-up causal story (the superseded
+  `mutation-test` on `7adfd5b5` was exactly this).
+

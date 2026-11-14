@@ -231,10 +231,21 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: require_github_actions_sha_validation_in_ci # 2026-11-13:
-                               #   #1002: recursively validate full workflow SHA pins; CI requires
-                               #   online verification and explicit unverified results fail closed (#1031).
-                               #   Predecessor: remove_dead_manifest_fields_failing_stable_1_100_lints
+  action_last_completed: close_re_roasted_pr_1022_after_sha_validation_landed # 2026-11-13:
+                               #   #1022 (`perf(traits)`: preallocate collections in concept graph expansion)
+                               #   re-roasted and closed as a no-op once #1031 landed as 0c9f12f9: the head
+                               #   still downgrades all 26 setup-rust-toolchain pins (v2.0.1 -> v2.0.0),
+                               #   reverts rmcp 3.9.0 -> 3.8.0 in Cargo.lock, and re-adds the
+                               #   RUSTSEC-2026-0462 ignores that downgrade re-exposes. A reviewer-side
+                               #   paired measurement (3 alternating rounds, one binary per variant in
+                               #   isolated target dirs, reach proven by an env-gated marker) could not
+                               #   establish the claimed speedup: the sign flips between rounds under
+                               #   ~3.5x host noise, so the 2026-11-11 evidence request stands.
+                               #   Roast: plans/PR_ROAST_2026_11_13.md.
+                               #   Predecessor: require_github_actions_sha_validation_in_ci (#1031 -> 0c9f12f9)
+                               #   - recursively validate full workflow SHA pins; CI requires online
+                               #   verification and explicit unverified results fail closed.
+                               #   Earlier: remove_dead_manifest_fields_failing_stable_1_100_lints
                                #   (#1032 -> ddf56e99): stable 1.100.0 plus CARGO_BUILD_WARNINGS=deny turned
                                #   cargo::unused_dependencies and cargo::redundant_homepage into hard errors in
                                #   the `stable-toolchain` canary (run 43403864562, exit 101); csm-core-lib dropped
