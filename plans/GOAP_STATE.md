@@ -109,9 +109,8 @@ world_state:
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 0            # `grep -c '^  - name:' plans/ACTIONS.md` — queue empty after #961 landed;
-                                     #   next action must come from the open-work flags below (release chain).
-
+  queued_actions_count: 1            # 2026-11-14: sole active action is tracked by issue #1034
+                                     #   patch_quinn_udp_rustsec_2026_0538 (RUSTSEC-2026-0538).
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)

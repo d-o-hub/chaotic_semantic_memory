@@ -2567,4 +2567,14 @@ and the printed `time:` center is the slope, not the median. Record: `plans/PR_R
 Local hygiene: `git worktree prune` dropped the stale `/home/do/git/d-o-hub/csm-bench-b` registration
 (its directory and the separate `csm-bench-b-target` were already gone); disk at 94 % (29 GB free).
 
+## 2026-11-14 — Patch the release-gate `quinn-udp` advisory
+
+Main's Pre-Release Gate run `43582076777` failed `security-audit` on `quinn-udp 0.5.15`
+(RUSTSEC-2026-0538), blocking the v0.3.9 recovery run `43582076754` before publication. Issue
+#1034 is tracked in the GOAP queue. Updated the root lockfile to the first patched compatible
+version, `0.5.16`; local `cargo audit` no longer reports this advisory and
+`cargo deny --locked check`, `./scripts/validate.sh`, and `./scripts/harness-check.sh all` passed. The
+documentation-link check passed with 246 checks, and the GOAP queue reconciled with one tracked action.
+No release or publish workflow was dispatched.
+
 
