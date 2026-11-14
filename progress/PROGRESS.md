@@ -2545,3 +2545,26 @@ test included) — the first complete local gate pair in recent sessions, after 
 `target/debug/incremental` (disk had been at 99%, 8.4 GB free; both gates had died at `libduckdb-sys`
 on disk exhaustion before).
 
+#1031 (`fix(ci)`: require online GitHub Actions SHA validation) merged as **`0c9f12f9`** — head
+`45c5b86c` contained `main` (still `ddf56e99`, `git merge-base --is-ancestor` verified), 38 checks green
+including all six required contexts (`Build CLI (linux-x64)`, `Codacy`, `commitlint`, `lint`, `test`,
+`mutation-test`), `mergeStateStatus: CLEAN`, `strict_required_status_checks_policy: true`; merged
+explicitly per Rule 18. Its earlier run `43470665875` failed `commitlint` on `footer-max-line-length`
+(one body paragraph over 100 chars) — fixed with a hand-wrapped `git commit --amend -m`, and the trap is
+now a row in `ci-pitfalls-pr-triage.md`.
+
+#1022 (`perf(traits)`: preallocate collections in concept graph expansion) was re-roasted on its new
+head `43ff8157` and **closed as a no-op** (comment `6874139044`): the `Merge branch 'main' …` kept the
+branch side, so the tree still downgrades all 26 `setup-rust-toolchain` pins to v2.0.0, reverts `rmcp`
+3.9.0 → 3.8.0 in `Cargo.lock`, and re-adds the `RUSTSEC-2026-0462` ignores that downgrade re-exposes. The
+claimed speedup stays unproven: a reviewer-side paired measurement (3 alternating rounds, one binary per
+variant in isolated `CARGO_TARGET_DIR`s — `sha256 24a4cadd…` vs `0ce3c461…` — reach proven by an
+env-gated marker firing inside `expand_10_labels`) gave ~1.6× in round 1, the inverse in round 2, and
+contaminated numbers in round 3; within-variant spread across rounds (~3.5×) was host load. Criterion kept
+medians for two legs (`before` 1067 ns idle vs `b1` 1950 ns at load 9.68 — cross-load, not comparable),
+and the printed `time:` center is the slope, not the median. Record: `plans/PR_ROAST_2026_11_13.md`.
+
+Local hygiene: `git worktree prune` dropped the stale `/home/do/git/d-o-hub/csm-bench-b` registration
+(its directory and the separate `csm-bench-b-target` were already gone); disk at 94 % (29 GB free).
+
+
