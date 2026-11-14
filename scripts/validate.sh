@@ -546,14 +546,28 @@ else
   exit 1
 fi
 
-# GitHub Actions SHA validation (optional - only if requested)
-# Note: Disabled by default as existing workflows use version tags
-# To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
-if [[ -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]] && [[ "${CSM_VALIDATE_GITHUB_ACTIONS_SHAS:-}" == "true" ]]; then
-  echo "==> GitHub Actions SHA validation"
-  "${SCRIPT_DIR}/validate-github-actions-shas.sh" --offline
+# GitHub Actions SHA validator fixture (issue #1002). This uses a temporary
+# workflow tree and a stubbed gh API; it runs even when live verification is
+# disabled so the offline/required behavior cannot silently regress.
+if [[ -x "${SCRIPT_DIR}/test-validate-github-actions-shas.sh" ]]; then
+  echo "==> GitHub Actions SHA validator fixture"
+  "${SCRIPT_DIR}/test-validate-github-actions-shas.sh"
 else
-  echo "skip: GitHub Actions SHA validation (use CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
+  echo "Error: scripts/test-validate-github-actions-shas.sh missing or not executable" >&2
+  exit 1
+fi
+
+# Online Actions SHA validation is opt-in locally and required in CI.
+if [[ "${CSM_VALIDATE_GITHUB_ACTIONS_SHAS:-}" == "true" \
+  || "${CSM_VALIDATE_GITHUB_ACTIONS_SHAS_REQUIRED:-}" == "true" ]]; then
+  if [[ ! -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]]; then
+    echo "Error: required GitHub Actions SHA validator missing or not executable" >&2
+    exit 1
+  fi
+  echo "==> GitHub Actions SHA validation"
+  "${SCRIPT_DIR}/validate-github-actions-shas.sh"
+else
+  echo "skip: GitHub Actions SHA validation (set CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
 fi
 
 # Quality-gates regression fixture (issue #849). scripts/quality-gates.sh is not

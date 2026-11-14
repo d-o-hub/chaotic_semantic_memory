@@ -231,11 +231,14 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: remove_dead_manifest_fields_failing_stable_1_100_lints # 2026-11-13:
-                               #   stable 1.100.0 plus CARGO_BUILD_WARNINGS=deny turned cargo::unused_dependencies
-                               #   and cargo::redundant_homepage into hard errors in the `stable-toolchain` canary
-                               #   (run 43403864562, exit 101): csm-core-lib dropped the unused `bincode`/`rand_chacha`,
-                               #   csm-retrieval dropped `async-trait`, `[workspace.package]` keeps only the
-                               #   `rust-version` members inherit, and the root `[package]` lost its redundant
-                               #   `homepage`.
-                               #   Predecessor: resolve_hyphen_underscore_fixture_pairs_in_script_catalog (#1030 -> 8d96c4ef).
+  action_last_completed: require_github_actions_sha_validation_in_ci # 2026-11-13:
+                               #   #1002: recursively validate full workflow SHA pins; CI requires
+                               #   online verification and explicit unverified results fail closed (#1031).
+                               #   Predecessor: remove_dead_manifest_fields_failing_stable_1_100_lints
+                               #   (#1032 -> ddf56e99): stable 1.100.0 plus CARGO_BUILD_WARNINGS=deny turned
+                               #   cargo::unused_dependencies and cargo::redundant_homepage into hard errors in
+                               #   the `stable-toolchain` canary (run 43403864562, exit 101); csm-core-lib dropped
+                               #   unused `bincode`/`rand_chacha`, csm-retrieval dropped `async-trait`,
+                               #   `[workspace.package]` keeps only the inherited `rust-version`, and the root
+                               #   `[package]` lost its redundant `homepage`.
+                               #   Earlier: resolve_hyphen_underscore_fixture_pairs_in_script_catalog (#1030 -> 8d96c4ef).

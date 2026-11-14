@@ -23,9 +23,8 @@
 # plans/PR_ROAST_2026_11_08.md. Neither entry is re-added here.
 # The earlier action, bound_chaotic_lsh_and_voronoi_lsh_input_dim (#961), landed as
 # PR #1008 -> 546727d0.
-# The next action must come from the open-work flags in GOAP_STATE.md
-# (`release_pipeline_validated: false` is the one that blocks shipping), and per AGENTS.md
-# Phase 1 step 5 it gets roasted before anything is implemented.
+# Queue empty in this branch as of 2026-11-12: Issue #1002's validator and
+# required CI gate are implemented; completion is reflected in GOAP_STATE.md.
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the
