@@ -2577,4 +2577,27 @@ version, `0.5.16`; local `cargo audit` no longer reports this advisory and
 documentation-link check passed with 246 checks, and the GOAP queue reconciled with one tracked action.
 No release or publish workflow was dispatched.
 
+## 2026-11-15 — Reconcile the completed RustSec action
 
+PR #1035 merged as `11ce127d` after its current-head checks passed. Main push run
+`43687783467` failed in required `lint` → `LOC gate`: `check-goap-queue-issues.sh`
+found the completed action still referencing closed issue #1034. The pre-release
+gate run `43690595204` reported success with only `gate-summary` executed;
+`security-audit` and the other substantive jobs were skipped. Release run
+`43690595223` was a no-verdict success with `validate` and all publish jobs
+skipped; `publish-crates.yml` was not dispatched. This follow-up removes the
+stale action and records the completed lockfile fix. The post-merge security
+audit still needs a successful main-CI-triggered run.
+
+PR #1036 carries the fix on head `a204f299`. Local `./scripts/validate.sh` aborted in the
+test-link stage with `No space left on device`, not on the diff: `/tmp` is a 7.5 GB tmpfs (the
+first attempt built a worktree there and died on `Disk quota exceeded`) and `target/debug` had
+grown to 132 GB, filling `/` to 100%. `rm -rf target/debug` restored 131 GB (71% used), the
+worktree was removed and pruned, and the affected gates re-run clean in the main worktree;
+PR CI on the clean runner is the authoritative verdict.
+
+Head `3bca7fb1` is green: CI run `43697330535` succeeded (18 success, 9 path-filtered skips, 0
+failures) and all six required ruleset contexts — `Build CLI (linux-x64)`,
+`Codacy Static Code Analysis`, `commitlint`, `lint`, `test`, `mutation-test` — concluded success,
+with `mergeStateStatus: CLEAN`. The roast verdict is recorded in `plans/PR_ROAST_2026_11_15.md`;
+merging remains an owner decision (never `--auto`, one PR at a time).

@@ -946,3 +946,21 @@
   lockfile for that package before deciding whether it needs refresh; `fuzz/Cargo.lock` had no
   `quinn-udp` entry in this fix. `cargo audit` plus `cargo deny --locked check` proved the advisory
   was cleared without widening the allowed-advisory policy.
+
+- **A merged PR can leave a closed issue in the active GOAP queue (2026-11-15, #1034/#1035)**:
+  main CI fails `check-goap-queue-issues.sh` when an issue auto-closed by merge remains in
+  `plans/ACTIONS.md`. If the merge lands before queue reconciliation, remove the action and
+  update `queued_actions_count` plus the trailing `action_last_completed` in a follow-up PR.
+  Read downstream `workflow_run` jobs individually: a green gate with only its summary job
+  and a green release with `no-verdict` are not security-audit or publication evidence.
+
+- **A Rust build cannot live under `/tmp` here, and a full root fs forges a link failure
+  (2026-11-15)**: `/tmp` is a 7.5 GB tmpfs, so a worktree there dies mid-`validate.sh` with
+  `rustc-LLVM ERROR: IO failure on output stream: Disk quota exceeded` (os error 122) once
+  `target/` passes ~2.6 GB; repo worktrees belong in `.qoder/worktrees/`, and a docs-only branch
+  can be moved out with `git diff > patch` plus `install -D` copies into the main worktree. On `/`,
+  `target/debug` had reached 132 GB of 468 GB (100% full), and the test-link stage then failed
+  `ld.bfd: final link failed: No space left on device` — an environmental red that reads like a
+  code error. Run `df -h /` before diagnosing a link failure, and recover with
+  `rm -rf target/debug` (freed 131 GB, back to 71%); treat the clean-runner PR CI as the
+  authoritative gate when the local cache cannot fit.

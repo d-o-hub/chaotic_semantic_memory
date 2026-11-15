@@ -119,6 +119,13 @@ update the single trailing `action_last_completed` key, and record evidence in
 `plans/RECOMMENDATIONS_YYYY_MM_DD.md` or `progress/` rather than appending a
 second historical ledger to the active queue.
 
+When a merge auto-closes an issue referenced by an active `ACTIONS.md` entry, the next
+main CI can fail `check-goap-queue-issues.sh` before downstream security checks run. If
+the merge already landed, remove the stale action, update `queued_actions_count` and the
+trailing `action_last_completed`, then open a narrow follow-up PR. A green PR head or a
+green downstream `workflow_run` with its substantive jobs skipped is not a main security
+verdict.
+
 ## State Management
 
 | File | Purpose |
