@@ -1287,6 +1287,7 @@ members = [
     ".",
     "benchmarks",
     "crates/csm-duckdb",
+    "crates/csm-ci-selection",
 ]
 # Bare `cargo clippy --all-targets --all-features` / `cargo test` at the repo root
 # select `workspace_default_members`. Without this list that is the root package
@@ -1307,6 +1308,7 @@ default-members = [
     ".",
     "benchmarks",
     "crates/csm-duckdb",
+    "crates/csm-ci-selection",
 ]
 resolver = "3"
 

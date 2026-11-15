@@ -86,6 +86,16 @@ fn a_production_change_selects_every_job_and_a_test_change_skips_mutation() {
     );
     assert_eq!(
         tests_only.reason("mutation"),
+        Some(NO_MATCH_REASON),
+        "an integration target is outside the mutated trees entirely"
+    );
+
+    // An in-crate test module is a different shape: the mutation include
+    // matched and an exclusion took it back, and the reason says so.
+    let in_crate = selection_for(&["src/mcp/server_tests.rs"], Mode::PullRequest);
+    assert!(!in_crate.is_selected("mutation"));
+    assert_eq!(
+        in_crate.reason("mutation"),
         Some("excluded by `**/*_tests.rs`"),
         "an excluded job states the exclusion"
     );
