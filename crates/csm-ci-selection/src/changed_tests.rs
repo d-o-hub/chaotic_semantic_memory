@@ -195,6 +195,13 @@ fn diagnostics_name_the_record_that_offended() {
     let non_utf8_move_destination = b"R100\0src/old.rs\0\xff\xfe\0".to_vec();
     let error = parse_name_status(&non_utf8_move_destination).expect_err("non-UTF-8 destination");
     assert!(error.contains("at record 2"), "got: {error}");
+
+    // A move consumes two path tokens, so a fault after it is numbered from
+    // there: an index that stops advancing would blame an earlier record.
+    let non_utf8_status_after_a_move = b"R100\0src/old.rs\0src/new.rs\0\xff\xfe\0".to_vec();
+    let error =
+        parse_name_status(&non_utf8_status_after_a_move).expect_err("non-UTF-8 status after a move");
+    assert!(error.contains("at record 3"), "got: {error}");
 }
 
 #[test]
