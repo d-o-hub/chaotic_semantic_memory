@@ -2601,3 +2601,8 @@ failures) and all six required ruleset contexts — `Build CLI (linux-x64)`,
 `Codacy Static Code Analysis`, `commitlint`, `lint`, `test`, `mutation-test` — concluded success,
 with `mergeStateStatus: CLEAN`. The roast verdict is recorded in `plans/PR_ROAST_2026_11_15.md`;
 merging remains an owner decision (never `--auto`, one PR at a time).
+
+The `.jules` note cleanup is PR #1037 (`docs/remove-jules-notes`, commit `52a02a52`): the three
+retired Jules-bot notes only — a reference scan over `*.md`, `*.sh`, `*.yml`, `*.py`, `*.toml` and
+`*.json` finds no reader or writer of the folder, so deleting it removes dead state instead of
+hiding a producer. Its roast record sits in `plans/PR_ROAST_2026_11_15.md` on this branch.
