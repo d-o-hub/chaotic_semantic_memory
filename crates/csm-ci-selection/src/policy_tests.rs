@@ -61,6 +61,22 @@ fn the_shipped_policy_compiles_with_the_seven_outputs_the_workflow_declares() {
 }
 
 #[test]
+fn every_job_explains_itself_in_prose() {
+    // `why()` is the reviewer-facing justification in the selection report, so a
+    // placeholder value (`""`, `"xyzzy"`) is what a mutant of that accessor
+    // produces — and a reason shorter than a clause is not a reason.
+    let policy = Policy::compile().expect("compiles");
+    for job in policy.jobs() {
+        let why = job.why();
+        assert!(
+            why.len() >= 30,
+            "`{}` carries no usable reason: {why}",
+            job.name()
+        );
+    }
+}
+
+#[test]
 fn the_mcp_cli_and_integration_tests_select_the_mcp_job() {
     // Issue #992: `src/cli/mcp.rs` and both `tests/mcp*_integration.rs` files did
     // not match the old `^src/mcp/` rule, so the dedicated MCP job was skipped.
@@ -210,6 +226,13 @@ fn patterns_are_validated() {
         assert!(
             !error.message().is_empty(),
             "rejection of `{bad}` needs a diagnostic"
+        );
+        // `Display` is what a failing workflow log shows; a `Default` formatter
+        // would print an empty line where the reason should be.
+        assert_eq!(
+            error.to_string(),
+            error.message(),
+            "`{bad}` must display the diagnostic it carries"
         );
     }
     for good in ["src/**/*.rs", "**/*.md", "Cargo.lock", ".github/workflows/**"] {

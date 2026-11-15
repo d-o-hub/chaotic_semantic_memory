@@ -171,6 +171,57 @@ fn from_paths_normalizes_sorts_and_dedupes() {
     assert!(!changed.is_empty());
     assert!(!changed.is_failed());
     assert_eq!(changed.error(), None);
+    // The record accessor is what the policy walks: an empty leak here would
+    // classify every path as unclassified while `paths()` still looked right.
+    let files = changed.files();
+    assert_eq!(files.len(), 3);
+    assert_eq!(files[0].path, "src/a.rs");
+    assert_eq!(files[0].kind, ChangeKind::Modified);
+    assert_eq!(files[2].path, "src/c.rs");
+}
+
+#[test]
+fn diagnostics_name_the_record_that_offended() {
+    // The record number is the only positional clue a failing CI run gives a
+    // reader, so it is asserted rather than ignored.
+    let non_utf8_status = b"M\0src/a.rs\0\xff\xfe\0".to_vec();
+    let error = parse_name_status(&non_utf8_status).expect_err("non-UTF-8 status");
+    assert!(error.contains("at record 2"), "got: {error}");
+
+    let non_utf8_path = b"A\0\xff\xfe\0".to_vec();
+    let error = parse_name_status(&non_utf8_path).expect_err("non-UTF-8 path");
+    assert!(error.contains("at record 1"), "got: {error}");
+
+    let non_utf8_move_destination = b"R100\0src/old.rs\0\xff\xfe\0".to_vec();
+    let error = parse_name_status(&non_utf8_move_destination).expect_err("non-UTF-8 destination");
+    assert!(error.contains("at record 2"), "got: {error}");
+}
+
+#[test]
+fn process_git_returns_stdout_and_fails_closed() {
+    // The scripted runner above pins the argv contract; this exercises the real
+    // `ProcessGit` in a throwaway repository, so the exit-status check and the
+    // stdout it returns are proven rather than assumed.
+    let repo = tempfile::tempdir().expect("temp dir");
+    let git = ProcessGit::new(repo.path());
+
+    git.run(&["init", "--quiet", "--initial-branch=main"])
+        .expect("init a repository");
+
+    let stdout = git
+        .run(&["rev-parse", "--is-inside-work-tree"])
+        .expect("runs inside the new repository");
+    let stdout = String::from_utf8(stdout).expect("git prints UTF-8 here");
+    assert_eq!(stdout.trim(), "true");
+
+    let missing = git
+        .run(&["rev-parse", "--verify", "refs/heads/no-such-branch"])
+        .expect_err("a failing git command must not read as success");
+    assert!(missing.contains("failed"), "got: {missing}");
+    assert!(
+        missing.contains("rev-parse"),
+        "the diagnostic should name the command, got: {missing}"
+    );
 }
 
 #[test]
