@@ -1019,3 +1019,23 @@
   mid-run shows the mutated file, and an interrupted run leaves the mutation behind, so re-read the
   file (or restore it) before concluding the code is wrong. The reproduction that settled #1038 was
   exactly this — the "bug" visible in `changed.rs` was the run's own mutant.
+
+## 2026-11-15 — A cancelled shard run reads as a broken gate (CI selector, #1038)
+
+The `mutation-test` aggregator failed on head `24acef21` with
+
+```
+error: artifact directory shards does not exist (download step produced nothing)
+```
+
+which reads exactly like "the shards never uploaded" — and the *previous* failure on this PR really
+was missing shard evidence (shard 5 cancelled at its own 45-minute limit). Here the cause was
+self-inflicted: pushing three docs-only commits while that run was in flight let the workflow's
+`concurrency` group cancel the eight `mutation-shard` jobs, while the aggregator — which only
+consumes them at its last step — ran anyway and reported their absence. One call disambiguated it:
+`gh run view <run> --json jobs` → `mutation-shard | completed cancelled`.
+
+Rule: before diagnosing an aggregate failure, read the **producer** jobs' conclusions — `cancelled`
+means no evidence, `failure` means evidence — and never treat the aggregate's message as a verdict on
+the diff. A cancelling push also voids every green tick on the head it replaces, so verification must
+name the SHA, never the PR.
