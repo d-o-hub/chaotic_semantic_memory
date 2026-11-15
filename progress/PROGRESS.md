@@ -2588,3 +2588,10 @@ gate run `43690595204` reported success with only `gate-summary` executed;
 skipped; `publish-crates.yml` was not dispatched. This follow-up removes the
 stale action and records the completed lockfile fix. The post-merge security
 audit still needs a successful main-CI-triggered run.
+
+PR #1036 carries the fix on head `a204f299`. Local `./scripts/validate.sh` aborted in the
+test-link stage with `No space left on device`, not on the diff: `/tmp` is a 7.5 GB tmpfs (the
+first attempt built a worktree there and died on `Disk quota exceeded`) and `target/debug` had
+grown to 132 GB, filling `/` to 100%. `rm -rf target/debug` restored 131 GB (71% used), the
+worktree was removed and pruned, and the affected gates re-run clean in the main worktree;
+PR CI on the clean runner is the authoritative verdict.
