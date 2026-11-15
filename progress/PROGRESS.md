@@ -2658,3 +2658,12 @@ through `cargo-mutants` with the CI profile's own arguments plus the new exclude
 | `cargo mutants --in-diff` (crate scope, CI timeouts, bin targets excluded) | 103 mutants in 3 minutes: 90 caught, 13 unviable, **0 missed, 0 timeouts** — 100% of viable |
 
 Pushing for the CI verdict; the merge stays an owner decision (never `--auto`, one PR at a time).
+- `bash scripts/validate.sh` on the repair head: rc 0, "Validation complete." (385 s) — fmt, clippy
+  `-D warnings`, workspace tests, `cargo deny` + the bundled-advisory fixtures (21 cases, 0 failed),
+  ADR parity, workflow gates, WASM check.
+- First CI verdict on head `24acef21`: `Codacy Static Code Analysis` **pass** (the `.codacy.yml`
+  opengrep exclusion works) and `commitlint` **pass**; the heavy contexts were still pending.
+- Found and corrected a stale roster claim: `plans/PR_ROAST_2026_11_15.md` and the PR body cited
+  `scripts/verify-required-status-checks.sh`, which does not exist. The required contexts are read
+  from the `main branch` ruleset (id `12897801`): `Build CLI (linux-x64)`, `Codacy Static Code
+  Analysis`, `commitlint`, `lint`, `test`, `mutation-test`.
