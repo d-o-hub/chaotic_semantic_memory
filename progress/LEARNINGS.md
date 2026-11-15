@@ -985,3 +985,14 @@
   each onto 0.61.2/0.60.2. `cargo update -p windows-sys --precise <older>` cannot undo that (the
   dedup resolved upward); either say so in the PR or regenerate the lockfile offline so the diff
   holds only the new package.
+
+- **`npx commitlint --from <base> --to <head>` reports only the tip commit (2026-11-15)**: a
+  three-commit branch whose *middle* commit used a scope outside `scope-enum` (`docs(plans)`) came
+  back "✔ found 0 problems" — both with refs and with the full SHAs the CI job feeds it
+  (`--from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}`),
+  so such a PR can merge with a mis-scoped middle commit and nothing turns red. Probe the scope
+  before committing: `printf 'docs(plans): probe\n' | npx commitlint` fails, `printf 'docs(goap):
+  probe\n' | npx commitlint` passes. There is no `plans` scope — plans/progress records use `goap`,
+  agent-facing files use `agents`. Fix an already-committed scope by rewording that commit
+  (`GIT_SEQUENCE_EDITOR` + `GIT_EDITOR` scripts driving `git rebase -i <base>`), confirm the tree is
+  untouched (`git diff --stat <old-head> HEAD` empty), then `git push --force-with-lease`.
