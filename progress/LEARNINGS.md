@@ -964,3 +964,24 @@
   code error. Run `df -h /` before diagnosing a link failure, and recover with
   `rm -rf target/debug` (freed 131 GB, back to 71%); treat the clean-runner PR CI as the
   authoritative gate when the local cache cannot fit.
+
+- **A skipped path-filtered job and an unrun gate look identical in the PR view
+  (2026-11-15)**: `ci.yml`'s `rust_src` pattern list covered `src/**` and `crates/**` but not
+  `src/cli/mcp.rs`, so an MCP-CLI-only change selected `cli_cross` and left `mcp_feature` false —
+  the MCP feature never compiled, yet the check list read green because every context that did run
+  passed. Path selection *is* gate logic: put it in tested code (`crates/csm-ci-selection`, 49
+  tests) with a fail-closed default (unresolvable ref, failed diff, empty change set, unclassified
+  path, policy/manifest mismatch → enable every job), and assert in a test that the workflow carries
+  no patterns of its own. `gh pr checks` cannot show the difference: the job reports `skipped`.
+
+- **`#![cfg_attr(test, allow(...))]` is inert for a `#[cfg(test)] mod` (2026-11-15)**: the
+  crate-level `test` cfg is false for a `#[cfg(test)]` module while the non-test crate is compiled,
+  so the allowance never applied and `clippy --all-targets -D warnings` rejected `expect_used`
+  inside the test module. Keep the workspace lint policy intact and put the allowance on the test
+  module or file itself.
+
+- **Adding a default workspace member re-resolves the root lockfile (2026-11-15)**: the new crate
+  added one package, but the same re-resolve folded `windows-sys`/`windows-targets` from two edges
+  each onto 0.61.2/0.60.2. `cargo update -p windows-sys --precise <older>` cannot undo that (the
+  dedup resolved upward); either say so in the PR or regenerate the lockfile offline so the diff
+  holds only the new package.

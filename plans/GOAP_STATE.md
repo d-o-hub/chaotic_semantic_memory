@@ -180,7 +180,7 @@ world_state:
   retrieval_cache_invalidated_on_mutation: true   # insert/upsert/association mutations clear cached results
   capacity_upsert_preserves_existing: true        # existing ids survive max_concepts eviction
   mutation_ci_enforced: true
-  workspace_default_members_cover_all: true       # #910: bare root cargo commands select all 12 members
+  workspace_default_members_cover_all: true       # #910/#992: bare root cargo commands select all 13 members
   pre_release_gate_no_verdict_for_skipped_runs: true  # #903: non-success CI is no verdict, not a failure
   audit_ignore_sets_gated_in_parity: true         # deny.toml and .cargo/audit.toml ID sets compared
   mutation_threshold: 85
@@ -214,9 +214,14 @@ world_state:
                                               #   (referenced nowhere), `[workspace.package]` keeps only the
                                               #   `rust-version` that members inherit, and the root `[package]` lost
                                               #   its redundant `homepage`. Verified with the job's own command at
-                                              #   1.100.0 + CARGO_BUILD_WARNINGS=deny (rc 0, zero warnings).
-
-
+                                                  #   1.100.0 + CARGO_BUILD_WARNINGS=deny (rc 0, zero warnings).
+  ci_path_selection_typed_and_tested: true    # 2026-11-15 (#992): crates/csm-ci-selection
+                                              #   owns the seven detect-changes outputs (a declared
+                                              #   glob table with a stated reason per job, fail-closed
+                                              #   on a failed or unresolvable diff); ci.yml resolves
+                                              #   only the change range and enables every job when
+                                              #   the selector cannot classify. Re-creates the
+                                              #   closed PR #999 (shell classifier).
 
   # ── GOAP bookkeeping ─────────────────────────────────────────
   goap_reconciliations_complete:
@@ -229,13 +234,19 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: patch_quinn_udp_rustsec_2026_0538 # 2026-11-15:
-                               #   PR #1035 -> 11ce127d: root Cargo.lock resolves
-                               #   quinn-udp 0.5.16 for RUSTSEC-2026-0538. Local
-                               #   cargo audit, cargo deny, and PR CI passed. Main
-                               #   run 43687783467 failed at queue reconciliation
-                               #   because closed #1034 remained in ACTIONS; this
-                               #   follow-up removes it. The security audit gate
-                               #   still needs a successful main-CI-triggered run.
-                               #   Predecessor: close_re_roasted_pr_1022_after_sha_validation_landed
-                               #   (roast: plans/PR_ROAST_2026_11_13.md).
+  action_last_completed: implement_typed_ci_path_selection_992 # 2026-11-15:
+                               #   Issue #992: the seven `detect-changes` outputs are
+                               #   now decided by `crates/csm-ci-selection`
+                               #   (`csm-ci-select`), not by shell regexes inside
+                               #   ci.yml. `src/cli/mcp.rs` and both
+                               #   `tests/mcp*_integration.rs` targets select
+                               #   `mcp-feature` (the #992 defect); an unresolvable
+                               #   ref, a failed diff, an empty change set or an
+                               #   unclassified path select every job. 49 tests (36
+                               #   unit, 12 acceptance over real Git ranges, 1
+                               #   workflow-wiring) run in the root `lint` job and
+                               #   the workspace matrix because the crate is a
+                               #   default member. Re-creation of the closed PR #999
+                               #   (roast: plans/PR_ROAST_2026_11_15.md).
+                               #   Predecessor: patch_quinn_udp_rustsec_2026_0538
+                               #   (roast: plans/PR_ROAST_2026_11_15.md).

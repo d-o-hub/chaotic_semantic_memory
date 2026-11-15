@@ -2606,3 +2606,14 @@ The `.jules` note cleanup is PR #1037 (`docs/remove-jules-notes`, commit `52a02a
 retired Jules-bot notes only — a reference scan over `*.md`, `*.sh`, `*.yml`, `*.py`, `*.toml` and
 `*.json` finds no reader or writer of the folder, so deleting it removes dead state instead of
 hiding a producer. Its roast record sits in `plans/PR_ROAST_2026_11_15.md` on this branch.
+
+Issue #992 (typed CI path selection) is re-created on branch `fix/ci-path-selection-992` off
+`19f3c6b8`, replacing PR #999's shell classifier with `crates/csm-ci-selection` (`csm-ci-select`;
+49 tests — 36 unit, 12 acceptance over real Git ranges, 1 workflow-wiring). The defect it closes:
+the old `rust_src` pattern list never matched `src/cli/mcp.rs`, so an MCP-CLI-only change left the
+`mcp-feature` job skipped while every required context stayed green. The selector is fail-closed
+(unresolvable ref, failed diff, empty change set, unclassified path, policy/`Cargo.toml` mismatch →
+enable every job), the workflow keeps only the `git merge-base` range, and
+`tests/workflow_wiring.rs` asserts ci.yml carries no path patterns of its own. Adding the member
+re-resolves the root lockfile: `windows-sys`/`windows-targets` fold from two edges each onto
+0.61.2/0.60.2, so the `Cargo.lock` diff is not only the new package.
