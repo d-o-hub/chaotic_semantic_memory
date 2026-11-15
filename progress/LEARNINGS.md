@@ -964,3 +964,78 @@
   code error. Run `df -h /` before diagnosing a link failure, and recover with
   `rm -rf target/debug` (freed 131 GB, back to 71%); treat the clean-runner PR CI as the
   authoritative gate when the local cache cannot fit.
+
+- **A skipped path-filtered job and an unrun gate look identical in the PR view
+  (2026-11-15)**: `ci.yml`'s `rust_src` pattern list covered `src/**` and `crates/**` but not
+  `src/cli/mcp.rs`, so an MCP-CLI-only change selected `cli_cross` and left `mcp_feature` false —
+  the MCP feature never compiled, yet the check list read green because every context that did run
+  passed. Path selection *is* gate logic: put it in tested code (`crates/csm-ci-selection`, 49
+  tests) with a fail-closed default (unresolvable ref, failed diff, empty change set, unclassified
+  path, policy/manifest mismatch → enable every job), and assert in a test that the workflow carries
+  no patterns of its own. `gh pr checks` cannot show the difference: the job reports `skipped`.
+
+- **`#![cfg_attr(test, allow(...))]` is inert for a `#[cfg(test)] mod` (2026-11-15)**: the
+  crate-level `test` cfg is false for a `#[cfg(test)]` module while the non-test crate is compiled,
+  so the allowance never applied and `clippy --all-targets -D warnings` rejected `expect_used`
+  inside the test module. Keep the workspace lint policy intact and put the allowance on the test
+  module or file itself.
+
+- **Adding a default workspace member re-resolves the root lockfile (2026-11-15)**: the new crate
+  added one package, but the same re-resolve folded `windows-sys`/`windows-targets` from two edges
+  each onto 0.61.2/0.60.2. `cargo update -p windows-sys --precise <older>` cannot undo that (the
+  dedup resolved upward); either say so in the PR or regenerate the lockfile offline so the diff
+  holds only the new package.
+
+- **`npx commitlint --from <base> --to <head>` reports only the tip commit (2026-11-15)**: a
+  three-commit branch whose *middle* commit used a scope outside `scope-enum` (`docs(plans)`) came
+  back "✔ found 0 problems" — both with refs and with the full SHAs the CI job feeds it
+  (`--from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}`),
+  so such a PR can merge with a mis-scoped middle commit and nothing turns red. Probe the scope
+  before committing: `printf 'docs(plans): probe\n' | npx commitlint` fails, `printf 'docs(goap):
+  probe\n' | npx commitlint` passes. There is no `plans` scope — plans/progress records use `goap`,
+  agent-facing files use `agents`. Fix an already-committed scope by rewording that commit
+  (`GIT_SEQUENCE_EDITOR` + `GIT_EDITOR` scripts driving `git rebase -i <base>`), confirm the tree is
+  untouched (`git diff --stat <old-head> HEAD` empty), then `git push --force-with-lease`.
+
+- **A "missing shard evidence" verdict can be a mutant, not a budget (2026-11-15)**: the required
+  `mutation-test` context on #1038 failed because shard 5 was cancelled at its 45-minute limit while
+  shards 1-4 and 6-8 finished in 5-8 minutes. Download the shard artifacts before touching any
+  timeout — `gh run download <run> -n mutants-shard-<i>` yields `mutants.out/{caught,missed,
+  timeout,unviable}.txt`, which name what actually happened. Here they showed the diff's own parser
+  held a mutant (`index += 1 -> -=` on a loop cursor) that never terminated: non-terminating
+  mutants are indistinguishable from a slow runner until the artifact says so. A loop whose exit
+  depends on an arithmetic update is mutant-shaped; walk an iterator instead
+  (`while let Some(token) = tokens.next()`), and let any counter serve diagnostics only.
+
+- **`--lib` cannot kill a bin-target mutant (2026-11-15)**: the mutation profile runs unit tests
+  only, which never build `src/main.rs`/`src/bin/*.rs`, so every mutant there is reported MISSED —
+  measured 32 of 34 on the #1038 diff, enough to cap the union at 73/(73+8+32) = 65% against the 85%
+  bar and make the gate unpassable for any crate whose binary carries logic, however well tested its
+  library is. `scripts/mutation_test.sh` now excludes both bin shapes for that profile (`**` is
+  required: a single `*` does not cross `/`, measured 140 -> 140 versus 140 -> 103 mutants), and the
+  residual is stated: binaries are covered by the CLI/integration targets.
+
+- **cargo-mutants `--in-place` holds your working tree while it runs (2026-11-15)**: `git status`
+  mid-run shows the mutated file, and an interrupted run leaves the mutation behind, so re-read the
+  file (or restore it) before concluding the code is wrong. The reproduction that settled #1038 was
+  exactly this — the "bug" visible in `changed.rs` was the run's own mutant.
+
+## 2026-11-15 — A cancelled shard run reads as a broken gate (CI selector, #1038)
+
+The `mutation-test` aggregator failed on head `24acef21` with
+
+```
+error: artifact directory shards does not exist (download step produced nothing)
+```
+
+which reads exactly like "the shards never uploaded" — and the *previous* failure on this PR really
+was missing shard evidence (shard 5 cancelled at its own 45-minute limit). Here the cause was
+self-inflicted: pushing three docs-only commits while that run was in flight let the workflow's
+`concurrency` group cancel the eight `mutation-shard` jobs, while the aggregator — which only
+consumes them at its last step — ran anyway and reported their absence. One call disambiguated it:
+`gh run view <run> --json jobs` → `mutation-shard | completed cancelled`.
+
+Rule: before diagnosing an aggregate failure, read the **producer** jobs' conclusions — `cancelled`
+means no evidence, `failure` means evidence — and never treat the aggregate's message as a verdict on
+the diff. A cancelling push also voids every green tick on the head it replaces, so verification must
+name the SHA, never the PR.

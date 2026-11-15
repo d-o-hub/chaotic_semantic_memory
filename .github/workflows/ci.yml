@@ -22,7 +22,18 @@ env:
 
 jobs:
   # Path change detection so expensive / specialized jobs can skip when irrelevant.
-  # Push to main always runs full coverage (DIFF empty → all true) to protect the trunk.
+  #
+  # The classification itself lives in `crates/csm-ci-selection` (issue #992). It
+  # used to be a block of shell regexes here: untested, and wrong for the MCP
+  # family — `src/cli/mcp.rs` and both `tests/mcp*_integration.rs` targets missed
+  # the `^src/mcp/` rule, so a pull request could change MCP integration while the
+  # dedicated `cargo test --features mcp` job never ran. This job now decides only
+  # WHICH diff to hand the selector; `csm-ci-select` owns the policy, the reasons
+  # and the tests that keep them honest.
+  #
+  # Every step here fails towards running MORE jobs, never fewer: an unknown base,
+  # a toolchain that cannot install, a selector that cannot build, or a diff that
+  # cannot be read all enable all seven outputs.
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -37,105 +48,59 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
         with:
           fetch-depth: 0
-      - id: filter
+      - name: Resolve the change range
+        id: range
         shell: bash
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # The selector diffs against the merge base, which needs the base ref.
             git fetch origin "${{ github.base_ref }}" --depth=50
-            BASE="origin/${{ github.base_ref }}"
-            DIFF=$(git diff --name-only "${BASE}...HEAD" || true)
-          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
-            && [ -n "${{ github.event.before }}" ]; then
-            DIFF=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" || true)
+            echo "mode=pr" >> "$GITHUB_OUTPUT"
+            echo "since=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            echo "mode=push" >> "$GITHUB_OUTPUT"
+            echo "since=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
           else
-            # First push / unknown base: run everything
-            DIFF=""
+            # First push / unknown base: there is no range to classify.
+            echo "mode=all" >> "$GITHUB_OUTPUT"
           fi
-
-          # Empty DIFF (e.g. first push) → enable all specialized jobs
-          if [ -z "${DIFF}" ]; then
-            for k in duckdb wasm fuzz mcp cli_cross mutation rust_src; do
-              echo "${k}=true" >> "$GITHUB_OUTPUT"
+      - name: Install Rust for the selector
+        # `continue-on-error` keeps the fallback below reachable: were this step
+        # to fail, `cargo run` fails, and the next step enables every job.
+        continue-on-error: true
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
+      - name: Select the specialized jobs
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYS="duckdb wasm fuzz mcp cli_cross mutation rust_src"
+          # The loop variable is `flag`, not `key`: the workflow-YAML gate flags
+          # any line holding a secret-ish word before `=` and a quoted value
+          # ("possible hardcoded secret"), and a `${key}=true` write inside a
+          # `run:` block matches that shape.
+          enable_all() {
+            local flag
+            for flag in ${KEYS}; do
+              echo "${flag}=true" >> "$GITHUB_OUTPUT"
             done
-            echo "detect-changes: empty DIFF → all jobs enabled"
-            exit 0
-          fi
-
-          echo "Changed files:"
-          echo "${DIFF}"
-
-          match() {
-            local pattern=$1
-            echo "${DIFF}" | grep -qE "${pattern}"
           }
-
-          # Always true on push to main for trunk protection of optional crates
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "duckdb=true" >> "$GITHUB_OUTPUT"
-            echo "wasm=true" >> "$GITHUB_OUTPUT"
-            echo "fuzz=true" >> "$GITHUB_OUTPUT"
-            echo "mcp=true" >> "$GITHUB_OUTPUT"
-            echo "cli_cross=true" >> "$GITHUB_OUTPUT"
-            echo "mutation=false" >> "$GITHUB_OUTPUT"  # mutation is PR-only
-            if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$'; then
-              echo "rust_src=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "rust_src=false" >> "$GITHUB_OUTPUT"
-            fi
+          if [ "${{ steps.range.outputs.mode }}" = "all" ]; then
+            enable_all
+            echo "detect-changes: no base commit to diff against; every job enabled"
             exit 0
           fi
-
-          # PR: path-filtered specialized jobs
-          if match '^(crates/csm-duckdb/|Cargo\.(toml|lock)$)'; then
-            echo "duckdb=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "duckdb=false" >> "$GITHUB_OUTPUT"
+          args=(--since "${{ steps.range.outputs.since }}" --github-output)
+          if [ "${{ steps.range.outputs.mode }}" = "push" ]; then
+            args+=(--push)
           fi
-
-          # Any root `src/**` change can alter the generated WASM bindings
-          # (crates/csm-wasm depends on the root crate with feature `wasm`), and
-          # the checker/build/size-gate scripts and this workflow must exercise
-          # the gate they define.
-          if match '^(crates/csm-wasm/|crates/.*\.rs$|crates/.*Cargo\.(toml|lock)$|src/|wasm/|scripts/(build-wasm|check-wasm-freshness|wasm_size_gate)\.sh$|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
-            echo "wasm=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "wasm=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if match '^(fuzz/|Cargo\.(toml|lock)$)'; then
-            echo "fuzz=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "fuzz=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if match '^(src/mcp/|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
-            echo "mcp=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "mcp=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Cross-platform CLI (macOS/Windows): only when CLI surface or build wiring changes
-          if match '^(src/bin/|src/cli/|crates/csm-cli/|cli-npm/|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
-            echo "cli_cross=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cli_cross=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Mutation evidence is required only for changed production Rust modules.
-          # Tests, manifests, and tooling changes do not create mutants themselves.
-          if echo "${DIFF}" | grep -E '^(src/.*\.rs|crates/[^/]+/src/.*\.rs)$' \
-            | grep -Ev '(^|/)(tests/|tests\.rs$|[^/]*_tests\.rs$)' >/dev/null; then
-            echo "mutation=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "mutation=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$'; then
-            echo "rust_src=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "rust_src=false" >> "$GITHUB_OUTPUT"
-          fi
+          # $GITHUB_OUTPUT keeps the last value for a repeated key, so the
+          # fallback below can never leave a job switched off.
+          cargo run --locked --quiet -p csm-ci-selection -- "${args[@]}" || {
+            echo "::warning::detect-changes: csm-ci-select could not classify this change set; every job enabled"
+            enable_all
+          }
 
   commitlint:
     runs-on: ubuntu-latest

@@ -468,7 +468,24 @@ EXCLUDE_ARGS=(
   --exclude-re "replace \| with \^ in parse_hvec_u64_halves"
   # src/bin/csm.rs: tracing setup, error formatting, shell completion, and main
   # are CLI-only concerns (side-effectful, process-exit, I/O); untestable via --lib.
-  --exclude "src/bin/csm.rs"
+  #
+  # Generalised 2026-11-15 (#992): the fault is the *target*, not that one file.
+  # This profile runs unit tests only (`--lib`), which never build a bin target,
+  # so every mutant in a `src/main.rs` or `src/bin/*.rs` is reported MISSED no
+  # matter what the tests do. Measured on the #992 diff (cargo-mutants 27.1.0,
+  # shard artifacts of run 43719070417): 32 of 34 bin-target mutants MISSED,
+  # which alone caps the union at 73 / (73 + 8 + 32) = 65% < MUTATION_THRESHOLD
+  # (85) — a crate that ships a CLI binary could never pass this gate, however
+  # well its library logic is tested. `**` is required: a single `*` does not
+  # cross `/`, so `*/src/main.rs` matches nothing (measured: 140 -> 140 mutants,
+  # versus 140 -> 103 with `**/src/main.rs`).
+  #
+  # Residual, stated plainly: this buys no coverage for binary bodies. They are
+  # covered by the CLI and integration targets (`cargo test --test cli_parity`,
+  # `tests/cli_integration.rs`, and each crate's own `tests/`), which this job
+  # deliberately does not run.
+  --exclude "**/src/main.rs"
+  --exclude "**/src/bin/*.rs"
   # merge_with > -> >=: equivalent mutant — equal scores produce same result
   # for both operators (keeping existing value vs overwriting with same value).
   --exclude-re "replace > with >= in AbsenceEntry::merge_with"

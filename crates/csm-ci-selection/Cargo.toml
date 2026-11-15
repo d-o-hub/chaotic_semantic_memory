@@ -1,0 +1,26 @@
+[package]
+name = "csm-ci-selection"
+version = "0.3.9"
+edition = "2024"
+rust-version.workspace = true
+description = "Deterministic CI path selection: which specialized jobs a change needs"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+# Tooling lives in the workspace but never ships: the release trains publish the
+# set in .github/workflows/release.yml (CRATES_PUBLISHED), which does not list it.
+publish = false
+
+[dependencies]
+# `glob` is already resolved in Cargo.lock (the root `cli` feature uses it), so
+# this adds no new supply-chain entry and no registry download on a cold runner.
+glob = "0.3.2"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[[bin]]
+name = "csm-ci-select"
+path = "src/main.rs"
+
+[lints]
+workspace = true

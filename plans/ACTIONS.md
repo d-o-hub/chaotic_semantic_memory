@@ -30,6 +30,11 @@
 # local cargo audit, cargo deny, and PR CI passed. Main CI run 43687783467
 # failed at queue reconciliation because this closed issue remained active.
 # The post-merge security audit still lacks a successful main-CI verdict.
+# Last completed 2026-11-15: implement_typed_ci_path_selection_992 (#992) —
+# the seven detect-changes outputs now come from crates/csm-ci-selection, so
+# src/cli/mcp.rs selects mcp-feature instead of leaving that job skipped.
+# Queue stays empty; the roast record is plans/PR_ROAST_2026_11_15.md.
+# Also open: docs/remove-jules-notes (PR #1037), the .jules note deletion.
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the

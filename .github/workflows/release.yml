@@ -781,8 +781,9 @@ jobs:
         }
 
         # Issue #974: every published crate, not only the root. The set is the
-        # publish order plus csm-duckdb; csm-cli/csm-wasm are workspace members
-        # that are never published to crates.io.
+        # publish order plus csm-duckdb; csm-cli/csm-wasm and csm-ci-selection
+        # (workspace tooling, `publish = false`) are workspace members that are
+        # never published to crates.io.
         CRATES_PUBLISHED="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence chaotic_semantic_memory csm-duckdb"
         for crate in ${CRATES_PUBLISHED}; do
           if ! check_with_retry "crates.io/${crate}" "published_on_crates_io ${crate}"; then :; fi
