@@ -24,3 +24,9 @@ engines:
       # get a clean-process RSS baseline. Neither feeds a security decision, so the
       # rust.lang.security.args/current-exe rules do not apply to it.
       - examples/scale_evidence/**
+      # Selector CLI (`csm-ci-select`, #1038): argv carries the change range
+      # (`--since`, `--push`) and output switches; no argument feeds an
+      # authorization, secret or path-sandbox decision — the workflow wraps the
+      # call and enables every job whenever the selector fails. Same class as the
+      # scale-evidence harness above (rust.lang.security.args).
+      - crates/csm-ci-selection/src/main.rs
