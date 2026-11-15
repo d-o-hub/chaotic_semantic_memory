@@ -946,3 +946,10 @@
   lockfile for that package before deciding whether it needs refresh; `fuzz/Cargo.lock` had no
   `quinn-udp` entry in this fix. `cargo audit` plus `cargo deny --locked check` proved the advisory
   was cleared without widening the allowed-advisory policy.
+
+- **A merged PR can leave a closed issue in the active GOAP queue (2026-11-15, #1034/#1035)**:
+  main CI fails `check-goap-queue-issues.sh` when an issue auto-closed by merge remains in
+  `plans/ACTIONS.md`. If the merge lands before queue reconciliation, remove the action and
+  update `queued_actions_count` plus the trailing `action_last_completed` in a follow-up PR.
+  Read downstream `workflow_run` jobs individually: a green gate with only its summary job
+  and a green release with `no-verdict` are not security-audit or publication evidence.
