@@ -939,3 +939,10 @@
   this job's cause, and asserting one from a cancellation alone is a made-up causal story (the superseded
   `mutation-test` on `7adfd5b5` was exactly this).
 
+
+- **Treat new `cargo audit` findings as reachable dependency changes (2026-11-14, #1034)**: confirm
+  the reverse path with `cargo metadata --locked --all-features`, then select the lowest compatible
+  patched version in the lockfile instead of suppressing the advisory. Check a separate workspace's
+  lockfile for that package before deciding whether it needs refresh; `fuzz/Cargo.lock` had no
+  `quinn-udp` entry in this fix. `cargo audit` plus `cargo deny --locked check` proved the advisory
+  was cleared without widening the allowed-advisory policy.

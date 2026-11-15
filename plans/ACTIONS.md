@@ -25,6 +25,19 @@
 # PR #1008 -> 546727d0.
 # Queue empty in this branch as of 2026-11-12: Issue #1002's validator and
 # required CI gate are implemented; completion is reflected in GOAP_STATE.md.
+  - name: patch_quinn_udp_rustsec_2026_0538
+    github_issue: 1034
+    preconditions:
+      current_main_ci_green: true
+      quinn_udp_0_5_15_in_lockfile: true
+      rustsec_patch_available: true
+    effects:
+      quinn_udp_patched_version_locked: true
+      prerelease_security_audit_green: true
+    cost: 2
+    status: in_progress
+    # Scope: Cargo.lock only unless the compatible quinn range requires a minimal manifest update.
+    # Verify cargo audit + cargo deny; run repository gates; PR #1035 must pass its own CI.
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the
