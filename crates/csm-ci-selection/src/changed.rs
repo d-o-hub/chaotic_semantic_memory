@@ -332,26 +332,29 @@ pub fn discover_since(git: &dyn GitRunner, reference: &str) -> Discovery {
 /// as [`ChangeKind::Renamed`] *and* the source as a [`ChangeKind::Deleted`]
 /// entry, so a rule matching either side of the move triggers.
 pub fn parse_name_status(bytes: &[u8]) -> Result<Vec<ChangedFile>, String> {
-    let tokens = bytes
+    // A forward-only token cursor: `index` numbers records for the diagnostics
+    // only, so no mutation of it can stall this loop. The index-walking form made
+    // `index += 1 -> -=` (a mutant this parser can produce) non-terminating,
+    // which is how the first #992 shard run spent its whole 45-minute budget
+    // growing `files` until the runner cancelled the job.
+    let mut tokens = bytes
         .split(|byte| *byte == 0)
-        .filter(|token| !token.is_empty())
-        .collect::<Vec<_>>();
+        .filter(|token| !token.is_empty());
     let mut files = Vec::new();
     let mut index = 0;
-    while index < tokens.len() {
-        let status = std::str::from_utf8(tokens[index]).map_err(|_| {
+    while let Some(token) = tokens.next() {
+        let status = std::str::from_utf8(token).map_err(|_| {
             format!("non-UTF-8 status in `git diff --name-status -z` at record {index}")
         })?;
         index += 1;
-        let is_move = status.starts_with('R') || status.starts_with('C');
-        if is_move {
-            if index + 1 >= tokens.len() {
-                return Err(format!(
+        if status.starts_with('R') || status.starts_with('C') {
+            let missing_sides = || {
+                format!(
                     "malformed `git diff --name-status -z`: status {status} without a source and destination path"
-                ));
-            }
-            let from = utf8_path(tokens[index], index)?;
-            let to = utf8_path(tokens[index + 1], index + 1)?;
+                )
+            };
+            let from = utf8_path(tokens.next().ok_or_else(missing_sides)?, index)?;
+            let to = utf8_path(tokens.next().ok_or_else(missing_sides)?, index + 1)?;
             index += 2;
             files.push(ChangedFile {
                 path: from.clone(),
@@ -362,12 +365,12 @@ pub fn parse_name_status(bytes: &[u8]) -> Result<Vec<ChangedFile>, String> {
                 kind: ChangeKind::Renamed { from },
             });
         } else {
-            if index >= tokens.len() {
-                return Err(format!(
-                    "malformed `git diff --name-status -z`: status {status} without a path"
-                ));
-            }
-            let path = utf8_path(tokens[index], index)?;
+            let path = utf8_path(
+                tokens.next().ok_or_else(|| {
+                    format!("malformed `git diff --name-status -z`: status {status} without a path")
+                })?,
+                index,
+            )?;
             index += 1;
             files.push(ChangedFile {
                 path,
