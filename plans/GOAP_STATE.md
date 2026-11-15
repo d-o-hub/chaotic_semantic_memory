@@ -222,6 +222,12 @@ world_state:
                                               #   only the change range and enables every job when
                                               #   the selector cannot classify. Re-creates the
                                               #   closed PR #999 (shell classifier).
+  mutation_bin_targets_excluded_from_lib_profile: true  # 2026-11-15 (#1038): --lib never builds
+                                              #   a bin target, so every `src/main.rs` /
+                                              #   `src/bin/*.rs` mutant is MISSED whatever the tests
+                                              #   do (32 of 34 on the #1038 diff = ceiling 65% < 85).
+                                              #   `scripts/mutation_test.sh` excludes both shapes;
+                                              #   binaries stay covered by CLI/integration targets.
 
   # ── GOAP bookkeeping ─────────────────────────────────────────
   goap_reconciliations_complete:
@@ -234,19 +240,21 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: implement_typed_ci_path_selection_992 # 2026-11-15:
-                               #   Issue #992: the seven `detect-changes` outputs are
-                               #   now decided by `crates/csm-ci-selection`
-                               #   (`csm-ci-select`), not by shell regexes inside
-                               #   ci.yml. `src/cli/mcp.rs` and both
-                               #   `tests/mcp*_integration.rs` targets select
-                               #   `mcp-feature` (the #992 defect); an unresolvable
-                               #   ref, a failed diff, an empty change set or an
-                               #   unclassified path select every job. 49 tests (36
-                               #   unit, 12 acceptance over real Git ranges, 1
-                               #   workflow-wiring) run in the root `lint` job and
-                               #   the workspace matrix because the crate is a
-                               #   default member. Re-creation of the closed PR #999
-                               #   (roast: plans/PR_ROAST_2026_11_15.md).
-                               #   Predecessor: patch_quinn_udp_rustsec_2026_0538
+  action_last_completed: repair_mutation_scope_and_parser_hang_1038 # 2026-11-15:
+                               #   PR #1038's required `mutation-test` context failed as
+                               #   "missing shard evidence": shard 5 was cancelled at its
+                               #   45-minute limit while its siblings finished in 5-8 minutes.
+                               #   The shard artifacts named two defects in the diff, not a
+                               #   runner budget - a mutant of the name-status parser
+                               #   (`index += 1 -> -=`) never terminated, and 32 of 34
+                               #   bin-target mutants were MISSED because `--lib` never builds
+                               #   a bin (32/34 alone caps the union at 65% < MUTATION_THRESHOLD
+                               #   85). The parser now walks a forward-only token cursor;
+                               #   `scripts/mutation_test.sh` excludes `**/src/main.rs` and
+                               #   `**/src/bin/*.rs` for that profile; the 8 remaining uncaught
+                               #   library mutants became assertions. Local sweep on the
+                               #   rebased head: 103 mutants in 3 minutes, 90 caught,
+                               #   13 unviable, 0 missed, 0 timeouts (100% of viable). 52 tests
+                               #   (39 unit, 12 acceptance, 1 workflow-wiring).
+                               #   Predecessor: implement_typed_ci_path_selection_992
                                #   (roast: plans/PR_ROAST_2026_11_15.md).

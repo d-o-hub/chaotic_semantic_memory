@@ -996,3 +996,26 @@
   agent-facing files use `agents`. Fix an already-committed scope by rewording that commit
   (`GIT_SEQUENCE_EDITOR` + `GIT_EDITOR` scripts driving `git rebase -i <base>`), confirm the tree is
   untouched (`git diff --stat <old-head> HEAD` empty), then `git push --force-with-lease`.
+
+- **A "missing shard evidence" verdict can be a mutant, not a budget (2026-11-15)**: the required
+  `mutation-test` context on #1038 failed because shard 5 was cancelled at its 45-minute limit while
+  shards 1-4 and 6-8 finished in 5-8 minutes. Download the shard artifacts before touching any
+  timeout — `gh run download <run> -n mutants-shard-<i>` yields `mutants.out/{caught,missed,
+  timeout,unviable}.txt`, which name what actually happened. Here they showed the diff's own parser
+  held a mutant (`index += 1 -> -=` on a loop cursor) that never terminated: non-terminating
+  mutants are indistinguishable from a slow runner until the artifact says so. A loop whose exit
+  depends on an arithmetic update is mutant-shaped; walk an iterator instead
+  (`while let Some(token) = tokens.next()`), and let any counter serve diagnostics only.
+
+- **`--lib` cannot kill a bin-target mutant (2026-11-15)**: the mutation profile runs unit tests
+  only, which never build `src/main.rs`/`src/bin/*.rs`, so every mutant there is reported MISSED —
+  measured 32 of 34 on the #1038 diff, enough to cap the union at 73/(73+8+32) = 65% against the 85%
+  bar and make the gate unpassable for any crate whose binary carries logic, however well tested its
+  library is. `scripts/mutation_test.sh` now excludes both bin shapes for that profile (`**` is
+  required: a single `*` does not cross `/`, measured 140 -> 140 versus 140 -> 103 mutants), and the
+  residual is stated: binaries are covered by the CLI/integration targets.
+
+- **cargo-mutants `--in-place` holds your working tree while it runs (2026-11-15)**: `git status`
+  mid-run shows the mutated file, and an interrupted run leaves the mutation behind, so re-read the
+  file (or restore it) before concluding the code is wrong. The reproduction that settled #1038 was
+  exactly this — the "bug" visible in `changed.rs` was the run's own mutant.
