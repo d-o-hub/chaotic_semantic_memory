@@ -76,10 +76,10 @@ jobs:
         run: |
           set -euo pipefail
           KEYS="duckdb wasm fuzz mcp cli_cross mutation rust_src"
-          # The loop variable is `flag`, not `key`: `scripts/validate-workflows.sh`
-          # flags any line holding a secret-ish word before `=` and a quoted
-          # value ("possible hardcoded secret"), and a `${key}=true` write inside
-          # a heredoc-free `run:` block matches that shape.
+          # The loop variable is `flag`, not `key`: the workflow-YAML gate flags
+          # any line holding a secret-ish word before `=` and a quoted value
+          # ("possible hardcoded secret"), and a `${key}=true` write inside a
+          # `run:` block matches that shape.
           enable_all() {
             local flag
             for flag in ${KEYS}; do
