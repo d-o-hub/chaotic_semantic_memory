@@ -2617,3 +2617,44 @@ enable every job), the workflow keeps only the `git merge-base` range, and
 `tests/workflow_wiring.rs` asserts ci.yml carries no path patterns of its own. Adding the member
 re-resolves the root lockfile: `windows-sys`/`windows-targets` fold from two edges each onto
 0.61.2/0.60.2, so the `Cargo.lock` diff is not only the new package.
+
+## 2026-11-15 — Repair the mutation gate for the CI selector (PR #1038)
+
+The required `mutation-test` context failed on head `463a7f9d` as **missing shard evidence**: shard
+5 was cancelled at its 45-minute limit while shards 1-4 and 6-8 finished in 5-8 minutes. Downloading
+the shard artifacts (`gh run download 43719070417 -n mutants-shard-<i>`) named two defects inside the
+diff, and neither was a runner budget:
+
+- **A mutant of the diff's own parser never terminated.** `parse_name_status` walked a collected
+  token slice by index; the mutant `index += 1 -> -=` moved the cursor backwards, so the loop kept
+  pushing records until the job died — which is also why the shard produced no artifact to score.
+  The parser now walks a forward-only token cursor (`while let Some(token) = tokens.next()`), with
+  `index` used only to number records in diagnostics.
+- **37 of the diff's 149 mutants were bin-target mutants.** The fast profile runs `--lib`, which
+  never builds `src/main.rs`, so every one of them is reported MISSED whatever the tests do: the
+  artifacts record 32 missed + 2 unviable of 34, which alone caps the union at
+  `73 / (73 + 8 + 32) = 65% < MUTATION_THRESHOLD (85)` — no crate shipping a CLI binary could pass
+  this gate. `scripts/mutation_test.sh` now excludes `**/src/main.rs` and `**/src/bin/*.rs` for that
+  profile, generalising its existing single-file `src/bin/csm.rs` exclusion (`**` is required: a
+  single `*` does not cross `/`, measured 140 -> 140 versus 140 -> 103 mutants), with the residual
+  stated in the script.
+- **The 8 uncaught library mutants were real coverage gaps**, now closed: `ChangedFiles::files()`,
+  the real `ProcessGit::run` in both exit directions, `PolicyError`'s `Display`, `Job::why`, and the
+  record numbers the parser diagnostics report.
+
+Codacy's required context was failing for one new issue on the same head —
+`rust.lang.security.args` at `crates/csm-ci-selection/src/main.rs:45` — now suppressed in
+`.codacy.yml` the same way the scale-evidence harness is, with the reason recorded there (argv
+carries the change range and output switches; the workflow enables every job when the selector
+fails).
+
+Verified locally on the rebased head (`1742406a`) — no `nix` in this environment, so the sweep ran
+through `cargo-mutants` with the CI profile's own arguments plus the new excludes:
+
+| Check | Result |
+|---|---|
+| `cargo test -p csm-ci-selection` | 39 unit + 12 acceptance + 1 workflow-wiring, 0 failed |
+| commitlint `--from origin/main --to HEAD` | 0 problems |
+| `cargo mutants --in-diff` (crate scope, CI timeouts, bin targets excluded) | 103 mutants in 3 minutes: 90 caught, 13 unviable, **0 missed, 0 timeouts** — 100% of viable |
+
+Pushing for the CI verdict; the merge stays an owner decision (never `--auto`, one PR at a time).
