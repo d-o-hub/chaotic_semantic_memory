@@ -64,6 +64,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - **Release Safety**: Never release with failing CI; synchronized `Cargo.lock`; verify crate ownership. Details: `@agents-docs/release-safety.md`.
 - **GitHub API Fallback**: Default `gh issue view` and `gh pr edit` fail on deprecated `projectCards`. Query `--json` fields explicitly or use `gh api -X PATCH repos/.../pulls/<id>`.
 - **Cross-Target Compilation**: `src/lib.rs` partitions modules by `#[cfg(target_arch = "wasm32")]`, so native clippy/doc/test never compiles the WASM half (and vice versa). Any change touching a cfg-gated module, or a caller of one, must pass `cargo check --target wasm32-unknown-unknown -p csm-wasm` — `validate.sh`'s last stage. Details: `@agents-docs/coding-standards.md`.
+- **CI path selection**: `ci.yml`'s `detect-changes` job runs `csm-ci-select` from `crates/csm-ci-selection` — the policy globs, per-job reasons and fail-closed rules (unknown base, empty change set, unclassified path, unresolvable ref → every job) live in that crate, never as workflow regexes. A new gated job needs its key in the crate's `JOBS` table plus the workflow's `outputs:` block; `cargo test -p csm-ci-selection` asserts both, and asserts every declared output is consumed by some job.
 
 ---
 

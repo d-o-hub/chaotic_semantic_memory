@@ -35,6 +35,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `secrets.CARGO_REGISTRY_TOKEN` any more.
 
 ### Fixed
+- **CI selection (`ci.yml`, #992)**: `detect-changes` was a block of shell regexes
+  embedded in the workflow, and its `mcp` rule matched only `src/mcp/**`, so
+  `src/cli/mcp.rs` and both `tests/mcp*_integration.rs` targets could change
+  without the dedicated `cargo test --features mcp` job ever running. The decision
+  now lives in `crates/csm-ci-selection` (library plus the `csm-ci-select`
+  binary): the policy is a declared glob table with a stated reason per job,
+  discovery resolves `<ref>...HEAD` through their merge base with
+  `git diff --name-status -z` and keeps Git's diagnostic instead of inferring an
+  empty diff, and a failed discovery, an empty change set or an unclassified path
+  each select every job. Because every specialized job compiles workspace crates,
+  any Rust, manifest, lockfile, toolchain or CI-workflow change selects them all;
+  only documentation, plans, skills and tooling select nothing. `ci.yml` now calls
+  the selector and wraps that call so a toolchain or build failure enables every
+  job rather than skipping one. 49 tests — 36 unit, 12 acceptance cases over real
+  Git ranges, and 1 workflow-wiring assertion — pin the classification table.
 - **Chaos (`csm-chaos`, #961)**: `ChaoticLsh::new` and `VoronoiLsh::new` bounded their
   allocation only by `input_dim`, so an untrusted dimension could request a GiB-scale table
   (`10240 * 100_000 * 4 B` ≈ 3.8 GiB) and a multiplication by `usize::MAX` could overflow.
