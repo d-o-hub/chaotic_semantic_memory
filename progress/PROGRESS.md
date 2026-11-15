@@ -2595,3 +2595,9 @@ first attempt built a worktree there and died on `Disk quota exceeded`) and `tar
 grown to 132 GB, filling `/` to 100%. `rm -rf target/debug` restored 131 GB (71% used), the
 worktree was removed and pruned, and the affected gates re-run clean in the main worktree;
 PR CI on the clean runner is the authoritative verdict.
+
+Head `3bca7fb1` is green: CI run `43697330535` succeeded (18 success, 9 path-filtered skips, 0
+failures) and all six required ruleset contexts — `Build CLI (linux-x64)`,
+`Codacy Static Code Analysis`, `commitlint`, `lint`, `test`, `mutation-test` — concluded success,
+with `mergeStateStatus: CLEAN`. The roast verdict is recorded in `plans/PR_ROAST_2026_11_15.md`;
+merging remains an owner decision (never `--auto`, one PR at a time).
