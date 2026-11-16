@@ -240,21 +240,27 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_mutation_scope_and_parser_hang_1038 # 2026-11-15:
-                               #   PR #1038's required `mutation-test` context failed as
-                               #   "missing shard evidence": shard 5 was cancelled at its
-                               #   45-minute limit while its siblings finished in 5-8 minutes.
-                               #   The shard artifacts named two defects in the diff, not a
-                               #   runner budget - a mutant of the name-status parser
-                               #   (`index += 1 -> -=`) never terminated, and 32 of 34
-                               #   bin-target mutants were MISSED because `--lib` never builds
-                               #   a bin (32/34 alone caps the union at 65% < MUTATION_THRESHOLD
-                               #   85). The parser now walks a forward-only token cursor;
-                               #   `scripts/mutation_test.sh` excludes `**/src/main.rs` and
-                               #   `**/src/bin/*.rs` for that profile; the 8 remaining uncaught
-                               #   library mutants became assertions. Local sweep on the
-                               #   rebased head: 103 mutants in 3 minutes, 90 caught,
-                               #   13 unviable, 0 missed, 0 timeouts (100% of viable). 52 tests
-                               #   (39 unit, 12 acceptance, 1 workflow-wiring).
-                               #   Predecessor: implement_typed_ci_path_selection_992
-                               #   (roast: plans/PR_ROAST_2026_11_15.md).
+  action_last_completed: scope_mutation_build_to_lib_target_1005 # 2026-11-15:
+                               #   The fast mutation profile appended `--lib` after `--`, which
+                               #   cargo-mutants forwards to the test invocation only, so each
+                               #   shard's unmutated baseline compiled every integration target of
+                               #   the root package: 75 test executables, 2624 MB of
+                               #   `debug/incremental` and 387 s, against 1 executable, 449 MB and
+                               #   184 s for `--lib` (scratch CARGO_TARGET_DIR per shape, same
+                               #   head). With `CARGO_INCREMENTAL: "1"` on that job (ci.yml:597)
+                               #   that was the disk exhaustion behind shard 7's BaselineFailed
+                               #   exit 4 in run 41812424419, whose shard log claimed "evidence
+                               #   written" anyway. `--lib` now travels in `--cargo-arg=--lib`
+                               #   (reaches build and test); a BaselineFailed shard names the phase,
+                               #   quotes the disk error from baseline.log, writes no
+                               #   shard-complete marker and stops the sweep; the arm fixture is
+                               #   repaired and run by validate.sh, with SCRIPT_CATALOG.md
+                               #   regenerated. Same-head sweep unchanged: 103 mutants, 90 caught,
+                               #   13 unviable, 0 missed, 0 timeouts - nothing depended on an
+                               #   integration test to be killed. PR #1039 -> c59c752c; every
+                               #   required context green, shards 1-8 in 3-4 minutes (shard 7, the
+                               #   one that died, 3m19s). Issue #1005 closed.
+                               #   Roast: plans/PR_ROAST_2026_11_15.md.
+                               #   Predecessor: repair_mutation_scope_and_parser_hang_1038
+                               #   (parser hang + bin-target excludes; roast:
+                               #   plans/PR_ROAST_2026_11_15.md).
