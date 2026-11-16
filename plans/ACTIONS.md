@@ -34,7 +34,11 @@
 # the seven detect-changes outputs now come from crates/csm-ci-selection, so
 # src/cli/mcp.rs selects mcp-feature instead of leaving that job skipped.
 # Queue stays empty; the roast record is plans/PR_ROAST_2026_11_15.md.
-# Also open: docs/remove-jules-notes (PR #1037), the .jules note deletion.
+# Queue empty as of 2026-11-16 too: the three open Dependabot PRs that held
+# main's Pre-Release Gate refused (PR Drain, run 43840583406) were roasted,
+# brought up to the current main one at a time and drained - #1042 -> a6dad76b,
+# #1041 -> d7e10e2d, #1043 -> d1ec01bf - and the roast record landed as PR
+# #1044 -> 66195f0f. Zero open PRs afterwards.
 ```
 
 Dependency reading, so a later session does not re-derive it: #960 -> #954 -> #955 is the
@@ -52,3 +56,6 @@ The queue is still empty as of 2026-11-15: `scope_mutation_build_to_lib_target_1
 7 — the one that died in its baseline — 3m19s). Its predecessor,
 `repair_mutation_scope_and_parser_hang_1038`, completed immediately before it. Both are recorded as
 `action_last_completed` history in `plans/GOAP_STATE.md` and in git, not re-added here.
+
+The queue is still empty as of 2026-11-16: the Dependabot trio (#1041/#1042/#1043) landed after the
+roast and drain described above, and there are no open PRs at that point.

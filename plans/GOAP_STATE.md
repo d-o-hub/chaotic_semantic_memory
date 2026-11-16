@@ -240,27 +240,29 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: scope_mutation_build_to_lib_target_1005 # 2026-11-15:
-                               #   The fast mutation profile appended `--lib` after `--`, which
-                               #   cargo-mutants forwards to the test invocation only, so each
-                               #   shard's unmutated baseline compiled every integration target of
-                               #   the root package: 75 test executables, 2624 MB of
-                               #   `debug/incremental` and 387 s, against 1 executable, 449 MB and
-                               #   184 s for `--lib` (scratch CARGO_TARGET_DIR per shape, same
-                               #   head). With `CARGO_INCREMENTAL: "1"` on that job (ci.yml:597)
-                               #   that was the disk exhaustion behind shard 7's BaselineFailed
-                               #   exit 4 in run 41812424419, whose shard log claimed "evidence
-                               #   written" anyway. `--lib` now travels in `--cargo-arg=--lib`
-                               #   (reaches build and test); a BaselineFailed shard names the phase,
-                               #   quotes the disk error from baseline.log, writes no
-                               #   shard-complete marker and stops the sweep; the arm fixture is
-                               #   repaired and run by validate.sh, with SCRIPT_CATALOG.md
-                               #   regenerated. Same-head sweep unchanged: 103 mutants, 90 caught,
-                               #   13 unviable, 0 missed, 0 timeouts - nothing depended on an
-                               #   integration test to be killed. PR #1039 -> c59c752c; every
-                               #   required context green, shards 1-8 in 3-4 minutes (shard 7, the
-                               #   one that died, 3m19s). Issue #1005 closed.
-                               #   Roast: plans/PR_ROAST_2026_11_15.md.
-                               #   Predecessor: repair_mutation_scope_and_parser_hang_1038
-                               #   (parser hang + bin-target excludes; roast:
-                               #   plans/PR_ROAST_2026_11_15.md).
+  action_last_completed: roast_and_drain_dependabot_trio_1041_1042_1043 # 2026-11-16:
+                               #   main's Pre-Release Gate had been refusing for two heads:
+                               #   `PR Drain=failure` on c59c752c (run 43840583406) while
+                               #   security-audit, version-triad, wasm-smoke-build,
+                               #   planning-state-check and benchmark-gate all passed, and the
+                               #   same pair refused on docs-only 2d563ae1 before it. The
+                               #   sibling Release run's `no-verdict` is the fail-closed message
+                               #   that follows a refused gate, not a second failure
+                               #   ("validation should have run and did not"). One open PR at a
+                               #   time after verifying each pin against the upstream tag with
+                               #   the API - peter-evans/create-pull-request v8.1.3 =
+                               #   3ffccacd46053766916f087ce41d627c0b8cf2d1 and
+                               #   taiki-e/install-action v2.90.3 =
+                               #   cfdb7ed4ccc7c7dce37759eae89dc5674b469b39, both exactly as
+                               #   pinned; rmcp/rmcp-macros 3.9.0 -> 3.10.0 is lockfile only.
+                               #   Every branch was brought up to the then-current main and its
+                               #   six required contexts re-verified on that head before it
+                               #   landed: #1042 -> a6dad76b, #1041 -> d7e10e2d, #1043 ->
+                               #   d1ec01bf; zero open PRs afterwards.
+                               #   Roast: plans/PR_ROAST_2026_11_16.md (merged as PR #1044 ->
+                               #   66195f0f).
+                               #   Predecessor: scope_mutation_build_to_lib_target_1005
+                               #   (#1039 -> c59c752c; its rationale is in git and
+                               #   progress/PROGRESS.md, per the header rule that this file
+                               #   carries only the current value).
+
