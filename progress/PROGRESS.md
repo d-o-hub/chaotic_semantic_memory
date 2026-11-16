@@ -2667,3 +2667,29 @@ Pushing for the CI verdict; the merge stays an owner decision (never `--auto`, o
   `scripts/verify-required-status-checks.sh`, which does not exist. The required contexts are read
   from the `main branch` ruleset (id `12897801`): `Build CLI (linux-x64)`, `Codacy Static Code
   Analysis`, `commitlint`, `lint`, `test`, `mutation-test`.
+
+## 2026-11-15 — #1005: the mutation build compiles only the scored scope
+
+`scripts/mutation_test.sh`'s fast profile appended `--lib` *after* `--`, and cargo-mutants forwards
+those arguments to the **test** invocation only: the unmutated baseline's `cargo test --no-run`
+stayed unscoped and codegen-compiled every integration target of the package. `ci.yml:597` pins
+`CARGO_INCREMENTAL: "1"` on that job, so all of it landed in `target/debug/incremental` — the disk
+exhaustion that killed shard 7 in run `41812424419` and surfaced as cargo-mutants exit 4
+(BaselineFailed), while the shard log still said `evidence written; the mutation-test aggregator owns
+the union verdict`. Measured on this head with the pinned cargo-mutants 27.1.0, scratch
+`CARGO_TARGET_DIR` per shape so the incremental tree is the measurement:
+
+| build shape | wall | `Executable` test targets | `debug/incremental` | target dir |
+|---|---|---|---|---|
+| `cargo test --no-run -p chaotic_semantic_memory --features chaotic_semantic_memory/mcp` (was) | 387 s | 75 | 2624 MB | 13929 MB |
+| `… --lib` (now) | 184 s | 1 | 449 MB | 2173 MB |
+
+The fix moves `--lib` to `-C, --cargo-arg=--lib` (documented as args for *all* cargo invocations, so
+build and test), reports a BaselineFailed shard as such with the `baseline.log` disk error quoted and
+no `shard-complete` marker, and stops the sweep at the arm that failed its baseline. The arm fixture
+(`scripts/test-mutation-arms.sh`, whose run-command anchor was `-- --lib`) is updated and is now
+wired into `scripts/validate.sh` — it was gated by nothing, which is how the change could have passed
+review while silently emptying its assertions.
+
+This is a re-creation of `9865cdee` (`fix/ci-mutation-build-scope`, 2026-11-08, never opened as a PR)
+onto current `main` per Rule 10, keeping that work's baseline-detail helper and arm stop.

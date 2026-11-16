@@ -77,7 +77,7 @@ if [[ "${1:-}" == "mutants" && "${2:-}" == "--list" ]]; then
             echo "error: could not read the diff file" >&2
             exit 3
             ;;
-        mutants | mutants_split | mutants_missed)
+        mutants | mutants_split | mutants_missed | baseline_fail)
             # An arm that selects only csm-core-lib has nothing in this diff (which
             # touches src/example.rs and the `example` package), so it must list
             # nothing and be skipped rather than pay a baseline build.
@@ -102,6 +102,19 @@ if [[ "${1:-}" == "mutants" && "${2:-}" == "--list" ]]; then
 fi
 if [[ "${1:-}" == "mutants" ]]; then
     printf '%s\n' "$*" >>"${FIXTURE_ARGV}"
+    if [[ "${FAKE_LIST_MODE:-empty}" == "baseline_fail" ]]; then
+        # cargo-mutants exit 4 = BaselineFailed: the unmutated tree did not pass,
+        # so no mutant outcome was produced. The issue #1005 run died here on disk
+        # exhaustion, and the shard log still claimed "evidence written".
+        mkdir -p mutants.out/log
+        cat >mutants.out/log/baseline.log <<'LOG'
+error: cargo test failed in an unmutated tree
+rustc-LLVM ERROR: IO failure on output stream: No space left on device
+error: failed to write file target/debug/incremental/test_advanced_ttl/dep-graph.part.bin: No space left on device (os error 28)
+LOG
+        echo "error: cargo test failed in an unmutated tree" >&2
+        exit 4
+    fi
     if [[ "${FAKE_LIST_MODE:-empty}" == "mutants_missed" ]]; then
         echo "2 mutants tested in 20.0s: 1 caught, 1 missed, 0 unviable, 0 timeouts"
         exit 2
@@ -261,7 +274,7 @@ has "a diff with mutants reaches the score" "unit-target mutation score 87.5000%
 has "the score is the union of the arms, not an average" "caught=7 missed=1 timeout=0 unviable=0"
 lacks "neither arm is scored alone" "unit-target mutation score 100.0000%"
 lacks "a diff with mutants must not warn about zero evidence" "::warning title=Mutation gate::0 mutation-visible lines"
-report_has "the report states the derived target set" "- Target Set: lib target only (--lib); the package scope lives on each arm"
+report_has "the report states the derived target set" "- Target Set: lib target only (--lib); --cargo-arg=--lib scopes the build and test invocations"
 report_lacks "the report must not claim a package scope the test command no longer carries" "--lib -p"
 
 # The regression that caused all of this: `-p` must appear on the generation side
@@ -289,12 +302,20 @@ if grep -E '^mutants --list ' "${TEST_DIR}/argv.txt" | grep -F -- '--features' |
 else
     ok "the mcp feature rides only with the root package arm"
 fi
-if grep -qE -- '-- --lib$' "${TEST_DIR}/argv.txt" &&
-  ! grep -qE -- '-- --lib -p' "${TEST_DIR}/argv.txt"; then
-    ok "the test side stays arm-agnostic (--lib) and the package scope lives on the arm"
+# Issue #1005: --lib must ride on the cargo invocation so the *build* phase
+# compiles only the lib target. The old `-- --lib` reached the test run only,
+# leaving `cargo test --no-run` to compile all integration targets.
+if grep -qE '^mutants --list .*--cargo-arg=--lib' "${TEST_DIR}/argv.txt" &&
+  grep -qE '^mutants --in-diff .*--cargo-arg=--lib' "${TEST_DIR}/argv.txt"; then
+    ok "the lib-only scope reaches the build invocation via --cargo-arg"
 else
-    no "the test side stays arm-agnostic (--lib) and the package scope lives on the arm"
+    no "the build invocation does not carry --cargo-arg=--lib"
     cat "${TEST_DIR}/argv.txt"
+fi
+if grep -qE -- '-- --lib' "${TEST_DIR}/argv.txt"; then
+    no "the test-only --lib argument is still present after --"
+else
+    ok "the test-only --lib argument is gone (cargo-arg scopes both phases)"
 fi
 
 echo
@@ -413,6 +434,58 @@ if grep -q "CI check failed" "${TEST_DIR}/shardrun.out"; then
     no "a shard must not print the per-slice threshold failure"
 else
     ok "no per-slice threshold failure is printed"
+fi
+
+echo
+echo "== a shard whose baseline fails must not claim evidence (issue #1005) =="
+: >"${TEST_DIR}/argv.txt"
+rm -rf "${TEST_DIR}/output/baselinefail" "${TEST_DIR}/mutants.out/log"
+status=0
+(
+    cd "${TEST_DIR}"
+    FAKE_GIT_MODE=rust \
+        FAKE_LIST_MODE=baseline_fail \
+        FAKE_METADATA_MODE=ok \
+        FAKE_ROOT="${REPO_ROOT}" \
+        FIXTURE_ARGV="${TEST_DIR}/argv.txt" \
+        MUTANTS_SHARD=2/8 \
+        MUTATION_OUTPUT_DIR="${TEST_DIR}/output/baselinefail" \
+        DIFF_TARGET=origin/main \
+        PATH="${TEST_DIR}/bin:${PATH}" \
+        bash "${SUBJECT}" --ci fast
+) >"${TEST_DIR}/baselinefail.out" 2>&1 || status=$?
+if [[ "${status}" -eq 4 ]]; then
+    ok "a BaselineFailed shard exits 4"
+else
+    no "a BaselineFailed shard exited ${status}, expected 4"
+    cat "${TEST_DIR}/baselinefail.out"
+fi
+if grep -qF "baseline phase failed (cargo-mutants exit 4, BaselineFailed); no mutant outcomes were produced" "${TEST_DIR}/baselinefail.out"; then
+    ok "the shard log names the baseline phase and the absence of outcomes"
+else
+    no "the shard log does not name the baseline failure"
+    cat "${TEST_DIR}/baselinefail.out"
+fi
+if grep -qF "No space left on device (os error 28)" "${TEST_DIR}/baselinefail.out"; then
+    ok "the shard log surfaces the disk-exhaustion cause from baseline.log"
+else
+    no "the shard log does not surface the disk-exhaustion cause"
+    cat "${TEST_DIR}/baselinefail.out"
+fi
+if grep -qF "evidence written" "${TEST_DIR}/baselinefail.out"; then
+    no "a BaselineFailed shard still printed 'evidence written'"
+else
+    ok "a BaselineFailed shard does not print 'evidence written'"
+fi
+if grep -qF "aggregator owns the union verdict" "${TEST_DIR}/baselinefail.out"; then
+    no "a BaselineFailed shard still handed a verdict to the aggregator"
+else
+    ok "a BaselineFailed shard does not hand a verdict to the aggregator"
+fi
+if [[ -f "${TEST_DIR}/output/baselinefail/shard-complete" ]]; then
+    no "a BaselineFailed shard wrote shard-complete"
+else
+    ok "a BaselineFailed shard does not write shard-complete"
 fi
 
 echo

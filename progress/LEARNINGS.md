@@ -1039,3 +1039,31 @@ Rule: before diagnosing an aggregate failure, read the **producer** jobs' conclu
 means no evidence, `failure` means evidence — and never treat the aggregate's message as a verdict on
 the diff. A cancelling push also voids every green tick on the head it replaces, so verification must
 name the SHA, never the PR.
+
+## 2026-11-15 — the mutation gate's build scope was never scoped
+
+`--lib` after `--` is a *test-side* flag: cargo-mutants hands the post-`--` tail to the test
+invocation, so the build it runs for every mutant and for its unmutated baseline kept compiling all
+75 integration targets of the root package. On `CARGO_INCREMENTAL=1` (pinned at `ci.yml:597`) that
+was 2624 MB of `debug/incremental` versus 449 MB for `--lib`, and 387 s versus 184 s — the cheapest
+disk bomb in this repository, and it presented as `BaselineFailed` without a single mutant outcome.
+
+Rules this produced:
+1. **A scope flag must be reachable by every phase that pays for it.** Ask which phase each argv
+   form reaches before measuring: `-C, --cargo-arg=…` reaches build and test, a post-`--` argument
+   reaches the test run only. Evidence lives in the per-phase argv of `mutants.out/debug.log`.
+2. **Instrument a scratch `CARGO_TARGET_DIR` per shape when the measurement *is* the cache.** Sharing
+   one target dir between the before and after runs measures the second run's warm cache, not the
+   change.
+3. **Verify the committed blob, not the working tree.** A selective-commit tool that reports
+   "edits lines added by unrecorded" can stage part of a patch: `be7d3c23` was syntactically valid,
+   passed every fixture (which ran from the working tree), and called `baseline_failure_detail` in a
+   file whose committed copy never defined it (`grep -c` on `git show HEAD:<path>` found 1 occurrence
+   where the tree had 2). Read the blob before pushing, or commit whole files.
+4. **An ungated fixture is not evidence.** `scripts/test-mutation-arms.sh` asserted on `-- --lib`;
+   nothing ran it, so the flag move would have left its extraction empty and its assertions vacuous.
+   Wiring a fixture into `validate.sh` is part of the change that breaks it, not a follow-up.
+5. **Unmerged work does not exist until you look for it.** This issue was already implemented in
+   `9865cdee` on a branch with no PR; `git log --oneline <candidate-branch>` plus
+   `gh pr list --state all --head <branch>` costs one call and prevented a duplicate fix (Rule 10:
+   re-create on current `main`, keep what is better, add what is missing).
