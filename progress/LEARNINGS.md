@@ -1067,3 +1067,30 @@ Rules this produced:
    `9865cdee` on a branch with no PR; `git log --oneline <candidate-branch>` plus
    `gh pr list --state all --head <branch>` costs one call and prevented a duplicate fix (Rule 10:
    re-create on current `main`, keep what is better, add what is missing).
+
+## 2026-11-16 — the release gate samples open PRs when it runs, not when main moved
+
+`Pre-Release Gate`'s `pr-drain-check` calls `gh pr list --state open` inside the job, so what it sees
+is the PR set at *gate-run* time. The gate is a `workflow_run` sibling of `CI`, which means it starts
+roughly when `CI` finishes on the new head — 30 to 45 minutes after the push that moved `main`. A PR
+opened in that window fails the check even though `main` was pushed from a quiet repository, which is
+exactly what happened to `66195f0f` (pushed by merging the docs PR #1044; the check ran at 15:14:37,
+with #1045 open in the meantime) and to `d1ec01bf` (the `rmcp` merge, whose check ran at 14:10 while
+the roast PR #1044 was open). Every gate run since 2026-11-15 15:26 failed; the last pass, `d3a5c3dd`
+at 19:13, was the last stretch where nobody had a PR open for the whole window.
+
+Rules this produced:
+1. **Read the gate job, not the badge, before blaming a diff.** The refusal text says
+   "Found N open PRs without hold-for-next/deferred labels" and the job then echoes the exact list;
+   `gh run view <gate-run> --log-failed` names both the count and the heads. A drain failure after a
+   merge of your own says nothing about the merged change.
+2. **A release-only main is a quiescence window, not a state you reach by merging.** Between the
+   push that moves `main` and the gate that runs ~40 minutes later, keep the repository free of
+   unlabelled PRs, or accept that the gate refuses and the sibling `Release` run emits its
+   `no-verdict` fail-closed message ("validation should have run and did not") for that head.
+3. **`hold-for-next` / `deferred` are the sanctioned way to keep a PR open across that window.** They
+   are exclusions in the check's own `jq`, so they mean "parked on purpose" — labelling a PR you
+   intend to merge next would be gaming the gate, not using it.
+4. **A queued gate run is not a verdict.** bg_41 watched `Pre-Release Gate` for `d1ec01bf` while it
+   still read `queued/`; the run only became meaningful 40 minutes in. Wait for `completed/`, and
+   read the per-job conclusions rather than the run conclusion alone.
