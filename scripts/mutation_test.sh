@@ -112,6 +112,28 @@ mkdir -p "${OUT_DIR}"
 TMP_PKGS="$(mktemp)"
 trap 'rm -f "${TMP_PKGS}"' EXIT
 
+# A cargo-mutants exit 4 means its unmutated baseline failed, so no mutant was
+# ever tested (issue #1005). The shard log must say that instead of claiming
+# evidence, and it must name the disk-exhaustion shape when baseline.log carries
+# it: the runner's `No space left on device` surfaced only as a generic exit 4.
+baseline_failure_detail() {
+  local log
+  for log in "${OUT_DIR}"/*/mutants.out/log/baseline.log mutants.out/log/baseline.log "${OUT_DIR}"/*/baseline.log; do
+    [[ -f "${log}" ]] || continue
+    if grep -qiE 'no space left on device|os error 28|enospc' "${log}"; then
+      echo "  baseline log ${log}: No space left on device (os error 28)" >&2
+      return 0
+    fi
+  done
+  for log in "${OUT_DIR}"/*/mutants.out/log/baseline.log mutants.out/log/baseline.log "${OUT_DIR}"/*/baseline.log; do
+    [[ -f "${log}" ]] || continue
+    echo "  baseline log ${log}:" >&2
+    grep -m1 -iE 'error|panic|failed' "${log}" | sed 's/^/    /' >&2 || true
+    return 0
+  done
+  echo "  no baseline.log found under ${OUT_DIR} or mutants.out (cargo-mutants exit 4)" >&2
+}
+
 HELP_TEXT="$(cargo mutants --help 2>/dev/null || true)"
 FAST_ARGS=()
 TEST_ARGS=()
@@ -294,7 +316,22 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # unmutated tree, so no mutants were tested") in both feature arms. Scoped to the arm
   # the same baseline builds in seconds. This is #1005's fault — the test-side scope is
   # arm-agnostic — seen from the arm side.
-  TEST_ARGS+=(--lib)
+  #
+  # Issue #1005: put `--lib` on the cargo invocation, not only after `--`. The `--`
+  # form reaches the test run only, so cargo-mutants' unmutated baseline
+  # (`cargo test --no-run --verbose -p ...`) still codegen-compiled every integration
+  # target of the package; with CARGO_INCREMENTAL=1 that filled shard 7's disk and
+  # cargo-mutants reported BaselineFailed (exit 4) instead of a test result.
+  # `--cargo-arg` reaches every cargo invocation (build and test), so the build phase
+  # now compiles exactly the lib target the gate scores. Measured with the cargo-mutants
+  # 27.1.0 this workflow pins, in this repository's own mutation output — the per-phase
+  # argv in `mutants.out/debug.log`:
+  #   before: `cargo test --no-run --verbose --package=csm-ci-selection@0.3.9`   (no --lib)
+  #           `cargo test --verbose --package=csm-ci-selection@0.3.9 --lib`
+  #   after:  `cargo test --no-run --verbose --package=csm-ci-selection@0.3.9 --lib`
+  # `--lib` must NOT also stay in TEST_ARGS: that would pass the duplicate flag to the
+  # test invocation, the same reason the `--no-default-features` branch below documents.
+  FAST_ARGS+=(--cargo-arg=--lib)
 
   # `mcp` is not in the crate's `default` feature set (Cargo.toml:
   # default = ["cli", "persistence", "parallel"]) and both
@@ -809,6 +846,10 @@ for arm in "${ARM_NAMES[@]}"; do
   fi
   RESULT="${arm_rc}"
   ARM_RESULTS+=("${arm}=${arm_rc}")
+  if [[ "${arm_rc}" -eq 4 ]]; then
+    echo "mutation arm '${arm}' failed its unmutated baseline (cargo-mutants exit 4); stopping before later arms" >&2
+    break
+  fi
 done
 set +o pipefail
 set -e
@@ -831,7 +872,7 @@ set -e
   echo "- Timestamp (UTC): ${TIMESTAMP}"
   echo "- Profile: ${PROFILE}"
   if [[ "${PROFILE}" == "fast" ]]; then
-    echo "- Target Set: lib target only (--lib); the package scope lives on each arm, not the test command"
+    echo "- Target Set: lib target only (--lib); --cargo-arg=--lib scopes the build and test invocations"
     echo "- Arms: ${ARM_RESULTS[*]}"
     # `${ARM_COUNTS[*]}` walks a hash map, so it does not follow `${ARM_NAMES[*]}`:
     # with three arms the line read `root crates feat-csm-core-lib = 0 1 0` while the
@@ -847,7 +888,11 @@ set -e
   fi
   echo "- Exit code: ${RESULT}"
   echo "- Jobs: ${JOBS}"
-  echo "- Test args: ${TEST_ARGS[*]:-(full suite)}"
+  if [[ "${PROFILE}" == "fast" ]]; then
+    echo "- Test args: ${TEST_ARGS[*]:-(none; --cargo-arg=--lib scopes build and test)}"
+  else
+    echo "- Test args: ${TEST_ARGS[*]:-(full suite)}"
+  fi
   echo "- Log: \`${LOG_FILE}\`"
   echo
   echo "## Tail"
@@ -873,11 +918,19 @@ done
 echo "wrote ${REPORT_FILE}"
 
 if [[ -n "${SHARD}" ]]; then
-  echo "mutation shard ${SHARD}: evidence written; the mutation-test aggregator owns the union verdict" >&2
+  if [[ "${RESULT}" -eq 4 ]]; then
+    # BaselineFailed: the unmutated tree did not pass, so no mutant outcome exists.
+    # This is not "evidence written", and it must not write shard-complete.
+    echo "mutation shard ${SHARD}: baseline phase failed (cargo-mutants exit 4, BaselineFailed); no mutant outcomes were produced" >&2
+    baseline_failure_detail
+    exit 4
+  fi
   if [[ "${RESULT}" -eq 0 || "${RESULT}" -eq 2 ]]; then
+    echo "mutation shard ${SHARD}: evidence written; the mutation-test aggregator owns the union verdict" >&2
     echo "${SHARD}" > "${OUT_DIR}/shard-complete"
     exit 0
   fi
+  echo "mutation shard ${SHARD}: mutation phase finished with exit ${RESULT}; no shard-complete marker (not a passing mutation result)" >&2
   exit "${RESULT}"
 fi
 

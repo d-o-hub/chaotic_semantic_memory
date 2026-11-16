@@ -164,10 +164,11 @@ run_mutation() { # run_mutation <git-mode> <list-mode> <case-name> <expected-sta
     fi
     MUT_LOG="${output_file}"
     # Only the *generation-side* scope decides what a mutation arm builds, so the
-    # `-- <cargo test args>` tail is cut: the tail is the cargo test command, shared
-    # by every arm and arm-agnostic by design (`--lib`), so counting `-p` there would
-    # credit a scope the test side no longer carries.
-    ARMS="$(grep -- '-- --lib' "${TEST_DIR}/argv.txt" | sed 's/ -- .*//' || true)"
+    # `-- <cargo test args>` tail is cut when one exists: the tail is the cargo test command,
+    # shared by every arm and arm-agnostic by design. Since issue #1005 the lib scope travels in
+    # `--cargo-arg=--lib`, so the run invocation has no tail at all — select the run lines by
+    # their subcommand instead of by the separator that used to anchor them.
+    ARMS="$(grep -E '^mutants ' "${TEST_DIR}/argv.txt" | grep -vE '^mutants --list ' | sed 's/ -- .*//' || true)"
 }
 
 # argv_has <description> <fixed-string> — some run-phase command must contain it.

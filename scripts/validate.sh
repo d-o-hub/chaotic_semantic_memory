@@ -196,6 +196,13 @@ echo "==> Mutation inventory fixture"
 echo "==> Mutation gate classification fixture"
 "${SCRIPT_DIR}/test-mutation-no-diff.sh"
 
+# Mutation arm split (PR #977): the same stub shape, pinned to the per-arm argv —
+# generation scope per arm, the shard slice reaching every arm, and one completeness
+# marker per shard. Issue #1005 moved the lib scope into the cargo args, which changed
+# the anchor these assertions cut the run command at, so the fixture is part of the fix.
+echo "==> Mutation arm split fixture"
+"${SCRIPT_DIR}/test-mutation-arms.sh"
+
 # cfg-split declarations (issue #952): a native/wasm pair inside the mutation
 # surface contributes an unkillable MISSED mutant. The checker is diff-scoped in
 # the gate; the fixture proves both the finding and the untouched-file direction.
