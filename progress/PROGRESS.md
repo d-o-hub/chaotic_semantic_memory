@@ -2693,3 +2693,18 @@ review while silently emptying its assertions.
 
 This is a re-creation of `9865cdee` (`fix/ci-mutation-build-scope`, 2026-11-08, never opened as a PR)
 onto current `main` per Rule 10, keeping that work's baseline-detail helper and arm stop.
+
+## 2026-11-16 — the dependabot trio blocked the release gate
+
+`main`'s `Pre-Release Gate` refused twice in a row — `PR Drain=failure` on `c59c752c`
+(run `43840583406`) and on docs-only `2d563ae1` before it — because three Dependabot PRs sat open
+(#1041/#1042/#1043) alongside the docs PR. Every other gate job passed, and the sibling `Release`
+run's `validate`/`no-verdict` pair is the fail-closed message that follows, not an independent
+failure.
+
+Roasted the three (pins verified against upstream tags with the API — `peter-evans/create-pull-request`
+v8.1.3 → `3ffccacd…`, `taiki-e/install-action` v2.90.3 → `cfdb7ed4…`, both exactly as pinned; #1043
+lockfile-only for `rmcp`/`rmcp-macros` 3.9.0 → 3.10.0), brought each up to date with the then-current
+`main` before merging, and re-verified the six required contexts on the updated heads. #1041 landed
+as `d7e10e2d`, #1042 as `a6dad76b` (main CI `43858431590` green); #1043 (`rmcp`) followed the same
+discipline. Record: `plans/PR_ROAST_2026_11_16.md`.
