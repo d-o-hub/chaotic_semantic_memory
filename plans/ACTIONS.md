@@ -46,3 +46,9 @@ independent of everything. #951/#952/#959 are **strictly sequential**: all three
 guarantee a conflict and a bot resolution that reverts one of them (`AGENTS.md` Rule 10).
 `repair_the_release_gate_race` (#953) is not queued — it landed as PR #962 and is recorded as
 `action_last_completed` in the 2026-11-03 archive snapshot.
+
+The queue is still empty as of 2026-11-15: `scope_mutation_build_to_lib_target_1005` landed as PR
+#1039 -> `c59c752c`, closing issue #1005, with all eight mutation shards green in 3-4 minutes (shard
+7 — the one that died in its baseline — 3m19s). Its predecessor,
+`repair_mutation_scope_and_parser_hang_1038`, completed immediately before it. Both are recorded as
+`action_last_completed` history in `plans/GOAP_STATE.md` and in git, not re-added here.
