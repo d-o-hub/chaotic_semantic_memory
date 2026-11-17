@@ -2708,3 +2708,15 @@ lockfile-only for `rmcp`/`rmcp-macros` 3.9.0 → 3.10.0), brought each up to dat
 `main` before merging, and re-verified the six required contexts on the updated heads. #1041 landed
 as `d7e10e2d`, #1042 as `a6dad76b` (main CI `43858431590` green); #1043 (`rmcp`) followed the same
 discipline. Record: `plans/PR_ROAST_2026_11_16.md`.
+
+## 2026-11-17 — v0.3.9 completed on crates.io (9/9)
+
+The release was missing one channel: tag `642238f0`, 2/2 npm and 7 assets were live while crates.io
+sat at 0.3.8 for all nine crates. A dry-run dispatch of `publish-crates.yml` (run `44030925121`)
+proved the OIDC path is refused at the registry — the nine trusted-publisher configs name
+`release.yml` while the JWT carries `publish-crates.yml` — so, with the owner's decision, the nine
+were published locally from the tag with the stored token, in the workflow's dependency order.
+`csm-duckdb` failed once on `/tmp` tmpfs exhaustion during its bundled-DuckDB verification build and
+succeeded with `CARGO_TARGET_DIR` on `/`. crates.io now answers `max_version 0.3.9` for all nine;
+`release_pipeline_validated` flipped true, while the ADR-0104 OIDC path and the token revocation
+remain owed. Records: `plans/GOAP_STATE.md`, `progress/LEARNINGS.md`.

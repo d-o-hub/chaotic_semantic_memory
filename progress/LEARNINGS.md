@@ -1121,3 +1121,25 @@ Rules this produced:
 3. **A dry run proves plumbing, never permissions.** The version/ref confirmation and the JWT mint
    are real evidence; the publish scopes are only proven by an upload, so the first live dispatch is
    still the moment `release_pipeline_validated` can flip.
+
+## 2026-11-17 (later) — v0.3.9 is on crates.io 9/9, and the token path is what proved it
+
+The nine publish crates went from 0.3.8 to 0.3.9 with a local `cargo publish -p <crate>` loop from
+tag `642238f0` in the workflow's dependency order, and the registry now answers
+`max_version 0.3.9` for all nine. The ADR-0104 OIDC dispatch is still unproven (its
+trusted-publisher configs name `release.yml`), so this was the fallback path, not the designed one.
+
+Rules this produced:
+1. **A verification build needs a target dir on a real disk.** The tag worktree sat in `/tmp`, a
+   7.5 G tmpfs here: the `csm-duckdb` bundled-DuckDB verify build filled it and `ar` died with
+   "No space left on device" *after* the other eight had uploaded. Pointing `CARGO_TARGET_DIR` at
+   `/` let the same publish finish in 26 minutes.
+2. **Dependency order is load-bearing, not stylistic.** A `cargo package` of the root crate before
+   its siblings are on the index fails with "failed to select a version for the requirement
+   `csm-chaos = ^0.3.9`; candidate versions found which didn't match: 0.3.8, 0.3.7" — the same
+   reason `publish-crates.yml` iterates `csm-chaos` first.
+3. **An ENOSPC mid-series is resumable.** Published versions are immutable, so the retry publishes
+   only the missing crate, and an "already uploaded" answer means skip, not fail.
+4. **Verify through the API, not the index body.** `jq '[.vers] | last'` over newline-delimited
+   sparse-index JSON prints one line per version; `/api/v1/crates/<name>` returns a single
+   `max_version` and is the honest check. Both need a `User-Agent` or crates.io answers 403.

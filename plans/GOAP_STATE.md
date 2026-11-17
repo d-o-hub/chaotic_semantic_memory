@@ -75,22 +75,18 @@ world_state:
   yaml_gate_severity_classified_and_gated: true  # syntax/error/warning; no-parser prints NOT A PASS
 
   # ── Active wave / release surface ─────────────────────────────
-  release_pipeline_validated: false  # v0.3.9: tag + 2/2 npm + 7 assets live, crates.io 0/9 (dead
-                                     #   credential, #967). Stays false until 9/9. A `recover=true
-                                     #   recovery_tag=v0.3.9` release run now drives the crates.io half
-                                     #   too (trigger-crates-io-publish dispatches publish-crates.yml),
-                                     #   but the first proof should be the direct
-                                     #   `gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9
-                                     #   -f version=0.3.9` dispatch: one named run, one verdict, no
-                                     #   release in flight. A green run whose jobs all skipped is not
-                                     #   evidence (#969).
-                                     #   2026-11-17: that dry-run dispatch (run 44030925121,
-                                     #   dry_run=true) confirmed "All nine crates declare 0.3.9 at
-                                     #   refs/tags/v0.3.9", minted the GitHub JWT, and was refused at
-                                     #   the exchange with HTTP 400 - the trusted-publisher configs
-                                     #   name release.yml while the JWT carries publish-crates.yml.
-                                     #   Nothing was uploaded. See
-                                     #   crates_io_trusted_publishers_configured below.
+  release_pipeline_validated: true   # 2026-11-17: v0.3.9 is complete on every channel - tag
+                                     #   642238f0, 2/2 npm, 7 assets, crates.io 9/9 (each of the
+                                     #   nine answers max_version 0.3.9 through
+                                     #   /api/v1/crates/<name>). The crates.io half landed by a local
+                                     #   `cargo publish` per crate in the workflow's dependency order
+                                     #   from that tag with the stored token, after the OIDC dispatch
+                                     #   was refused (run 44030925121: the trusted-publisher configs
+                                     #   name release.yml, the JWT carries publish-crates.yml).
+                                     #   True therefore means the release is complete, not that the
+                                     #   ADR-0104 path works: crates_io_trusted_publishers_configured
+                                     #   and release_run_drives_crates_io_publish stay false, and the
+                                     #   old token stays live until an OIDC dispatch succeeds.
   audit_followup_wave_merged: true   # 2026-10-30: PR #947 -> 3953e818
   release_gate_race_repaired: true   # 2026-10-30: bounded 30m same-SHA gate wait (#953/#962)
   release_refusal_names_the_failing_gate_job: true  # #960: gate-failure-detail.sh names the job
