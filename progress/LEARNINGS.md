@@ -1094,3 +1094,30 @@ Rules this produced:
 4. **A queued gate run is not a verdict.** bg_41 watched `Pre-Release Gate` for `d1ec01bf` while it
    still read `queued/`; the run only became meaningful 40 minutes in. Wait for `completed/`, and
    read the per-job conclusions rather than the run conclusion alone.
+
+## 2026-11-17 — a dry-run dispatch is the sensor for crates.io trusted publishing
+
+`publish-crates.yml` requests its OIDC token before it publishes, so `dry_run=true` rehearses the
+whole chain up to the registry without uploading anything. Run `44030925121` (dispatched for
+`refs/tags/v0.3.9`, `version=0.3.9`) printed the two facts that matter — "All nine crates declare
+0.3.9 at refs/tags/v0.3.9" and "Retrieved JWT token successfully" — and then the exchange refused:
+
+```
+Status: 400. The Trusted Publishing config for repository `d-o-hub/chaotic_semantic_memory`
+does not match the workflow filename `publish-crates.yml` in the JWT.
+Expected workflow filenames: `release.yml` x9
+```
+
+So all nine crates have a trusted-publisher config, and every one names the retired `release.yml`
+path. Nothing was uploaded; the post step reports "No token to revoke".
+
+Rules this produced:
+1. **The 400 body is the only readable view of the trusted-publisher configs.** There is no API that
+   lists them, so a rehearsal dispatch is how you learn what they say — and its failure mode is safe
+   (no upload, no token).
+2. **Fix the config, not the workflow.** The JWT carries the *calling* workflow's filename, so the
+   nine crates must name `publish-crates.yml`. Renaming the workflow back to `release.yml` would
+   reintroduce the tag-push recursion problem ADR-0104 was written to escape.
+3. **A dry run proves plumbing, never permissions.** The version/ref confirmation and the JWT mint
+   are real evidence; the publish scopes are only proven by an upload, so the first live dispatch is
+   still the moment `release_pipeline_validated` can flip.

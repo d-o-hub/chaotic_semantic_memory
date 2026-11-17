@@ -84,6 +84,13 @@ world_state:
                                      #   -f version=0.3.9` dispatch: one named run, one verdict, no
                                      #   release in flight. A green run whose jobs all skipped is not
                                      #   evidence (#969).
+                                     #   2026-11-17: that dry-run dispatch (run 44030925121,
+                                     #   dry_run=true) confirmed "All nine crates declare 0.3.9 at
+                                     #   refs/tags/v0.3.9", minted the GitHub JWT, and was refused at
+                                     #   the exchange with HTTP 400 - the trusted-publisher configs
+                                     #   name release.yml while the JWT carries publish-crates.yml.
+                                     #   Nothing was uploaded. See
+                                     #   crates_io_trusted_publishers_configured below.
   audit_followup_wave_merged: true   # 2026-10-30: PR #947 -> 3953e818
   release_gate_race_repaired: true   # 2026-10-30: bounded 30m same-SHA gate wait (#953/#962)
   release_refusal_names_the_failing_gate_job: true  # #960: gate-failure-detail.sh names the job
@@ -100,10 +107,15 @@ world_state:
                                      #   this branch; false until a release run shows the job green
                                      #   alongside 9/9 index rows. Until then the hand dispatch is the
                                      #   path that has actually been tested.
-  crates_io_trusted_publishers_configured: false    # the 9 configs exist only in the crates.io UI and there
-                                     #   is no endpoint that lists them, so CI cannot pre-flight them; the
-                                     #   reconciliation step of publish-crates.yml is the sensor. Revoking
-                                     #   the old API token on crates.io is still owed (ADR-0104).
+  crates_io_trusted_publishers_configured: false # 2026-11-17: the dry-run dispatch (run 44030925121)
+                                     #   proved the nine configs *exist* and name the wrong workflow:
+                                     #   the exchange answered HTTP 400, "does not match the workflow
+                                     #   filename publish-crates.yml in the JWT. Expected workflow
+                                     #   filenames: release.yml" once per crate. Fix is a crates.io UI
+                                     #   edit per crate (workflow file publish-crates.yml, environment
+                                     #   crates.io); no API reads or sets these, so the exchange stays the
+                                     #   only sensor. Revoking the old API token on crates.io is still
+                                     #   owed (ADR-0104).
   host_subprocesses_isolated_from_nix_env: true     # #949/#981: 37-case fixture; nix jobs use use-flakehub: false
   active_wave: 33
   wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
