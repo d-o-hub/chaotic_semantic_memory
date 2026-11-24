@@ -2731,3 +2731,14 @@ and `.cargo/audit.toml`. Local `cargo deny --locked check`: red on `main`, green
 `check-audit-ignore-parity.sh` and its fixture pass. Not run here: `validate.sh`, clippy and tests
 (the pinned 1.88.0 toolchain is not downloadable in this sandbox), so the PR's CI is the full proof.
 Record: `progress/LEARNINGS.md`.
+
+## 2026-11-24 — seven Dependabot PRs drained after the advisory fix
+
+With #1057 on `main`, the six remaining bot PRs were each rebased onto the then-current `main` and
+merged only once all six required contexts were green on that exact head. Landings: #1051 `1bf3fa35`,
+#1058 `af3fa216` (Dependabot closed #1052 mid-flight and replaced it), #1053 `71dbd8ca` (the rebase
+dropped its hand-added `deny.toml` hunk, leaving `Cargo.lock` only, which cleared the audit-parity
+failure), #1054 `ed4e863a`, #1055 `fd498e76`, #1056 `e00fbeb8`. #1056's first attempt ended with
+`Build CLI (macos-arm64)` `cancelled` and no runner assigned (`runner_name: ""`, `steps: []`); one
+targeted `gh run rerun --job` took it green in ~5 minutes. Zero open PRs afterwards; record
+`plans/PR_ROAST_2026_11_24.md`.

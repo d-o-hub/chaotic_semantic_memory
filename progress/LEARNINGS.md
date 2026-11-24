@@ -1170,3 +1170,31 @@ Rules this produced:
    `env -u LD_LIBRARY_PATH cargo deny --locked check` failed with exactly the two CI advisories on
    `main` and passed advisories/bans/licenses/sources on the branch. The stale-ignore
    `advisory-not-detected` warnings are warnings, not failures; `deny.toml` stays additive-only.
+
+## 2026-11-24 — draining bot PRs: verify the PR object, the ref, and the failure kind
+
+Landing six bot PRs after the advisory fix produced three failure modes that all looked like "the
+branch is fine" from `git` alone.
+
+Rules this produced:
+1. **A bot can close its own PR mid-flight.** #1052 went `closed` at 11:28Z with the comment
+   "Looks like these dependencies are updatable in another way" and was replaced by #1058; its
+   branch was deleted and later re-created, so `git ls-remote` found a branch whose PR was already
+   dead. Check `gh pr view <n> --json state` (or `gh api pulls/<n> --jq .state`) **before** pushing
+   to a bot branch, and treat the replacement PR as the unit of work.
+2. **`gh pr view` can report a stale head after a force-push or a close.** `headRefOid` kept showing
+   the pre-push SHA while `git/ref/heads/<branch>` already had the new one, which made a healthy push
+   look like it had never landed. Cross-check with `gh api repos/<o>/<r>/pulls/<n> --jq .head.sha`
+   and `gh api .../git/ref/heads/<branch> --jq .object.sha`; also compare the check-run links' run ID
+   against the run created for the new head.
+3. **`--force-with-lease` needs the branch's own remote-tracking ref.** Pushing `review-1054` onto
+   `refs/heads/dependabot/...` failed with "stale info" because no `refs/remotes/origin/<branch>`
+   existed. Fetch it explicitly (`git fetch origin refs/heads/<branch>:refs/remotes/origin/<branch>`)
+   instead of dropping `--force-with-lease`, which is the guard that stops a clobbering push.
+4. **Re-fetching a bot head needs `-f`.** `git fetch origin refs/pull/N/head:refs/remotes/pr/N` is
+   rejected as non-fast-forward after Dependabot rebases its own branch; `git fetch -f` is correct
+   for a read-only PR ref.
+5. **Read the failure kind before re-running.** `cancelled` with `runner_name: ""` and `steps: []` is
+   a provisioning failure, not a test failure — `mergeStateStatus: UNSTABLE` (not `BLOCKED`) says the
+   required contexts already passed. `gh run rerun <run> --job <job>` retries just that job; a
+   `failure` with a populated log is a real signal and must be read instead.
