@@ -1,0 +1,126 @@
+name: Dependabot auto-merge
+
+# Merges Dependabot PRs that a human has already roasted and labelled
+# `automerge`, but only once every check is green on a branch that is up to date
+# with `main`.
+#
+# Why a workflow and not `gh pr merge --auto`: this repository is owned by a
+# *user*, not an organization, and GitHub's merge queue is only available in
+# public repositories owned by an organization (or private org repositories on
+# GitHub Enterprise Cloud). The API confirms it — creating a `merge_queue` rule
+# returns `Invalid rule 'merge_queue'` — so "always merge the latest branch" has
+# to be done explicitly here: update the branch, wait for the fresh run, verify,
+# merge.
+#
+# Why the `automerge` label: AGENTS.md rule 17 makes a roast verdict mandatory
+# before any merge. The label is that verdict — the workflow never merges a PR
+# nobody has reviewed, and it only handles Dependabot PRs.
+#
+# One PR per run, oldest first. The 15-minute schedule picks up the next one, and
+# `concurrency` keeps two runs from racing on the same branch.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Pull request number to merge (default: oldest labelled Dependabot PR)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-automerge
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Merge the oldest labelled Dependabot PR once it is green on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_INPUT: ${{ inputs.pr }}
+          # 45 minutes: the slowest required context (mutation-test) is ~40 min
+          # from a cold cache, so the wait has to outlast one full run.
+          MAX_WAIT_SECONDS: '2700'
+        run: |
+          set -euo pipefail
+
+          pr="${PR_INPUT}"
+          if [ -z "$pr" ]; then
+            pr=$(gh pr list --state open --label automerge --author 'app/dependabot' \
+              --json number --limit 1 --jq '.[0].number // empty')
+          fi
+          if [ -z "$pr" ]; then
+            echo "no open Dependabot PR carries the automerge label; nothing to do"
+            exit 0
+          fi
+          echo "candidate: #$pr"
+
+          deadline=$(( $(date +%s) + MAX_WAIT_SECONDS ))
+          updated=0
+
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            state=$(gh pr view "$pr" --json mergeStateStatus,mergeable,state --jq '"\(.state) \(.mergeStateStatus) \(.mergeable)"')
+            read -r pr_state merge_state mergeable <<<"$state"
+            echo "$(date -u +%H:%M:%SZ) #$pr state=$pr_state mergeStateStatus=$merge_state mergeable=$mergeable"
+
+            if [ "$pr_state" != "OPEN" ]; then
+              echo "::error title=Dependabot auto-merge::#$pr is $pr_state, not OPEN"
+              exit 1
+            fi
+
+            # CLEAN is GitHub's own verdict: required checks are green *and* the
+            # branch is up to date with the base. It is the only merge condition.
+            if [ "$merge_state" = "CLEAN" ]; then
+              failed=$(gh pr checks "$pr" --json bucket --jq '[.[]|select(.bucket=="fail" or .bucket=="cancel")]|length' 2>/dev/null || echo 0)
+              if [ "$failed" != "0" ]; then
+                echo "::error title=Dependabot auto-merge::#$pr has $failed failed/cancelled check(s); leaving it for a human"
+                gh pr checks "$pr" --json name,bucket --jq '.[]|select(.bucket=="fail" or .bucket=="cancel")|"  FAIL \(.name)"'
+                exit 1
+              fi
+              echo "all checks green and branch is current; merging #$pr"
+              gh pr merge "$pr" --squash --delete-branch
+              exit 0
+            fi
+
+            case "$merge_state" in
+              DIRTY)
+                echo "::error title=Dependabot auto-merge::#$pr has conflicts with main; leaving it for a human"
+                exit 1
+                ;;
+              UNSTABLE)
+                echo "::error title=Dependabot auto-merge::#$pr has a non-required check failing; leaving it for a human"
+                gh pr checks "$pr" --json name,bucket --jq '.[]|select(.bucket=="fail" or .bucket=="cancel")|"  FAIL \(.name)"'
+                exit 1
+                ;;
+              BEHIND|BLOCKED)
+                # BLOCKED is the normal state while checks run; BEHIND means main
+                # moved. Either way: bring the branch up to date, then wait for
+                # the fresh run. `update-branch` merges the base into the PR, so
+                # Dependabot's own commits are preserved and no force-push happens.
+                if [ "$updated" -lt 3 ]; then
+                  echo "updating #$pr with the latest main (attempt $((updated + 1)))"
+                  gh pr update-branch "$pr" >/dev/null 2>&1 || echo "  (already up to date or update refused)"
+                  updated=$((updated + 1))
+                  sleep 30
+                else
+                  echo "branch updated 3 times and still not CLEAN; waiting for checks"
+                  sleep 60
+                fi
+                ;;
+              *)
+                echo "unexpected mergeStateStatus '$merge_state'; waiting"
+                sleep 60
+                ;;
+            esac
+          done
+
+          echo "::error title=Dependabot auto-merge::#$pr did not reach CLEAN within ${MAX_WAIT_SECONDS}s"
+          exit 1
