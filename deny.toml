@@ -45,6 +45,15 @@ ignore = [
     { id = "RUSTSEC-2026-0398", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; seekable decompress never called" },
     { id = "RUSTSEC-2026-0403", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; DCtx::decompress_stream never called" },
     { id = "RUSTSEC-2026-0410", reason = "zstd-sys wasm32-only allocator shim; zstd-sys is absent from the csm-wasm dependency tree" },
+    # RUSTSEC-2026-0543 (2026-11): chrono is flagged unmaintained for *all* versions,
+    # so there is no patched release to upgrade to. Informational notice, not a
+    # vulnerability. chrono is a direct dependency here (root, csm-traits,
+    # csm-retrieval, csm-persistence) AND reaches the tree through libsql, rmcp,
+    # schemars and cloudevents-sdk, so migrating our own uses to jiff/time would not
+    # remove it from Cargo.lock. Revisit when those upstreams drop chrono.
+    # (RUSTSEC-2026-0592, url <= 2.5.8 blob: origin() stack overflow, is NOT ignored:
+    # it is fixed by locking url >= 2.5.9.)
+    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained (all versions, no patch); also pulled transitively by libsql/rmcp/schemars/cloudevents-sdk, informational only" },
     # Dependabot alerts #1, #4: libsql-sqlite3-parser crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5)
     # No patch available upstream. Low severity, requires malformed SQL input.
     # No RUSTSEC ID; will add when assigned.

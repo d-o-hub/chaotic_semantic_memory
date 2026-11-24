@@ -2720,3 +2720,14 @@ were published locally from the tag with the stored token, in the workflow's dep
 succeeded with `CARGO_TARGET_DIR` on `/`. crates.io now answers `max_version 0.3.9` for all nine;
 `release_pipeline_validated` flipped true, while the ADR-0104 OIDC path and the token revocation
 remain owed. Records: `plans/GOAP_STATE.md`, `progress/LEARNINGS.md`.
+
+## 2026-11-24 — cargo-deny advisories unblocked (url 2.5.9, chrono ignore)
+
+PR #1051 (`taiki-e/install-action` 2.90.3 -> 2.90.6) was red on `lint` and `Cargo Deny`, but only
+because two new RustSec advisories landed after `main`'s last green run. `RUSTSEC-2026-0592` (`url`
+<= 2.5.8, stack overflow in `Url::origin()`) is fixed by locking `url` 2.5.9 (`form_urlencoded` 1.2.3
+with it). `RUSTSEC-2026-0543` (`chrono` unmaintained, no patch) is a reasoned ignore in `deny.toml`
+and `.cargo/audit.toml`. Local `cargo deny --locked check`: red on `main`, green on the branch;
+`check-audit-ignore-parity.sh` and its fixture pass. Not run here: `validate.sh`, clippy and tests
+(the pinned 1.88.0 toolchain is not downloadable in this sandbox), so the PR's CI is the full proof.
+Record: `progress/LEARNINGS.md`.
