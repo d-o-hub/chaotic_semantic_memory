@@ -1143,3 +1143,30 @@ Rules this produced:
 4. **Verify through the API, not the index body.** `jq '[.vers] | last'` over newline-delimited
    sparse-index JSON prints one line per version; `/api/v1/crates/<name>` returns a single
    `max_version` and is the honest check. Both need a `User-Agent` or crates.io answers 403.
+
+## 2026-11-24 — a new RustSec advisory reds every PR at once; fix it on `main`, not on the bot PR
+
+Dependabot PR #1051 (a `taiki-e/install-action` bump, workflow-only) failed `lint` and `Cargo Deny`.
+The diff was innocent: `main`'s last green CI (2026-11-17) predates two advisories published since,
+so `cargo deny --locked check` fails on `main` and on every open PR regardless of what they touch.
+`lint` and `Cargo Deny` are the same `cargo deny` run, so one cause shows up as two red contexts.
+
+Rules this produced:
+1. **The annotation says nothing; the log does.** Both checks annotate only "Process completed with
+   exit code 1". The cause is the `error[vulnerability]` / `error[unmaintained]` block near the end
+   of `gh api repos/<o>/<r>/actions/jobs/<id>/logs`. The `HTTP error 418 ... Magic Nix Cache`
+   lines earlier in the same log were non-fatal warnings here, so the "418 = infra, just re-run"
+   rule only applies when the 418 is the *failure* reason, never when `advisories FAILED` follows.
+2. **Pick the fix by whether a patch exists.** Patched (`RUSTSEC-2026-0592`, `url` 2.5.8 -> 2.5.9):
+   `cargo update -p url --precise 2.5.9` (lockfile only; `form_urlencoded` moved with it) and no
+   ignore. No patch (`RUSTSEC-2026-0543`, `chrono` unmaintained, all versions): a reasoned ignore in
+   `deny.toml` **and** `.cargo/audit.toml` (parity gate #903), with the reason stating why removal is
+   impossible — here `chrono` is direct in four crates and also transitive via libsql, rmcp,
+   schemars and cloudevents-sdk.
+3. **Never hand-edit the Dependabot head.** It stops Dependabot rebasing it and bakes unrelated
+   security fixes into a workflow bump. Land the advisory fix on its own branch off `main`, then
+   `@dependabot rebase` the bot PRs.
+4. **Reproduce before claiming green.** Run the control on the unmodified tree, then the fix:
+   `env -u LD_LIBRARY_PATH cargo deny --locked check` failed with exactly the two CI advisories on
+   `main` and passed advisories/bans/licenses/sources on the branch. The stale-ignore
+   `advisory-not-detected` warnings are warnings, not failures; `deny.toml` stays additive-only.
