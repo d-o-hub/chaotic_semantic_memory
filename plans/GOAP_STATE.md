@@ -248,29 +248,31 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: roast_and_drain_dependabot_trio_1041_1042_1043 # 2026-11-16:
-                               #   main's Pre-Release Gate had been refusing for two heads:
-                               #   `PR Drain=failure` on c59c752c (run 43840583406) while
-                               #   security-audit, version-triad, wasm-smoke-build,
-                               #   planning-state-check and benchmark-gate all passed, and the
-                               #   same pair refused on docs-only 2d563ae1 before it. The
-                               #   sibling Release run's `no-verdict` is the fail-closed message
-                               #   that follows a refused gate, not a second failure
-                               #   ("validation should have run and did not"). One open PR at a
-                               #   time after verifying each pin against the upstream tag with
-                               #   the API - peter-evans/create-pull-request v8.1.3 =
-                               #   3ffccacd46053766916f087ce41d627c0b8cf2d1 and
-                               #   taiki-e/install-action v2.90.3 =
-                               #   cfdb7ed4ccc7c7dce37759eae89dc5674b469b39, both exactly as
-                               #   pinned; rmcp/rmcp-macros 3.9.0 -> 3.10.0 is lockfile only.
-                               #   Every branch was brought up to the then-current main and its
-                               #   six required contexts re-verified on that head before it
-                               #   landed: #1042 -> a6dad76b, #1041 -> d7e10e2d, #1043 ->
-                               #   d1ec01bf; zero open PRs afterwards.
-                               #   Roast: plans/PR_ROAST_2026_11_16.md (merged as PR #1044 ->
-                               #   66195f0f).
-                               #   Predecessor: scope_mutation_build_to_lib_target_1005
-                               #   (#1039 -> c59c752c; its rationale is in git and
+  action_last_completed: drain_dependabot_seven_and_fix_cargo_deny_advisories_2026_11_24
+                               #   Two RustSec advisories published after main's last green run
+                               #   (2026-11-17) made `cargo deny` red on every open head while
+                               #   every diff was innocent; `lint` runs the same deny through
+                               #   scripts/validate.sh, so one cause showed up as two red
+                               #   contexts per PR. RUSTSEC-2026-0592 (url <= 2.5.8, stack
+                               #   overflow in Url::origin()) has a patch -> lockfile bump to
+                               #   2.5.9, no ignore; RUSTSEC-2026-0543 (chrono unmaintained, no
+                               #   patched release) -> reasoned ignore in deny.toml AND
+                               #   .cargo/audit.toml so the #903 parity gate passes. The fix
+                               #   landed on its own branch (#1057 -> 65fed3ac), never on a bot
+                               #   head, then each PR was rebased onto the then-current main and
+                               #   merged only after all six required contexts were green on
+                               #   that exact head: #1051 -> 1bf3fa35, #1058 -> af3fa216 (it
+                               #   replaced #1052, which Dependabot closed mid-flight), #1053 ->
+                               #   71dbd8ca (the rebase dropped its duplicate deny.toml hunk, so
+                               #   the PR is Cargo.lock only), #1054 -> ed4e863a, #1055 ->
+                               #   fd498e76, #1056 -> e00fbeb8. #1056 needed one infra re-run:
+                               #   `Build CLI (macos-arm64)` was cancelled with runner_name ""
+                               #   and steps [] (no runner provisioned), so `gh run rerun
+                               #   45433310380 --job 138609184511` succeeded in ~5 min. Zero
+                               #   open PRs afterwards.
+                               #   Roast: plans/PR_ROAST_2026_11_24.md.
+                               #   Predecessor: roast_and_drain_dependabot_trio_1041_1042_1043
+                               #   (2026-11-16; its rationale is in git and
                                #   progress/PROGRESS.md, per the header rule that this file
                                #   carries only the current value).
 
