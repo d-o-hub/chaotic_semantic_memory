@@ -1271,3 +1271,22 @@ demands unit tests in the lib target for any logic touched under src/** or
 crates/** — and the roast discipline already knew to distrust this claim
 class: "zero mutant surface" is a measurement, not a design intention — say
 "the mutants are X and each has its killer" instead.
+
+## 2026-11-25 — when the mutation union scores a fn that cannot compile, read the artifacts before writing another test
+
+A union score is an ARTIFACT-derived claim, and the artifact can be stale.
+The three fingerprints of a phantom-missed, all present in the #1078 shards:
+(1) the mutant cannot compile in the target tree (the mutated return type has
+no Default), so any run that really built it would classify it unviable, not
+missed; (2) the mutant's Build phase is suspiciously instant (0.2s "Fresh"
+over a cache) while its healthy sibling rebuilt for real seconds; (3) the test
+binary hash is identical across DIFFERENT heads — a change that adds a test
+cannot produce the same binary. Verify with `--list` (no build needed) and
+grep the job logs for the new test's name: zero occurrences on a head that
+contains it settles the verdict as instrumentation. The doctrine holds:
+phantoms are counted out with a documented, surgical `--exclude-re`, never
+chased with a test — but the exclude must be PROVEN, because
+`--exclude-re` takes a regex and the mutant names carry literal parens:
+`Ok(D)` must be spelled `Ok\(D\(\)\)`; an unescaped or wrongly-sequenced group
+matches nothing, the phantom sails through, and the gate fails again an hour
+later. Run the same pinned cargo-mutants locally on `--list` before pushing.

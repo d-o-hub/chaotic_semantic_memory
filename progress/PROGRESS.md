@@ -2829,3 +2829,16 @@ surface. Fix: a value-asserting lib-target test in `manifest.rs`
 (schema_version, generator/core version honesty, UUID run_id, 20-char UTC
 exported_at, exact per-file rows/bytes/sha mapping) + counter truth (tests
 1247).
+
+The amended #1078 head's union still printed 50% — artifact archaeology
+proved the phantom instead of the code: `Ok(Default::default())` on a
+non-Default `ExportManifest` cannot compile, the phantom's build was 0.2s over
+a Fresh cache, the csm-duckdb test binary hash was identical across two
+different heads (44c36c68dd28ab1a), and the new manifest test's name occurs
+zero times in the job logs — the mutant never compiled, yet the union counted
+it MISSED. Counted out per the phantom-mutant doctrine: a surgical
+`--exclude-re` on the exact mutant name in scripts/mutation_test.sh, with the
+measured evidence, the delete-when-Default-exists condition, and the
+regex-escaping caveat (literal nested parens; three wrong shapes matched
+nothing; the working one verified with the pinned cargo-mutants 27.1.0:
+`--list` 1 → 0).

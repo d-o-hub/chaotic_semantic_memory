@@ -448,6 +448,31 @@ EXCLUDE_ARGS=(
   --exclude-re "ChaoticSemanticFramework::load "
   --exclude "src/persistence_wasm.rs"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
+  # Phantom ReturnDefault on a non-Default return type (2026-11-25, #1078,
+  # measured twice — artifacts from runs 45643482812 and 45669889227):
+  # `replace Analytics::create_manifest -> Result<ExportManifest> with
+  # Ok(Default::default())` cannot compile (ExportManifest does not implement
+  # Default), so a cold run classifies it unviable and it leaves the union's
+  # denominator — but a warm-cache run can skip the mutated rebuild entirely
+  # (measured: a 0.2s "Fresh" build, the same csm_duckdb-44c36c68dd28ab1a test
+  # binary hash across two different heads, and zero occurrences of that
+  # head's new manifest test anywhere in the job logs) and the union then
+  # scores the never-compiled phantom as MISSED (50% < 85%, twice). Per the
+  # phantom-mutant doctrine, the phantom is counted out with evidence instead
+  # of being chased with a test: create_manifest's compilable mutants are
+  # killed by its lib-target contract test
+  # (create_manifest_maps_reports_and_labels_versions_honestly), and the
+  # viable sibling on the same PR (load_export_json — IngestReport derives
+  # Default) rebuilt and was CAUGHT in the same runs, proving the machinery
+  # works when the build happens. DELETE THIS EXCLUDE if ExportManifest ever
+  # gains a Default impl (or cargo-mutants pre-filters unviable ReturnDefault
+  # mutants at generation time): the mutant then becomes compilable, and the
+  # existing lib test kills it. The parens in the pattern are LITERAL and
+  # nested — Ok\(Default::default\(\)\) — an unescaped or wrongly-sequenced
+  # form is a regex group that matches nothing and the phantom sails through
+  # the exclude (measured three wrong shapes before this one; verified
+  # locally with the same cargo-mutants 27.1.0 CI pins: --list goes 1 -> 0).
+  --exclude-re "replace Analytics::create_manifest -> Result<ExportManifest> with Ok\(Default::default\(\)\)"
   # Hybrid merge equivalent mutants (2026-09-13, PR #693; proof in
   # plans/.archive/2026-11-03-historical/PR_ROAST_2026_09_12.md): select_nth(top_k - 1) + truncate(top_k)
   # makes `- -> /` (top_k/1 == the pre-2026-09 form) and `> -> >=` (wider
