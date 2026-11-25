@@ -2842,3 +2842,16 @@ measured evidence, the delete-when-Default-exists condition, and the
 regex-escaping caveat (literal nested parens; three wrong shapes matched
 nothing; the working one verified with the pinned cargo-mutants 27.1.0:
 `--list` 1 → 0).
+
+## 2026-11-25 (follow-up session, part 3) — #1067 off-tree ADRs consolidated
+
+ADR-0064/0065 lived only in docs/adr/ with an `ADR-` filename prefix that
+check-adr-parity.sh's glob (`[0-9][0-9][0-9][0-9]-*.md`) never reads —
+structurally blind in both directions since ADR-0076's "leave in place;
+cross-link from registry" rule (which its own one-canonical-location intent
+contradicted). Both files moved verbatim into plans/adr/, registered
+(0064 Inertial Reservoir Dynamics (InertialESN); 0065 Selectivity-Aware
+Filtered Retrieval), the 0076 backfill note superseded in place with the
+original text preserved, and the one book link (inertial-reservoir.md)
+updated. Parity 103/102; the llm-context validator's ADR-count check and the
+queue gate stay green.

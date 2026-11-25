@@ -68,6 +68,8 @@
 | 0061 | Semantic Bridge Layer | Implemented | [adr/0061-semantic-bridge-layer.md](adr/0061-semantic-bridge-layer.md) |
 | 0062 | Hybrid BM25-HDC Retrieval | Implemented | [adr/0062-hybrid-bm25-hdc-retrieval.md](adr/0062-hybrid-bm25-hdc-retrieval.md) |
 | 0063 | Database Table Prefix | Implemented | [adr/0063-database-table-prefix.md](adr/0063-database-table-prefix.md) |
+| 0064 | Inertial Reservoir Dynamics (InertialESN) | Accepted | [adr/0064-inertial-reservoir.md](adr/0064-inertial-reservoir.md) |
+| 0065 | Selectivity-Aware Filtered Retrieval | Accepted | [adr/0065-selectivity-aware-retrieval.md](adr/0065-selectivity-aware-retrieval.md) |
 | 0066 | CLI ↔ Framework API Parity | Implemented | [adr/0066-cli-framework-api-parity.md](adr/0066-cli-framework-api-parity.md) |
 | 0067 | MCP Server | Implemented | [adr/0067-mcp-server.md](adr/0067-mcp-server.md) |
 | 0068 | HNSW ANN Index | Implemented | [adr/0068-hnsw-ann-index.md](adr/0068-hnsw-ann-index.md) |
