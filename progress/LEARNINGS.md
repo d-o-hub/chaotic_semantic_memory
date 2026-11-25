@@ -1255,3 +1255,19 @@ the lock, its ignores leave with it — but verify each remaining ignore still
 has a live referent (all 5 survivors re-checked in-lock before pushing). The
 misattribution itself is evidence why the audit-parity gate compares ID sets,
 not reasons: two files with matching sets can still share a wrong story.
+
+## 2026-11-25 — an equality-only assertion cannot kill a return-value mutant
+
+#1078's mutation red taught the shape twice over. (1) A "compare two runs for
+equality" test passes against ANY mutation that returns the same value from
+both calls — `Ok(Default::default())` satisfies `manifest1 == manifest2`
+exactly as well as the real body, so it survives as MISS; only concrete
+value assertions (schema_version == 1, version strings, mapped rows/bytes,
+UUID shape) fail under the mutant. (2) The mutation profile runs `--lib`
+only: integration-target tests never see a mutant, so a touched fn with no
+lib-target test is invisible-but-mortal — its return-value mutant counts in
+the union denominator and no test kills it. Both landed as the recorded rule
+demands unit tests in the lib target for any logic touched under src/** or
+crates/** — and the roast discipline already knew to distrust this claim
+class: "zero mutant surface" is a measurement, not a design intention — say
+"the mutants are X and each has its killer" instead.

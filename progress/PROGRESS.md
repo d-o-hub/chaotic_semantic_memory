@@ -2815,3 +2815,17 @@ lib tests, benchmarks check, parity fixture 9/9; csm-duckdb compile+tests left
 to CI (bundled DuckDB C++ build cost, recorded hazard). The open lru
 Dependabot alert auto-resolves with the lock change; #1074 measures the count
 when worked.
+
+The first #1078 CI run failed its own mutation union: score 50% (2 mutants, 1
+missed). The missed mutant was `create_manifest -> Ok(Default::default())` —
+csm-duckdb's only manifest test lived in the integration target
+(`parquet_export_tests.rs`) and asserted `manifest1 == manifest2`, which a
+uniformly-defaulted return also satisfies (and the mutation profile runs
+`--lib` only, where `create_manifest` had no test at all). The caught sibling
+(`load_export_json`, whose report type derives Default) was killed by its
+lib-target test — the exact contrast that localizes the fix. The roast's
+"no mutant surface" claim was wrong: an expression inside a fn is a mutation
+surface. Fix: a value-asserting lib-target test in `manifest.rs`
+(schema_version, generator/core version honesty, UUID run_id, 20-char UTC
+exported_at, exact per-file rows/bytes/sha mapping) + counter truth (tests
+1247).
