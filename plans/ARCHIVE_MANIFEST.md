@@ -110,11 +110,11 @@ snapshots or git history.
 |------|------|
 | `plans/README.md` | Index of active planning docs |
 | `plans/GOAP_STATE.md` | Canonical world state (YAML) |
-| `plans/ACTIONS.md` | Action queue (complete + queued) |
+| `plans/ACTIONS.md` | Active action queue only (ADR-0097); completions move to `GOAP_STATE.action_last_completed` + git |
 | `plans/GOALS.md` | Primary / engineering goals |
 | `plans/GOAP_ORCHESTRATOR.md` | Orchestrator runbook |
-| `plans/GOAP_AUDIT_2026_07_14.md` | Wave 32 roadmap (still in progress) |
-| `plans/RECOMMENDATIONS_2026_07_20.md` | Current recommendations (this analysis) |
+| `plans/GOAP_AUDIT_2026_07_14.md` | Wave 32 roadmap (completed 2026-11-25; all four phase exits are now-true flags) |
+| `plans/RECOMMENDATIONS_2026_10_19.md` | Current recommendations audit + follow-ups (superseded the 2026-07-20 set archived 2026-11-03) |
 | `plans/ADR_REGISTRY.md` | ADR index |
 | `plans/adr/` | Architecture decision records |
 | `plans/ARCHIVE_MANIFEST.md` | This file |
