@@ -2760,3 +2760,33 @@ default (#1071). This branch (#1073) truths up the plans/records layer and encod
 coverage, workflow wiring, ADR-0104 OIDC residuals). Two validate.sh findings recorded in
 LEARNINGS (self-fix fixture stdin, bundled-DuckDB local build cost). Roast:
 plans/PR_ROAST_2026_11_25.md.
+
+## 2026-11-25 (follow-up session) — merge the truth-up PRs, file audit follow-ups, land #1065
+
+Picked up the tree the morning audit left behind. The uncommitted working-tree
+residue (pre-#1071/pre-#1072 copies of README.md, context.yaml, GOAP_STATE.md and
+both validator files) was verified stale against code truth (framework default
+1000; no `analytics` feature; tree 1244 tests) before being restored to HEAD —
+and the old validator printed "drift-free" on that state first, one live
+demonstration of #1063's stored-vs-stored blind spot. Merges: #1072 landed
+externally at 13:09 on a green CLEAN head; #1073 was rebased onto post-#1072
+main as `1ad11dad` (GOAP_STATE hunks auto-resolved; diff re-checked to carry
+both truths — tests_count 1244 and the wave/GOALS blocks — so no silent
+revert), all contexts green, MERGEABLE/CLEAN, merged 14:02:53 → main `3b2a7864`.
+One at a time, never `--auto`, squash subjects pre-measured (71/80 chars).
+
+Backlog: #1070 confirmed owner-blocked (nine crates.io UI edits, then the
+dry-run dispatch, then token revocation — no API path exists). Three fresh
+re-derived gaps filed: #1074 (dependabot_alerts_open: 3 stored, 2 open),
+#1075 (inventory reports 12 duplicate test-name leads but prints 10),
+#1076 (context.yaml key_files carries directory-path `plans/adr/`).
+
+#1065 taken via the documented-divergence arm of its acceptance: the two
+refusal sites in `crates/csm-persistence/src/persistence_ops.rs` now name the
+export/import round-trip (import defaults to replace), two lib-target tests pin
+the refusal contract using the remote shape (live handle, `local_path: None`;
+the guards run before any I/O, so no network is involved) and kill the
+`-> Ok(())` return mutants, README documents the divergence beside the Turso
+guide, and ADR-0105 records the decision (registry 101 / disk 100, parity
+green). Counter updates shipped with the tests: tests_count 1246 in GOAP_STATE
+and context.yaml.

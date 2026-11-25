@@ -208,10 +208,17 @@ impl Persistence {
         self.apply_migrations_with_conn(&conn, target_version).await
     }
 
+    /// Create a snapshot of a local SQLite database (`VACUUM INTO`).
+    ///
+    /// Remote (Turso/libSQL URL) connections are refused by design: `VACUUM
+    /// INTO` writes a file on the engine's host, and a remote engine has no
+    /// path onto the operator's disk. Back up remote databases with the
+    /// versioned export/import round-trip instead (ADR-0105).
     pub async fn backup(&self, path: &str) -> Result<()> {
         let Some(_local_path) = &self.local_path else {
             return Err(MemoryError::UnsupportedOperation(
-                "backup is only supported for local SQLite databases".to_string(),
+                "backup is only supported for local SQLite databases; use the export/import round-trip for remote (Turso/libSQL) databases"
+                    .to_string(),
             ));
         };
 
@@ -228,10 +235,17 @@ impl Persistence {
         Ok(())
     }
 
+    /// Restore a local SQLite database from a snapshot file.
+    ///
+    /// The path ATTACHes the snapshot as a database file and rebuilds namespace
+    /// revisions inside one transaction, so it is local-only by the same
+    /// construction as [`Self::backup`]; remote (Turso/libSQL URL) connections
+    /// are refused with the export/import workaround named (ADR-0105).
     pub async fn restore(&self, path: &str) -> Result<()> {
         let Some(_local_path) = &self.local_path else {
             return Err(MemoryError::UnsupportedOperation(
-                "restore is only supported for local SQLite databases".to_string(),
+                "restore is only supported for local SQLite databases; use the export/import round-trip for remote (Turso/libSQL) databases"
+                    .to_string(),
             ));
         };
 

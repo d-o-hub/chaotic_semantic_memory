@@ -107,6 +107,7 @@
 | 0102 | Bounded OTLP Lifecycle and Operational Counters | Accepted | [adr/0102-batched-otlp-and-operational-metrics.md](adr/0102-batched-otlp-and-operational-metrics.md) |
 | 0103 | GOAP Reconciliation and Plans Compaction 2026-11-03 | Accepted | [adr/0103-goap-reconciliation-plans-compaction-2026-11-03.md](adr/0103-goap-reconciliation-plans-compaction-2026-11-03.md) |
 | 0104 | crates.io OIDC Trusted Publishing From a Dispatch Workflow | Accepted | [adr/0104-crates-io-oidc-trusted-publishing.md](adr/0104-crates-io-oidc-trusted-publishing.md) |
+| 0105 | Remote Backup and Restore Divergence: Export/Import Is the Path | Accepted | [adr/0105-remote-backup-restore-divergence.md](adr/0105-remote-backup-restore-divergence.md) |
 
 ## Status Definitions
 
