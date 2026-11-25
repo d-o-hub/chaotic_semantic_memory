@@ -42,6 +42,13 @@ echo "==> Coverage inventory attribute fixture"
 echo "==> Generated script catalog and fixture gate"
 "${SCRIPT_DIR}/check-script-catalog.sh"
 
+# Tracked .opencode/agents/ mirror drift gate (issue #1069 wiring): the
+# mirror is a generated artifact with no other consumer; without a caller it
+# rots silently. generate-agents.sh --check regenerates to a temp dir and
+# diffs the content (mtime-free, fresh-checkout safe).
+echo "==> opencode agents mirror drift gate"
+"${SCRIPT_DIR}/generate-agents.sh" --check
+
 echo "==> Self-fix-loop safety fixtures"
 "${SCRIPT_DIR}/test-self-fix-loop-safety.sh"
 

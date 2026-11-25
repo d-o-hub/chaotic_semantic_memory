@@ -88,6 +88,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 ---
 
 ## External References
+- `@CONTRIBUTING.md` — human-oriented entry (setup, release paths); agents and humans share the same gates
 - `@agents-docs/hard-constraints.md` — LOC limits, spectral radius, invariants
 - `@agents-docs/coding-standards.md` — DeepSource parity, clippy & lint policies
 - `@agents-docs/release-safety.md` — Release checklist, channels, recovery

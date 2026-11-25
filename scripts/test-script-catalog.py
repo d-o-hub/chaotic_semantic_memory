@@ -7,7 +7,7 @@ import pathlib
 import tempfile
 import unittest
 
-from gen_script_catalog import render
+from gen_script_catalog import render, wiring_violations
 
 
 class ScriptCatalogTests(unittest.TestCase):
@@ -74,6 +74,67 @@ class ScriptCatalogTests(unittest.TestCase):
                 self.assertEqual(columns[7], f"scripts/{fixture_name}")
                 self.assertEqual(columns[8], "called + fixture")
 
+
+    def test_wiring_check_fails_unasserted_orphan(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            (scripts / "orphan.sh").write_text(
+                "#!/usr/bin/env bash\n# Orphaned helper.\n", encoding="utf-8"
+            )
+
+            violations = wiring_violations(root)
+            self.assertTrue(any("orphaned script" in item and "scripts/orphan.sh" in item for item in violations))
+
+    def test_wiring_check_passes_asserted_orphan(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            (scripts / "orphan.sh").write_text(
+                "#!/usr/bin/env bash\n# Orphaned helper.\n", encoding="utf-8"
+            )
+            (scripts / "SCRIPT_WIRING.md").write_text(
+                "# Wiring\n\n| Script | Wired by |\n|---|---|\n"
+                "| `scripts/orphan.sh` | documented operator command - quick-reference |\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(wiring_violations(root), [])
+
+    def test_wiring_check_flags_stale_assertion_for_wired_script(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            scripts = root / "scripts"
+            workflows = root / ".github" / "workflows"
+            scripts.mkdir()
+            workshops = workflows
+            workshops.mkdir(parents=True)
+            (scripts / "wired.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            (workflows / "ci.yml").write_text("run: scripts/wired.sh\n", encoding="utf-8")
+            (scripts / "SCRIPT_WIRING.md").write_text(
+                "# Wiring\n\n| Script | Wired by |\n|---|---|\n"
+                "| `scripts/wired.sh` | operator-only claim that no longer holds |\n",
+                encoding="utf-8",
+            )
+
+            violations = wiring_violations(root)
+            self.assertTrue(any("stale assertion" in item and "wired.sh" in item for item in violations))
+
+    def test_wiring_check_flags_assertion_for_missing_script(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            (scripts / "SCRIPT_WIRING.md").write_text(
+                "# Wiring\n\n| Script | Wired by |\n|---|---|\n"
+                "| `scripts/ghost.sh` | removed but the row stayed |\n",
+                encoding="utf-8",
+            )
+
+            violations = wiring_violations(root)
+            self.assertTrue(any("ghost.sh" in item and "no longer exists" in item for item in violations))
 
 
 if __name__ == "__main__":

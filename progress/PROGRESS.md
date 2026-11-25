@@ -2855,3 +2855,29 @@ Filtered Retrieval), the 0076 backfill note superseded in place with the
 original text preserved, and the one book link (inertial-reservoir.md)
 updated. Parity 103/102; the llm-context validator's ADR-count check and the
 queue gate stay green.
+
+## 2026-11-25 (follow-up session, part 4) — #1069 wired: catalog referenced-by gate, agents mirror gate, workflow map, crosslinks
+
+Scripts (all claims re-derived in-tree first; the issue's morning list was
+already partly stale — benchmark-evidence.sh gained its benchmark-ci.yml caller
+when #1061 landed, and tooling-guard only guards quality-gates.sh against
+deletion, it doesn't run it): the catalog gate now enforces referenced-by
+assertions — every scripts/ entry needs a caller, a fixture, or an evidenced
+scripts/SCRIPT_WIRING.md row, and both directions fail closed. Measured by
+re-derivation, the gate found 6 orphans beyond the issue's list, and 2 more
+when the first removals landed (the scripts/skill-memory/ shell family was a
+self-referential pre-csm-CLI prototype — its only callers were each other,
+and the skill-memory-internal skill is csm-CLI-based). Removed (no caller, no
+fixture, no document, superseded purpose): gen_arch_diagram.py and
+get_comments.py (both #121-era), yaml-to-drawio.py (#445-era, the tier-2
+diagram is hand-maintained), and the four skill-memory shell tools.
+generate-agents.sh gained a content-based --check mode (mktemp + diff -r,
+mtime-free; CSM_AGENTS_MIRROR for the negative path — both directions
+verified 0/1) wired as the .opencode/agents drift gate in validate.sh;
+test-self-fix-loop-safety.sh feeds </dev/null — the recorded 17-minute local
+wedge is gone, all five refusals verify in seconds. Docs:
+agents-docs/ci-workflows.md maps all 12 workflows (name → trigger → gates)
+plus the external Codacy required context (nothing in-tree creates it — agents
+must not chase it in-repo); CONTRIBUTING.md's first section now points at
+AGENTS.md, the commitlint scope table and the mandatory gates; AGENTS.md's
+External References point back at CONTRIBUTING.md (98 ≤ 200 LOC).

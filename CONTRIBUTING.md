@@ -1,5 +1,19 @@
 # Contributing
 
+## First stop for repository rules
+
+The operative workflow — gates, state files, merge discipline — lives in
+[AGENTS.md](AGENTS.md); every session (human or agent) reads it first. The
+two mandatory local gates are `./scripts/validate.sh` (fmt, clippy
+`-D warnings`, tests, `cargo deny`, ADR parity, generated-artifact drift
+checks) and `./scripts/harness-check.sh all`. Commits must pass
+[commitlint](commitlint.config.cjs) with the scopes enumerated there (run
+`npx commitlint --from origin/main --to HEAD --verbose` before pushing), and
+merges are one PR at a time, squash-only, from a green current head — every
+PR is reviewed under the roast discipline first. The CI surface is mapped in
+[agents-docs/ci-workflows.md](agents-docs/ci-workflows.md); the operating
+skills live in `.agents/skills/`.
+
 ## Development Setup
 
 ### Nix (Recommended)

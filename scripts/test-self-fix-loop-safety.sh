@@ -27,7 +27,7 @@ new_repo() {
 
 expect_refusal() {
   local repo="$1" label="$2"
-  if (cd "$repo" && PATH="$MOCK_BIN:$PATH" "$SCRIPT_DIR/self-fix-loop.sh" --dry-run) >"$TEMP_ROOT/output" 2>&1; then
+  if (cd "$repo" && PATH="$MOCK_BIN:$PATH" "$SCRIPT_DIR/self-fix-loop.sh" --dry-run) </dev/null >"$TEMP_ROOT/output" 2>&1; then
     printf 'expected refusal for %s\n' "$label" >&2
     cat "$TEMP_ROOT/output" >&2
     exit 1
@@ -47,7 +47,7 @@ expect_refusal "$branch_repo" detached-HEAD
 
 mismatch_repo="$TEMP_ROOT/mismatch"
 new_repo "$mismatch_repo" feature/safety
-if (cd "$mismatch_repo" && PATH="$MOCK_BIN:$PATH" "$SCRIPT_DIR/self-fix-loop.sh" --dry-run --branch other) >"$TEMP_ROOT/output" 2>&1; then
+if (cd "$mismatch_repo" && PATH="$MOCK_BIN:$PATH" "$SCRIPT_DIR/self-fix-loop.sh" --dry-run --branch other) </dev/null >"$TEMP_ROOT/output" 2>&1; then
   printf 'expected refusal for mismatched --branch\n' >&2
   exit 1
 fi
@@ -66,7 +66,7 @@ remote_repo="$TEMP_ROOT/no-confirm"
 new_repo "$remote_repo" feature/safety
 printf 'intended\n' > "$remote_repo/intended.txt"
 git -C "$remote_repo" add intended.txt
-if (cd "$remote_repo" && PATH="$MOCK_BIN:$PATH" "$SCRIPT_DIR/self-fix-loop.sh" --max-iterations 1) >"$TEMP_ROOT/output" 2>&1; then
+if (cd "$remote_repo" && PATH="$MOCK_BIN:$PATH" "$SCRIPT_DIR/self-fix-loop.sh" --max-iterations 1) </dev/null >"$TEMP_ROOT/output" 2>&1; then
   printf 'expected refusal before remote mutation without confirmation\n' >&2
   exit 1
 fi
