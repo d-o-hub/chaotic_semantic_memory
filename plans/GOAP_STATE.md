@@ -48,8 +48,10 @@ world_state:
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
   # `main_head` was removed with ci_all_checks_passed — read it from `git rev-parse
   # --short=8 origin/main` (or the ci-truth line above), never from this file.
-  tests_count: 1192                  # 2026-11-04: `scripts/coverage-report.sh inventory` on this branch
-                                     #   (tests/ 554, src/ 287, crates/*/src 331, crates/*/tests 20).
+  tests_count: 1244                  # 2026-11-25: `scripts/coverage-report.sh inventory`
+                                     #   (tests/ 554, src/ 287, crates/*/src 370, crates/*/tests 33).
+                                     #   The llm-context gate re-derives this from the tree (#1063),
+                                     #   so stored copies cannot rot silently again.
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)

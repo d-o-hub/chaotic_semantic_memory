@@ -16,7 +16,13 @@ key-file paths) while nothing read it:
     current_status.swarm_groups   CATALOG.md `Swarm` count
     key_files.adrs[].count        plans/adr/*.md
     current_status.active_wave    plans/GOAP_STATE.md `active_wave`
-    current_status.total_tests    plans/GOAP_STATE.md `tests_count`
+    current_status.total_tests     plans/GOAP_STATE.md `tests_count` AND a live
+                                  tree count (the scripts/coverage-report.sh
+                                  inventory rules, ported into this validator) —
+                                  two stored copies agreeing is not evidence:
+                                  both said 1192 while the tree held 1244 and
+                                  the stored-vs-stored check stayed green
+                                  (2026-11-25, issue #1063)
     modules_under_loc_limit       src/**/*.rs count (the LOC gate keeps them
                                   all <= 500, so both numbers equal the count)
     architecture.modules[].file   path existence
@@ -90,6 +96,40 @@ class LLMContextValidator:
 
     def _src_file_count(self) -> int:
         return len(list((self.repo_root / "src").rglob("*.rs")))
+
+    # Ported 2026-11-25 from scripts/coverage-report.sh `inventory` (issue #1063):
+    # the same attribute and fn regexes, the same layers, the same 6-line probe
+    # window, so this gate and the canonical inventory derive the same total by
+    # construction. The test count is a tree fact, not a number to copy between
+    # files: both stored copies said 1192 while the tree held 1244 and the old
+    # stored-vs-stored check stayed green.
+    TEST_ATTR_RE = re.compile(r"#\[(?:tokio::)?test(?:\s*\([^]]*\))?\]")
+    TEST_FN_RE = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*\(", re.M)
+
+    def _test_inventory_files(self) -> List[Path]:
+        root = self.repo_root
+        crates = (
+            list((root / "crates").rglob("*.rs")) if (root / "crates").is_dir() else []
+        )
+        return (
+            list((root / "tests").glob("*.rs"))
+            + list((root / "src").rglob("*.rs"))
+            + [path for path in crates if "src" in path.parts]
+            + [path for path in crates if "tests" in path.parts]
+        )
+
+    def _tree_test_count(self) -> int:
+        total = 0
+        for path in self._test_inventory_files():
+            lines = path.read_text().splitlines()
+            for index, line in enumerate(lines):
+                if not self.TEST_ATTR_RE.search(line):
+                    continue
+                for probe in lines[index : index + 6]:
+                    if self.TEST_FN_RE.search(probe):
+                        total += 1
+                        break
+        return total
 
     def _key_file_paths(self) -> List[str]:
         paths: List[str] = []
@@ -252,13 +292,19 @@ class LLMContextValidator:
         live = self._goap_values().get("tests_count")
         if live is None:
             return self._record("Test Counts", False, "plans/GOAP_STATE.md has no `tests_count:` key")
+        tree = self._tree_test_count()
         problems = []
+        if live != tree:
+            problems.append(f"GOAP_STATE tests_count {live} != tree inventory {tree}")
         for key in ("total_tests", "tests_passing"):
             if status.get(key) != live:
                 problems.append(f"{key} {status.get(key)} != GOAP_STATE tests_count {live}")
         if problems:
             return self._record("Test Counts", False, "; ".join(problems))
-        return self._record("Test Counts", True, f"total_tests == tests_passing == {live}")
+        return self._record(
+            "Test Counts", True,
+            f"total_tests == tests_passing == GOAP_STATE == tree inventory {tree}",
+        )
 
     def test_loc_coverage(self) -> bool:
         declared = str(self.context["current_status"]["modules_under_loc_limit"])

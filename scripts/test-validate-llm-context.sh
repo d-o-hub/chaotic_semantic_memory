@@ -9,10 +9,14 @@
 # so the gate cannot rot into a pass-for-the-wrong-reason check.
 #
 # Cases: a consistent tree passes; each corrupted counter (skills total,
-# category vs CATALOG.md, ADR count, active_wave, tests_count), a dead
-# key-file path, a dead module path, a wrong LOC-coverage count, an on-disk
-# skill surplus, and a missing context.yaml each fail (rc 1, or rc 2 for the
-# missing input). Without PyYAML the fixture SKIPS loudly — NOT A PASS.
+# category vs CATALOG.md, ADR count, active_wave, tests_count — both the
+# stored-copy and the tree-divergence shapes), a dead key-file path, a dead
+# module path, a wrong LOC-coverage count, an on-disk skill surplus, and a
+# missing context.yaml each fail (rc 1, or rc 2 for the missing input). The
+# synthetic tree carries 42 real `#[test]` fns because the test-count check
+# derives its live value from the tree (2026-11-25, issue #1063) — a consistent
+# case with no tests on disk would pass for the wrong reason. Without PyYAML
+# the fixture SKIPS loudly — NOT A PASS.
 # =============================================================================
 set -euo pipefail
 
@@ -47,8 +51,17 @@ write_tree() {
            "${TREE}/plans/adr" \
            "${TREE}/src"
 
+  # The fixture's two src files carry the 42 `#[test]` fns the counter claims
+  # (21 each): the tests_count check derives its live value from the tree, so
+  # the positive case has to hold against real inventory input (#1063).
   : > "${TREE}/src/x.rs"
+  for i in $(seq 0 20); do
+    printf '#[test]\nfn fixture_test_%02d() {}\n\n' "${i}" >> "${TREE}/src/x.rs"
+  done
   : > "${TREE}/src/y.rs"
+  for i in $(seq 21 41); do
+    printf '#[test]\nfn fixture_test_%02d() {}\n\n' "${i}" >> "${TREE}/src/y.rs"
+  done
   : > "${TREE}/plans/adr/0001-a.md"
   : > "${TREE}/plans/adr/0002-b.md"
   for skill in alpha beta gamma; do
@@ -235,6 +248,11 @@ check_case "tests_passing mismatch fails" 1
 write_tree
 sed -i 's/^  tests_count: 42.*$/  tests_count: 43/' "${TREE}/plans/GOAP_STATE.md"
 check_case "GOAP tests_count moved fails" 1
+
+# 7c. The tree disagrees with both stored counters (the 1192-vs-1244 shape).
+write_tree
+printf '#[test]\nfn fixture_test_extra() {}\n' >> "${TREE}/src/y.rs"
+check_case "tree vs stored tests_count mismatch fails" 1
 
 # 8. A dead key-file path (the plans/SWARM_COORDINATION.md shape).
 write_tree
