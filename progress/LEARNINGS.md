@@ -1241,3 +1241,17 @@ Also re-measured, same session: stale working-tree file copies carried across
 rebases (autostash restores them after `rebase` finishes) can be older than the
 branch's own commit — always re-derive WT content against code truth before
 trusting `git diff HEAD` directionality.
+
+## 2026-11-25 — an ignore's reason text is not the dependency graph; walk the lock
+
+Six advisory ignores (time/lru/zstd family) cited "pinned by tantivy
+(transitive via fastembed)" — but a Cargo.lock dependency-walk showed
+fastembed never depended on tantivy; the whole subtree entered through
+csm-retrieval's dead optional dep alone. When retiring ignores, never trust the
+reason's claimed path: derive `who depends on X` from the lock (package blocks
+list dependents), and in both directions (X's deps: where do time/lru/zstd
+come from). The zip retirement precedent generalizes: when the package leaves
+the lock, its ignores leave with it — but verify each remaining ignore still
+has a live referent (all 5 survivors re-checked in-lock before pushing). The
+misattribution itself is evidence why the audit-parity gate compares ID sets,
+not reasons: two files with matching sets can still share a wrong story.

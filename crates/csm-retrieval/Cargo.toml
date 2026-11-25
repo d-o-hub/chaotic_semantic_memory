@@ -17,16 +17,12 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 
-# Optional BM25 dependencies
-tantivy = { version = "0.22", optional = true }
-
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 proptest = "1.6.0"
 
 [features]
 default = []
-bm25 = ["dep:tantivy"]
 
 [lib]
 crate-type = ["lib"]

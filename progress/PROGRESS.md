@@ -2790,3 +2790,28 @@ the guards run before any I/O, so no network is involved) and kill the
 guide, and ADR-0105 records the decision (registry 101 / disk 100, parity
 green). Counter updates shipped with the tests: tests_count 1246 in GOAP_STATE
 and context.yaml.
+
+## 2026-11-25 (follow-up session, part 2) — #1066 dead capability switches removed
+
+After #1077 merged (fix(persistence), main `cec7b6b3`), issue #1066 landed next
+because removing switches is cheaper before anything else builds on them.
+Verified in-tree first: `bm25 = ["dep:tantivy"]` had zero cfg references
+(`grep -rn 'feature = "bm25"'` → 0) and `reader-lite = []` compiled
+`Mode::ReaderLite` unconditionally; `bm25_benchmark` carries no
+required-features, so nothing could break. Lock dependency-walk (the real news):
+`time`, `lru`, `zstd`, `zstd-safe`, `zstd-sys` entered Cargo.lock ONLY through
+csm-retrieval's tantivy — the deny.toml ignore reasons claiming "transitive via
+fastembed" were misattributed; fastembed never depended on tantivy. Removing
+the dep dropped 392 lock lines and retired six advisory ignores
+(RUSTSEC-2026-0009/0002 + the zstd cluster 0391/0398/0403/0410) from BOTH
+deny.toml and .cargo/audit.toml under the zip precedent (package leaves the
+lock, ignores leave with it); parity sets match at 5 live ids, each re-verified
+present in the lock (paste/bincode/number_prefix/h2/chrono). fuzz/Cargo.lock
+untouched — tantivy never reached it. csm-duckdb truth-ups without behavior
+change: the export manifest's core_crate_version lost its "(core stub)" label
+(workspace members share one version, version-integrity gate) and
+ExportPayloadStub is now ExportPayload. Local proofs: csm-retrieval check+60
+lib tests, benchmarks check, parity fixture 9/9; csm-duckdb compile+tests left
+to CI (bundled DuckDB C++ build cost, recorded hazard). The open lru
+Dependabot alert auto-resolves with the lock change; #1074 measures the count
+when worked.

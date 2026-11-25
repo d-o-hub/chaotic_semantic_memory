@@ -49,7 +49,10 @@ impl Analytics {
         Ok(ExportManifest {
             schema_version: 1,
             generator: format!("csm-duckdb {}", env!("CARGO_PKG_VERSION")),
-            core_crate_version: format!("{} (core stub)", env!("CARGO_PKG_VERSION")),
+            // All workspace members carry one version (version-integrity
+            // workflow), so this member's package version is the core
+            // crate's version — no qualifier needed.
+            core_crate_version: env!("CARGO_PKG_VERSION").to_string(),
             run_id: uuid::Uuid::new_v4().to_string(),
             exported_at,
             files,

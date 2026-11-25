@@ -240,6 +240,20 @@ world_state:
                                               #   `rust-version` that members inherit, and the root `[package]` lost
                                               #   its redundant `homepage`. Verified with the job's own command at
                                                   #   1.100.0 + CARGO_BUILD_WARNINGS=deny (rc 0, zero warnings).
+  dead_capability_switches_removed: true      # 2026-11-25 (#1066): csm-retrieval's `bm25`
+                                              #   feature never had a cfg (tantivy optional dep, 0
+                                              #   references) and benchmarks' `reader-lite` gated
+                                              #   nothing (Mode::ReaderLite compiles unconditionally);
+                                              #   both manifests are truthed up. Removing the dead
+                                              #   tantivy dep dropped its whole subtree from
+                                              #   Cargo.lock (392 lines: tantivy*, zstd*, time,
+                                              #   lru exit) and retired the 6 advisory ignores that
+                                              #   existed only for its pins from BOTH deny.toml and
+                                              #   .cargo/audit.toml (parity-checked sets, 5 ids
+                                              #   remain, all live in the lock). csm-duckdb's
+                                              #   "(core stub)" manifest label and ExportPayloadStub
+                                              #   naming were lies about production output and are
+                                              #   truthed up without behavior change.
   ci_path_selection_typed_and_tested: true    # 2026-11-15 (#992): crates/csm-ci-selection
                                               #   owns the seven detect-changes outputs (a declared
                                               #   glob table with a stated reason per job, fail-closed
@@ -265,23 +279,36 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: document_remote_backup_restore_divergence_2026_11_25
-                               #   #1065, documented-divergence arm (ADR-0105):
-                               #   Persistence::backup/restore refused remote (Turso/libSQL)
-                               #   databases with messages that named no alternative. The refusal
-                               #   sites now name the export/import round-trip (import defaults
-                               #   to replace; merge is opt-in), two lib-target tests pin the
-                               #   contract via the remote shape (live handle, `local_path:
-                               #   None` — the guards run before any I/O, so no network is
-                               #   needed) and kill the `-> Ok(())` return mutants, the README
-                               #   documents the divergence beside the Turso guide, and ADR-0105
-                               #   records the decision (registry 101 / disk 100, parity green).
-                               #   Same session: merged #1072 (green CLEAN head) and #1073
-                               #   (rebased onto post-#1072 main, all contexts green, MERGEABLE/
-                               #   CLEAN) one at a time, and filed three audit follow-ups —
-                               #   #1074 stale dependabot_alerts_open, #1075 duplicate test-name
-                               #   leads, #1076 directory-shaped context.yaml key_files path.
-                               #   Roast: plans/PR_ROAST_2026_11_25.md (follow-up section).
-                               #   Predecessor: repair_plans_and_counter_truth_2026_11_25
-                               #   (rationale in git and plans/PR_ROAST_2026_11_25.md).
+  action_last_completed: remove_dead_capability_switches_2026_11_25
+                               #   #1066: two capability switches claimed what the code
+                               #   never did. csm-retrieval's `bm25 = ["dep:tantivy"]`
+                               #   had zero cfg references (BM25 is hand-rolled;
+                               #   tantivy 0.22.1 appeared in the lock only through it,
+                               #   so `time`, `lru` and the zstd family entered the
+                               #   graph only through it as well) and benchmarks'
+                               #   `reader-lite` compiled Mode::ReaderLite
+                               #   unconditionally — both removed, lock refreshed
+                               #   (392 lines exit; fuzz/Cargo.lock untouched —
+                               #   tantivy never reached it). The advisory ignores
+                               #   pinned on that subtree (RUSTSEC-2026-0009/0002 and
+                               #   the zstd cluster 0391/0398/0403/0410) retired from
+                               #   both policy files per the zip precedent — package
+                               #   leaves the lock, its ignores leave with it; parity
+                               #   sets match at 5 live ids, each verified still in
+                               #   the lock. The old "via fastembed" attribution in
+                               #   those ignore reasons was wrong and is recorded as
+                               #   retired, with a comment stating the re-derivation
+                               #   rule if tantivy ever returns. csm-duckdb
+                               #   truth-ups: the export manifest no longer labels
+                               #   the core crate version "(core stub)" and the
+                               #   ingest payload struct is ExportPayload, not
+                               #   ...Stub.
+                               #   The open lru Dependabot alert auto-resolves with
+                               #   the lock change (its only entry path is gone) -
+                               #   #1074's measured count will reflect it.
+                               #   Roast: plans/PR_ROAST_2026_11_25.md (follow-up
+                               #   session row).
+                               #   Predecessor:
+                               #   document_remote_backup_restore_divergence_2026_11_25
+                               #   (rationale in git and the roast record).
 
