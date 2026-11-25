@@ -233,6 +233,14 @@ world_state:
   script_catalog_fixture_pairs_resolved: true  # 2026-11-11 (#1003): gen_script_catalog.py probes alternate
                                               #   hyphen/underscore stem variants, correctly pairing mutation_union.py,
                                               #   check_cfg_mutants.py, and mutation_inventory.py with their fixtures.
+  script_catalog_referenced_by_gate: true      # 2026-11-25 (#1069): every scripts/ entry needs a
+                                              #   caller, a fixture, or an evidenced scripts/SCRIPT_WIRING.md
+                                              #   row; orphans and stale rows fail --check (wired into
+                                              #   check-script-catalog.sh and validate.sh, with fixture
+                                              #   cases in test-script-catalog.py). The tracked
+                                              #   .opencode/agents mirror has its own content-based
+                                              #   drift gate: generate-agents.sh --check (mktemp + diff
+                                              #   -r, mtime-free) in validate.sh.
   dead_manifest_fields_removed_for_stable_1_100: true  # 2026-11-13: the `stable-toolchain` canary denies new
                                               #   cargo manifest lints (run 43403864562, rc 101). csm-core-lib dropped
                                               #   `bincode`/`rand_chacha` and csm-retrieval dropped `async-trait`
@@ -279,20 +287,40 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: consolidate_off_tree_adrs_2026_11_25
-                               #   #1067: ADR-0064 (inertial reservoir) and ADR-0065
-                               #   (selectivity-aware retrieval) lived only in
-                               #   docs/adr/ with an ADR- filename prefix the
-                               #   parity gate's glob never reads - blind in both
-                               #   directions and absent from the registry since
-                               #   ADR-0076's "leave in place; cross-link" rule,
-                               #   which contradicted its own one-canonical-
-                               #   location intent. Both files moved verbatim
-                               #   into plans/adr/ (0064/0065), registered, the
-                               #   0076 backfill note superseded in place
-                               #   (original text preserved), and the one book
-                               #   link updated. Parity: registry 103 / disk 102.
-                               #   Predecessor: remove_dead_capability_switches_
-                               #   2026_11_25 (rationale in git and the
-                               #   2026-11-25 roast record).
+  action_last_completed: wire_scripts_and_document_workflows_2026_11_25
+                               #   #1069: the workflow surface is fully wired
+                               #   and documented. Scripts: the catalog gate
+                               #   now enforces referenced-by assertions
+                               #   (gen_script_catalog.py --check runs in
+                               #   check-script-catalog.sh + validate.sh):
+                               #   every scripts/ entry needs a caller, a
+                               #   fixture, or an evidenced
+                               #   scripts/SCRIPT_WIRING.md row, and orphaned
+                               #   or stale rows fail both directions -
+                               #   measured by re-derivation, the gate found
+                               #   six orphans beyond the issue's list and
+                               #   two more when the first removals landed
+                               #   (the skill-memory shell family was a
+                               #   self-referential pre-csm-CLI prototype).
+                               #   Removed: gen_arch_diagram.py,
+                               #   get_comments.py (both #121-era),
+                               #   yaml-to-drawio.py (#445-era), and the four
+                               #   scripts/skill-memory/ shell tools.
+                               #   generate-agents.sh gained a content-based
+                               #   --check mode (mktemp + diff -r, mtime-free;
+                               #   CSM_AGENTS_MIRROR for the negative path)
+                               #   wired as the .opencode/agents drift gate in
+                               #   validate.sh; test-self-fix-loop-safety.sh
+                               #   now feeds </dev/null (the recorded 17-min
+                               #   local wedge is gone; 5 refusals verify in
+                               #   seconds). Docs: agents-docs/ci-workflows.md
+                               #   maps all 12 workflows + the external Codacy
+                               #   required context; CONTRIBUTING.md and
+                               #   AGENTS.md cross-link (scope table, gates,
+                               #   roast discipline).
+                               #   Roast: plans/PR_ROAST_2026_11_25.md
+                               #   (follow-up session row).
+                               #   Predecessor:
+                               #   consolidate_off_tree_adrs_2026_11_25
+                               #   (rationale in git and the roast record).
 

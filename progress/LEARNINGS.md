@@ -1290,3 +1290,15 @@ chased with a test — but the exclude must be PROVEN, because
 `Ok(D)` must be spelled `Ok\(D\(\)\)`; an unescaped or wrongly-sequenced group
 matches nothing, the phantom sails through, and the gate fails again an hour
 later. Run the same pinned cargo-mutants locally on `--list` before pushing.
+
+## 2026-11-25 — a referenced-by gate must fail in both directions, and removals re-run it
+
+Two #1069 measurements. (1) Wiring gates drift in BOTH directions: an
+orphaned-entry rule without a stale-assertion rule rots into an unused
+exceptions table, so scripts/SCRIPT_WIRING.md rows are checked against
+reality too — a row whose script gained a caller (or left the tree) fails
+the gate, forcing the table to say what is. (2) An orphan list is a SNAPSHOT:
+removing the first orphans changed other rows' caller sets (the
+scripts/skill-memory/ family's only callers were each other) — after any
+removal or wiring change, re-run the gate before believing it green. The
+same principle as coverage counters: derive, don't copy.

@@ -14,4 +14,9 @@ if ! cmp -s "$EXPECTED" "$RENDERED"; then
   exit 1
 fi
 python3 "${SCRIPT_DIR}/test-script-catalog.py"
+
+# Referenced-by assertion (issue #1069): every scripts/ entry is wired
+# (caller or fixture) or carries a reviewed scripts/SCRIPT_WIRING.md row
+# that still matches reality — orphaned entries and stale assertions both fail.
+python3 "${SCRIPT_DIR}/gen_script_catalog.py" --root "$ROOT" --check
 printf 'script catalog drift gate: pass\n'

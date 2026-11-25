@@ -1,37 +1,65 @@
 #!/bin/bash
+# Regenerate the tracked .opencode/agents/ mirror from the agent definitions
+# below (atomic heredoc rewrites; the output is content-static).
+#
+# Operator mode (default): rewrite the mirror in place and `git add` it.
+# --check mode: generate into a temp dir and diff the CONTENT against the
+# tracked mirror — mtime-free, so it is safe to run on any fresh checkout
+# (CI included, where file times are meaningless). Exit 0 = mirror matches
+# the definitions, exit 1 = drifted (print which files differ). This is the
+# drift gate validate.sh runs (issue #1069 wiring: no tracked artifact
+# without a live caller or an asserting gate).
 set -e
 
 SKILLS_DIR=".agents/skills"
 AGENTS_DIR=".opencode/agents"
+TRACKED_AGENTS_DIR=".opencode/agents"
+
+CHECK_MODE=0
+if [[ "${1:-}" == "--check" ]]; then
+  CHECK_MODE=1
+  AGENTS_DIR="$(mktemp -d)"
+  trap 'rm -rf "$AGENTS_DIR"' EXIT
+fi
+
+# The tracked mirror under compare (overridable for the negative-fixture path).
+TRACKED_AGENTS_DIR="${CSM_AGENTS_MIRROR:-.opencode/agents}"
 
 NEEDS_REGEN=0
 
-if [ ! -d "$AGENTS_DIR" ] || [ -z "$(ls -A "$AGENTS_DIR" 2>/dev/null)" ]; then
-  NEEDS_REGEN=1
-  REASON="agents directory missing or empty"
-else
-  OLDEST_AGENT=$(find "$AGENTS_DIR" -name "*.md" -printf '%T@\t%p\n' 2>/dev/null | sort -n | head -1 | cut -f2-)
-  if [ -n "$OLDEST_AGENT" ]; then
-    for skill_file in "$SKILLS_DIR"/*/SKILL.md; do
-      if [ -f "$skill_file" ] && [ "$skill_file" -nt "$OLDEST_AGENT" ]; then
-        NEEDS_REGEN=1
-        REASON="skill $(basename $(dirname "$skill_file")) modified"
-        break
-      fi
-    done
+if [[ "$CHECK_MODE" -eq 0 ]]; then
+  # Operator convenience: the definitions are content-static, so a rewrite
+  # is only a "touch" refresh — the mtime heuristic decides when to do it,
+  # not what is correct. The --check gate above is the correctness part.
+  if [ ! -d "$AGENTS_DIR" ] || [ -z "$(ls -A "$AGENTS_DIR" 2>/dev/null)" ]; then
+    NEEDS_REGEN=1
+    REASON="agents directory missing or empty"
+  else
+    OLDEST_AGENT=$(find "$AGENTS_DIR" -name "*.md" -printf '%T@\t%p\n' 2>/dev/null | sort -n | head -1 | cut -f2-)
+    if [ -n "$OLDEST_AGENT" ]; then
+      for skill_file in "$SKILLS_DIR"/*/SKILL.md; do
+        if [ -f "$skill_file" ] && [ "$skill_file" -nt "$OLDEST_AGENT" ]; then
+          NEEDS_REGEN=1
+          REASON="skill $(basename $(dirname "$skill_file")) modified"
+          break
+        fi
+      done
+    fi
   fi
+
+  if [ "$NEEDS_REGEN" -eq 0 ]; then
+    echo "=== Agents up to date, skipping regeneration ==="
+    exit 0
+  fi
+
+  echo "=== Generating OpenCode Agents ==="
+  echo "Reason: $REASON"
+
+  mkdir -p "$AGENTS_DIR"
+  rm -f "$AGENTS_DIR"/*.md 2>/dev/null || true
+else
+  mkdir -p "$AGENTS_DIR"
 fi
-
-if [ "$NEEDS_REGEN" -eq 0 ]; then
-  echo "=== Agents up to date, skipping regeneration ==="
-  exit 0
-fi
-
-echo "=== Generating OpenCode Agents ==="
-echo "Reason: $REASON"
-
-mkdir -p "$AGENTS_DIR"
-rm -f "$AGENTS_DIR"/*.md 2>/dev/null || true
 
 generate_impl_agent() {
   cat > "$AGENTS_DIR/impl.md" << 'EOF'
@@ -319,6 +347,19 @@ generate_test_agent
 generate_plan_agent
 generate_ci_agent
 generate_swarm_agent
+
+if [[ "$CHECK_MODE" -eq 1 ]]; then
+  # Content drift gate (issue #1069): the tracked mirror must byte-match the
+  # definitions in this script. diff -r exits 1 on any difference, including
+  # a file that exists on only one side (a tracked agent with no generator,
+  # or a definition whose output was never committed).
+  if ! diff -r "$TRACKED_AGENTS_DIR" "$AGENTS_DIR"; then
+    echo "agents mirror drifted from scripts/generate-agents.sh: regenerate and commit (run scripts/generate-agents.sh)" >&2
+    exit 1
+  fi
+  echo "agents mirror matches its generator (scripts/generate-agents.sh)"
+  exit 0
+fi
 
 echo "Adding agents to git..."
 if git add .opencode/agents/; then
