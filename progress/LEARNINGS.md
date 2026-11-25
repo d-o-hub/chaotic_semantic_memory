@@ -1223,3 +1223,21 @@ agree on can rot together. Encoded in AGENTS.md Key Invariants.
    (same validate.sh) is the full proof, per the 2026-11-24 precedent. Rationale cards
    already exist (`duckdb_cache_unpack_repaired`); the cost, not the correctness, was
    new information.
+
+## 2026-11-25 — networkless remote-contract tests: construct the shape, not the endpoint
+
+Testing "remote (Turso/libSQL URL) persistence refuses X" without a network:
+`Persistence`'s fields are `pub(crate)`, so an in-crate test constructs the
+remote *shape* — `db` cloned from a live local handle, `local_path: None`.
+Every refusal guard (`backup`, `restore`) checks `local_path` before any I/O or
+connection acquisition, so the construct exercises the exact production branch
+with zero network dependency, and lib-target placement keeps it
+mutation-visible (a `-> Ok(())` mutant on those fns now fails a test that never
+needs an endpoint). The old incident notes – `new_turso*` builds a remote
+`Builder` and connects eagerly – is what makes the shape extraction necessary
+rather than lazy.
+
+Also re-measured, same session: stale working-tree file copies carried across
+rebases (autostash restores them after `rebase` finishes) can be older than the
+branch's own commit — always re-derive WT content against code truth before
+trusting `git diff HEAD` directionality.

@@ -48,15 +48,15 @@ world_state:
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
   # `main_head` was removed with ci_all_checks_passed — read it from `git rev-parse
   # --short=8 origin/main` (or the ci-truth line above), never from this file.
-  tests_count: 1244                  # 2026-11-25: `scripts/coverage-report.sh inventory`
-                                     #   (tests/ 554, src/ 287, crates/*/src 370, crates/*/tests 33).
+  tests_count: 1246                  # 2026-11-25: `scripts/coverage-report.sh inventory`
+                                     #   (tests/ 554, src/ 287, crates/*/src 372, crates/*/tests 33).
                                      #   The llm-context gate re-derives this from the tree (#1063),
                                      #   so stored copies cannot rot silently again.
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)
-  adr_registry_count: 100            # check-adr-parity.sh: registry rows (ADR-0024 has two files)
-  adr_disk_count: 99                 # unique ids on disk (100 files, ADR-0024 has two)
+  adr_registry_count: 101            # check-adr-parity.sh: registry rows (ADR-0024 has two files)
+  adr_disk_count: 100                # unique ids on disk (101 files, ADR-0024 has two)
   integration_test_files: 73         # ls tests/*.rs | wc -l
 
   # ── Plans pointers ────────────────────────────────────────────
@@ -169,6 +169,11 @@ world_state:
   persistence_failure_leaves_memory_unchanged: true # durable-first/reconcile invariant
   persistence_failure_semantics_tested: true      # inject/delete/batch failure tests (src/framework_persistence_tests.rs)
   persistence_implementation_owner_unique: true   # root re-exports csm-persistence; no second body
+  remote_backup_restore_divergence_documented: true  # 2026-11-25 (#1065/ADR-0105): backup/restore
+                                              #   are local-only by construction; the refusals name
+                                              #   the export/import round-trip, unit tests pin the
+                                              #   contract (remote shape = live handle, no local path),
+                                              #   and the README documents the divergence.
   mcp_full_width_vector_wire_contract: true       # base64 1280-byte HVec + high-bit tests
   no_state_lock_across_io_await: true             # durable I/O before singularity locks
   benchmark_metrics_mathematically_correct: true  # multi-label recall/NDCG/abstention with hand checks
@@ -260,28 +265,23 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_plans_and_counter_truth_2026_11_25
-                               #   The 2026-11-25 full-repo audit (three read-only agents, every claim
-                               #   re-derived in-tree) found zero literal missing implementations
-                               #   (26/26 CLI subcommands dispatched, 13/13 MCP tools, no TODO/
-                               #   unimplemented markers) but real drift in the repo's own records:
-                               #   the tests-count drift gate compared two stored copies while the
-                               #   tree said 1244 vs 1192 (fixed by PR #1072: the gate now derives
-                               #   the count from the tree); wave 32/33 said in_progress against an
-                               #   empty queue; GOALS.md marked shipped work deferred (ann-hnsw/
-                               #   ann-lsh indexing, ADR-0025 association decay); ADR-0026's file
-                               #   status (Deferred) contradicted its registry row (Implemented)
-                               #   and its consequences named an API that had shipped; AGENTS.md Key
-                               #   Files pointed at nonexistent src/reservoir.rs; the README named a
-                               #   nonexistent analytics feature and a wrong cache default (fixed
-                               #   by PR #1071). Fixed by PR #1073 (this branch): wave/queue
-                               #   comments, GOALS flags, ADR-0024/0025-adjacent resolution notes,
-                               #   ARCHIVE_MANIFEST rows, the AGENTS.md reservoir path, and a new
-                               #   counter-truth invariant (state-file counters are derived facts).
-                               #   Backlog filed as issues #1065-#1070; two Validate-sh findings
-                               #   (self-fix fixture stdin; bundled-DuckDB local build cost) recorded
-                               #   in progress/LEARNINGS.md.
-                               #   Roast: plans/PR_ROAST_2026_11_25.md.
-                               #   Predecessor: drain_dependabot_seven_and_fix_cargo_deny_
-                               #   advisories_2026_11_24 (rationale in git and the #1057 chain).
+  action_last_completed: document_remote_backup_restore_divergence_2026_11_25
+                               #   #1065, documented-divergence arm (ADR-0105):
+                               #   Persistence::backup/restore refused remote (Turso/libSQL)
+                               #   databases with messages that named no alternative. The refusal
+                               #   sites now name the export/import round-trip (import defaults
+                               #   to replace; merge is opt-in), two lib-target tests pin the
+                               #   contract via the remote shape (live handle, `local_path:
+                               #   None` — the guards run before any I/O, so no network is
+                               #   needed) and kill the `-> Ok(())` return mutants, the README
+                               #   documents the divergence beside the Turso guide, and ADR-0105
+                               #   records the decision (registry 101 / disk 100, parity green).
+                               #   Same session: merged #1072 (green CLEAN head) and #1073
+                               #   (rebased onto post-#1072 main, all contexts green, MERGEABLE/
+                               #   CLEAN) one at a time, and filed three audit follow-ups —
+                               #   #1074 stale dependabot_alerts_open, #1075 duplicate test-name
+                               #   leads, #1076 directory-shaped context.yaml key_files path.
+                               #   Roast: plans/PR_ROAST_2026_11_25.md (follow-up section).
+                               #   Predecessor: repair_plans_and_counter_truth_2026_11_25
+                               #   (rationale in git and plans/PR_ROAST_2026_11_25.md).
 

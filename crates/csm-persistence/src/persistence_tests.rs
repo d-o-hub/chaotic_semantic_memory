@@ -148,3 +148,77 @@ async fn restore_preserves_graph_rows_and_invalidates_absence_cache() {
     );
     assert!(persistence.get_namespace_revision(NS).await.unwrap() > 0);
 }
+
+#[tokio::test]
+async fn remote_backup_refuses_and_names_the_export_import_workaround() {
+    let temp = NamedTempFile::new().expect("Failed to create temp file");
+    let path = temp.path().to_str().expect("Invalid path");
+    let local = Persistence::new_local(path)
+        .await
+        .expect("Failed to create persistence");
+
+    // The remote shape per ADR-0105: a live handle but no local file path.
+    // `backup` guards on `local_path` before any I/O, so this construct
+    // exercises the refusal contract without a network endpoint.
+    let remote = Persistence {
+        db: local.db.clone(),
+        local_path: None,
+        remote_limit: local.remote_limit.clone(),
+        version_retention: local.version_retention,
+        simulate_failure: AtomicBool::new(false),
+        query_count: AtomicU64::new(0),
+    };
+
+    let error = remote
+        .backup("ignored.bk")
+        .await
+        .expect_err("remote-shaped backup must refuse");
+    let MemoryError::UnsupportedOperation(message) = error else {
+        panic!("backup refusal must be UnsupportedOperation, got {error:?}");
+    };
+    assert!(
+        message.contains("only supported for local SQLite databases"),
+        "refusal must state the constraint, got: {message}"
+    );
+    assert!(
+        message.contains("export/import round-trip"),
+        "refusal must name the export/import workaround (ADR-0105), got: {message}"
+    );
+}
+
+#[tokio::test]
+async fn remote_restore_refuses_and_names_the_export_import_workaround() {
+    let temp = NamedTempFile::new().expect("Failed to create temp file");
+    let path = temp.path().to_str().expect("Invalid path");
+    let local = Persistence::new_local(path)
+        .await
+        .expect("Failed to create persistence");
+
+    let remote = Persistence {
+        db: local.db.clone(),
+        local_path: None,
+        remote_limit: local.remote_limit.clone(),
+        version_retention: local.version_retention,
+        simulate_failure: AtomicBool::new(false),
+        query_count: AtomicU64::new(0),
+    };
+
+    // A snapshot file exists on disk: the refusal must still come from the
+    // local-only guard, not from a missing-file IO error.
+    let snapshot = NamedTempFile::new().expect("Failed to create snapshot file");
+    let error = remote
+        .restore(snapshot.path().to_str().expect("Invalid path"))
+        .await
+        .expect_err("remote-shaped restore must refuse");
+    let MemoryError::UnsupportedOperation(message) = error else {
+        panic!("restore refusal must be UnsupportedOperation, got {error:?}");
+    };
+    assert!(
+        message.contains("only supported for local SQLite databases"),
+        "refusal must state the constraint, got: {message}"
+    );
+    assert!(
+        message.contains("export/import round-trip"),
+        "refusal must name the export/import workaround (ADR-0105), got: {message}"
+    );
+}

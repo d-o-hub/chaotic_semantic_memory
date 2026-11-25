@@ -244,6 +244,24 @@ This keeps HDC and semantic vectors in the **same database**: the crate manages
 `csm_concepts` and `csm_associations` tables (with `csm_` prefix for namespace isolation),
 while you manage `semantic_vectors` for float-vector similarity search. Both query the same libSQL/Turso instance.
 
+### Backup & Restore (Local Databases Only)
+
+`Persistence::backup` and `restore` build snapshots with libSQL `VACUUM INTO`
+and a file-backed `ATTACH`, so they operate only on local SQLite files. Remote
+(Turso/libSQL URL) databases are refused with `UnsupportedOperation` that names
+the supported alternative: the versioned export/import round-trip, which
+produces a complete schema-tagged artifact and validates before it installs.
+
+```bash
+# Back up a remote or local database to a portable artifact
+csm export --output memory-snapshot.json
+
+# Restore by replace (default) — merge is opt-in via --merge
+csm import memory-snapshot.json
+```
+
+This divergence is recorded in [ADR-0105](plans/adr/0105-remote-backup-restore-divergence.md).
+
 ## CLI Usage
 
 The `csm` binary provides command-line access:

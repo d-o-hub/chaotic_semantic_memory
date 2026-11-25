@@ -745,6 +745,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## README.md
 
+### Back up a remote or local database to a portable artifact
+csm export --output memory-snapshot.json
+
 ### CLI workflow test (inject → probe → export → import)
 csm inject doc-1 --database test.db
 csm probe doc-1 -k 5 --database test.db
@@ -984,6 +987,17 @@ csm import backup.json --merge
 csm inject my-concept --database csm_memory.db
 
 ### Location: .agents/csm-memory/skill-memory.db
+### Restore by replace (default) — merge is opt-in via --merge
+csm import memory-snapshot.json
+```
+
+This divergence is recorded in [ADR-0105](plans/adr/0105-remote-backup-restore-divergence.md).
+
+#### CLI Usage
+
+The `csm` binary provides command-line access:
+
+```bash
 ### Skill-memory integration test
 ### Verified: concept save/recall, db file creation
 ```
@@ -1265,9 +1279,13 @@ This keeps HDC and semantic vectors in the **same database**: the crate manages
 `csm_concepts` and `csm_associations` tables (with `csm_` prefix for namespace isolation),
 while you manage `semantic_vectors` for float-vector similarity search. Both query the same libSQL/Turso instance.
 
-#### CLI Usage
+##### Backup & Restore (Local Databases Only)
 
-The `csm` binary provides command-line access:
+`Persistence::backup` and `restore` build snapshots with libSQL `VACUUM INTO`
+and a file-backed `ATTACH`, so they operate only on local SQLite files. Remote
+(Turso/libSQL URL) databases are refused with `UnsupportedOperation` that names
+the supported alternative: the versioned export/import round-trip, which
+produces a complete schema-tagged artifact and validates before it installs.
 
 ```bash
 ## Cargo.toml
