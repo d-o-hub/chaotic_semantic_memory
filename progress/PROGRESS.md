@@ -2790,3 +2790,55 @@ the guards run before any I/O, so no network is involved) and kill the
 guide, and ADR-0105 records the decision (registry 101 / disk 100, parity
 green). Counter updates shipped with the tests: tests_count 1246 in GOAP_STATE
 and context.yaml.
+
+## 2026-11-25 (follow-up session, part 2) — #1066 dead capability switches removed
+
+After #1077 merged (fix(persistence), main `cec7b6b3`), issue #1066 landed next
+because removing switches is cheaper before anything else builds on them.
+Verified in-tree first: `bm25 = ["dep:tantivy"]` had zero cfg references
+(`grep -rn 'feature = "bm25"'` → 0) and `reader-lite = []` compiled
+`Mode::ReaderLite` unconditionally; `bm25_benchmark` carries no
+required-features, so nothing could break. Lock dependency-walk (the real news):
+`time`, `lru`, `zstd`, `zstd-safe`, `zstd-sys` entered Cargo.lock ONLY through
+csm-retrieval's tantivy — the deny.toml ignore reasons claiming "transitive via
+fastembed" were misattributed; fastembed never depended on tantivy. Removing
+the dep dropped 392 lock lines and retired six advisory ignores
+(RUSTSEC-2026-0009/0002 + the zstd cluster 0391/0398/0403/0410) from BOTH
+deny.toml and .cargo/audit.toml under the zip precedent (package leaves the
+lock, ignores leave with it); parity sets match at 5 live ids, each re-verified
+present in the lock (paste/bincode/number_prefix/h2/chrono). fuzz/Cargo.lock
+untouched — tantivy never reached it. csm-duckdb truth-ups without behavior
+change: the export manifest's core_crate_version lost its "(core stub)" label
+(workspace members share one version, version-integrity gate) and
+ExportPayloadStub is now ExportPayload. Local proofs: csm-retrieval check+60
+lib tests, benchmarks check, parity fixture 9/9; csm-duckdb compile+tests left
+to CI (bundled DuckDB C++ build cost, recorded hazard). The open lru
+Dependabot alert auto-resolves with the lock change; #1074 measures the count
+when worked.
+
+The first #1078 CI run failed its own mutation union: score 50% (2 mutants, 1
+missed). The missed mutant was `create_manifest -> Ok(Default::default())` —
+csm-duckdb's only manifest test lived in the integration target
+(`parquet_export_tests.rs`) and asserted `manifest1 == manifest2`, which a
+uniformly-defaulted return also satisfies (and the mutation profile runs
+`--lib` only, where `create_manifest` had no test at all). The caught sibling
+(`load_export_json`, whose report type derives Default) was killed by its
+lib-target test — the exact contrast that localizes the fix. The roast's
+"no mutant surface" claim was wrong: an expression inside a fn is a mutation
+surface. Fix: a value-asserting lib-target test in `manifest.rs`
+(schema_version, generator/core version honesty, UUID run_id, 20-char UTC
+exported_at, exact per-file rows/bytes/sha mapping) + counter truth (tests
+1247).
+
+The amended #1078 head's union still printed 50% — artifact archaeology
+proved the phantom instead of the code: `Ok(Default::default())` on a
+non-Default `ExportManifest` cannot compile, the phantom's build was 0.2s over
+a Fresh cache, the csm-duckdb test binary hash was identical across two
+different heads (44c36c68dd28ab1a), and the new manifest test's name occurs
+zero times in the job logs — the mutant never compiled, yet the union counted
+it MISSED. Counted out per the phantom-mutant doctrine: a surgical
+`--exclude-re` on the exact mutant name in scripts/mutation_test.sh, with the
+measured evidence, the delete-when-Default-exists condition, and the
+regex-escaping caveat (literal nested parens; three wrong shapes matched
+nothing; the working one verified with the pinned cargo-mutants 27.1.0:
+`--list` 1 → 0).

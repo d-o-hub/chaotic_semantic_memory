@@ -11,7 +11,7 @@ pub struct IngestReport {
 }
 
 #[derive(Debug, Deserialize)]
-struct ExportPayloadStub {
+struct ExportPayload {
     pub concepts: Vec<serde_json::Value>,
     pub associations: Vec<(String, String, f64)>,
 }
@@ -19,7 +19,7 @@ struct ExportPayloadStub {
 impl Analytics {
     pub fn load_export_json<P: AsRef<Path>>(&mut self, path: P) -> Result<IngestReport> {
         let file = std::fs::File::open(path)?;
-        let payload: ExportPayloadStub = serde_json::from_reader(file)?;
+        let payload: ExportPayload = serde_json::from_reader(file)?;
 
         let tx = self.conn.transaction()?;
 

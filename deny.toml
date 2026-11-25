@@ -11,14 +11,14 @@ ignore = [
     # Patched in 0.32.1, we're at 0.27.1. Upgrade requires major API migration (deferred).
     # No RUSTSEC ID yet; added proactively for when one is assigned.
     # { id = "RUSTSEC-20XX-XXXX", reason = "opentelemetry_sdk 0.32 requires major API migration, blocked until ecosystem catches up" },
-    # Dependabot alert #21: time DoS via stack exhaustion in RFC2822 parsing (RUSTSEC-2026-0009)
-    # Patched in 0.3.47, pinned at 0.3.45 by tantivy 0.22.1 (transitive via fastembed).
-    # We don't parse user-supplied RFC2822 dates; tantivy uses time internally.
-    { id = "RUSTSEC-2026-0009", reason = "time 0.3.45 pinned by tantivy (via fastembed), no user-facing RFC2822 parsing" },
-    # Dependabot alert #20: lru IterMut unsoundness (RUSTSEC-2026-0002)
-    # Patched in 0.16.3, pinned at 0.12.5 by tantivy 0.22.1 (transitive via fastembed).
-    # Informational/unsound — theoretical Stacked Borrows violation, no practical exploit.
-    { id = "RUSTSEC-2026-0002", reason = "lru 0.12.5 pinned by tantivy (via fastembed), informational unsoundness" },
+    # Retired 2026-11-25 (#1066): RUSTSEC-2026-0009 (time 0.3.45) and
+    # RUSTSEC-2026-0002 (lru 0.12.5) left with csm-retrieval's dead optional
+    # tantivy 0.22.1 dep (they entered the lock only through it — the old
+    # "via fastembed" attribution was wrong; fastembed never depended on
+    # tantivy). Same retirement rule as the zip block below: the package
+    # leaves Cargo.lock, its ignores leave with it. If tantivy (or another
+    # pin of time < 0.3.47 / lru < 0.16.3) returns, re-derive the
+    # reachability analysis before re-adding any ignore.
     # Dependabot alert: h2 unbounded empty DATA frames (RUSTSEC-2026-0258)
     # 0.4 copy bumped to 0.4.19 (fixed >=0.4.16). 0.3.27 copy is pinned by
     # hyper 0.14 via libsql/tonic/axum; no 0.3.x patch — requires libsql
@@ -33,18 +33,12 @@ ignore = [
     # compiles ZipArchive::extract only in its cfg(not(feature = "bundled"))
     # download path. Re-check: when libduckdb-sys reintroduces zip, run
     # scripts/check-bundled-ignore-reason.sh before adding any ignore.
-    # Issue #945: the zstd 2026-10-26 advisory cluster reaches this workspace only
-    # through tantivy-sstable 0.3.0 (tantivy 0.22 pins zstd "0.13", features
-    # ["experimental"]), and tantivy-sstable's entire call surface is
-    # zstd::bulk::{Compressor, Decompressor} + compress_bound — none of the
-    # advisory functions (with_context stream reuse, seekable, dictionary
-    # cdict/ddict/train_*, CCtx::try_clone threading, DCtx::decompress_stream)
-    # is reachable. Patched sets (zstd >=0.14.3, zstd-safe >=8.2.0) are outside
-    # tantivy's 0.13 pin, same class as the lru/time/h2 pins above.
-    { id = "RUSTSEC-2026-0391", reason = "zstd 0.13.3 pinned by tantivy's zstd 0.13; with_context stream reuse never called (bulk API only)" },
-    { id = "RUSTSEC-2026-0398", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; seekable decompress never called" },
-    { id = "RUSTSEC-2026-0403", reason = "zstd-safe 7.2.4 behind tantivy's zstd 0.13 pin; DCtx::decompress_stream never called" },
-    { id = "RUSTSEC-2026-0410", reason = "zstd-sys wasm32-only allocator shim; zstd-sys is absent from the csm-wasm dependency tree" },
+    # Retired 2026-11-25 (#1066): the zstd family (RUSTSEC-2026-0391 zstd,
+    # 2026-0398/0403 zstd-safe, 2026-0410 zstd-sys) left with csm-retrieval's
+    # dead optional tantivy dep — the entire cluster entered only through
+    # tantivy-sstable 0.3.0. Issue #945's reachability analysis (only
+    # zstd::bulk was ever called) is preserved in git and remains the
+    # template if zstd returns via another pin.
     # RUSTSEC-2026-0543 (2026-11): chrono is flagged unmaintained for *all* versions,
     # so there is no patched release to upgrade to. Informational notice, not a
     # vulnerability. chrono is a direct dependency here (root, csm-traits,
