@@ -1198,3 +1198,28 @@ Rules this produced:
    a provisioning failure, not a test failure — `mergeStateStatus: UNSTABLE` (not `BLOCKED`) says the
    required contexts already passed. `gh run rerun <run> --job <job>` retries just that job; a
    `failure` with a populated log is a real signal and must be read instead.
+
+### A gate that compares two stored copies proves nothing (2026-11-25, #1063/#1073)
+
+`tests/validate_llm_context.py`'s Test Counts check compared context.yaml against
+GOAP_STATE.md — both stored copies — while every sibling check (skills, ADRs, LOC)
+derived from the tree. The counter drifted 1192 → 1244 (+52) across three weeks of green
+gates. Rule: a counter gate must derive at least one side from the tree; stored copies
+can corroborate each other but never substitute. Same family as the CI-truth rule
+(GOAP_STATE no longer stores `main_head`/`ci_all_checks_passed`): whatever two files can
+agree on can rot together. Encoded in AGENTS.md Key Invariants.
+
+### Two local-run hazards in validate.sh (2026-11-25)
+
+1. `test-self-fix-loop-safety.sh` invokes the real `self-fix-loop.sh` with inherited
+   stdin. In CI stdin is discarded (`read` hits EOF, refusal, fixture passes); locally
+   under a pty nobody writes to, the confirmation `read` blocks forever — a 17-minute
+   wedge here until writing "no" to the pty. Feeding the subprocess `</dev/null` would
+   make the refusal deterministic in every environment (worth folding into the wiring
+   work under #1069).
+2. `cargo test --no-run --all-features` reaches the bundled DuckDB C++ debug build
+   (libduckdb-sys build script serially compiling thousands of TU's) — hours in this
+   sandbox. Local full validate is therefore not practical here; the PR's CI `lint` job
+   (same validate.sh) is the full proof, per the 2026-11-24 precedent. Rationale cards
+   already exist (`duckdb_cache_unpack_repaired`); the cost, not the correctness, was
+   new information.

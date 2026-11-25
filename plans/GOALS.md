@@ -53,20 +53,25 @@ enhancement_goals:
   name: "Architecture Enhancements (Post-1.0 Deferred)"
   note: "Deferred per Swarm Consensus 2026-02-17. Reconsider based on production feedback."
   targets:
-    # ADR-0056 / ADR-0024 Phase 2B/C: Trigger when >200k concepts with latency degradation
-    # after exact-scan materialization costs are removed from the probe path
-    - approximate_search_indexing: deferred  
+    # ADR-0056 / ADR-0024 Phase 2B/C: truth-up 2026-11-25 - the ANN capability landed
+    # behind opt-in features (ann-hnsw, ann-lsh; crates/csm-memory/src/index/);
+    # ADR-0056 index *automation* remains deferred until >200k latency regression
+    - approximate_search_indexing: true
     # ADR-0024 Phase 2: Trigger when w_in memory pressure observed
     - deterministic_hashed_projections: deferred
-    # ADR-0024: Product Quantization for 10M concept scale
+    # ADR-0024: Product Quantization for 10M concept scale - the only ADR-0024
+    # phase-2 item still deferred (SIMD and LSH landed; see the 0024 resolution note)
     - product_quantization: deferred
-    # ADR-0056 / ADR-0024: Optional LSH index for sub-linear search
-    - lsh_indexing: deferred
-    # ADR-0025: Biological memory decay modeling
-    - association_decay: deferred
+    # Shipped behind ann-lsh (crates/csm-memory/src/index/lsh.rs + csm-chaos
+    # ChaoticLsh/VoronoiLsh); ANN scale evidence current under plans/evidence/
+    - lsh_indexing: true
+    # ADR-0025: weighted forgetting implemented 2026-06-23
+    # (crates/csm-memory/src/singularity_decay.rs; tests/association_decay.rs)
+    - association_decay: true
     # ADR-0024 baseline shipped; advanced policy automation remains deferred
     - concept_ttl: true
-    # ADR-0026: Multi-tenancy support
+    # ADR-0026 tenant isolation deferred; the namespace *mechanism* shipped
+    # (set_namespace + ns-scoped durable tables/revision; see the ADR-0026 resolution note)
     - namespace_isolation: deferred
 
 improvement_goals:

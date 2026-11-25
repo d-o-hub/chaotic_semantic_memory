@@ -116,10 +116,20 @@ world_state:
                                      #   owed (ADR-0104).
   host_subprocesses_isolated_from_nix_env: true     # #949/#981: 37-case fixture; nix jobs use use-flakehub: false
   active_wave: 33
-  wave_32_status: in_progress        # exits re-verified; residuals are queued as individual actions
+  wave_32_status: complete           # 2026-11-25: all four GOAP_AUDIT_2026_07_14 phase exits are
+                                     #   now-true flags (ann_config_is_fallible, ann_snapshot_revision_validated,
+                                     #   fuzz_build_required_in_ci, skill_validation_fail_closed,
+                                     #   no_default_features_is_lean, workspace_implementation_owners_unique,
+                                     #   benchmark_metrics_mathematically_correct, measured_memory_model_exists,
+                                     #   ttl_cleanup_has_bounded_shutdown, active_plan_set_compact); the "residuals
+                                     #   queued as individual actions" comment was stale - the queue has been
+                                     #   empty since 2026-11-08 and no residual was tracked anywhere.
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
-  wave_33_status: in_progress        # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 0            # 2026-11-15: completed #1034 action removed.
+  wave_33_status: complete           # 2026-10-20 per GOALS.md wave_33_goals (verified 2026-11-25); the
+                                     #   follow-up audit wave merged 2026-10-30 (audit_followup_wave_merged).
+  queued_actions_count: 0            # 2026-11-25: queue empty; the 2026-11-25 audit backlog is tracked as
+                                     #   open issues #1062-#1070 (issue-first rule: an action enters this
+                                     #   queue only when work on it starts).
   # ── Open work (flags currently false — the real backlog) ──────
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
@@ -250,31 +260,28 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: drain_dependabot_seven_and_fix_cargo_deny_advisories_2026_11_24
-                               #   Two RustSec advisories published after main's last green run
-                               #   (2026-11-17) made `cargo deny` red on every open head while
-                               #   every diff was innocent; `lint` runs the same deny through
-                               #   scripts/validate.sh, so one cause showed up as two red
-                               #   contexts per PR. RUSTSEC-2026-0592 (url <= 2.5.8, stack
-                               #   overflow in Url::origin()) has a patch -> lockfile bump to
-                               #   2.5.9, no ignore; RUSTSEC-2026-0543 (chrono unmaintained, no
-                               #   patched release) -> reasoned ignore in deny.toml AND
-                               #   .cargo/audit.toml so the #903 parity gate passes. The fix
-                               #   landed on its own branch (#1057 -> 65fed3ac), never on a bot
-                               #   head, then each PR was rebased onto the then-current main and
-                               #   merged only after all six required contexts were green on
-                               #   that exact head: #1051 -> 1bf3fa35, #1058 -> af3fa216 (it
-                               #   replaced #1052, which Dependabot closed mid-flight), #1053 ->
-                               #   71dbd8ca (the rebase dropped its duplicate deny.toml hunk, so
-                               #   the PR is Cargo.lock only), #1054 -> ed4e863a, #1055 ->
-                               #   fd498e76, #1056 -> e00fbeb8. #1056 needed one infra re-run:
-                               #   `Build CLI (macos-arm64)` was cancelled with runner_name ""
-                               #   and steps [] (no runner provisioned), so `gh run rerun
-                               #   45433310380 --job 138609184511` succeeded in ~5 min. Zero
-                               #   open PRs afterwards.
-                               #   Roast: plans/PR_ROAST_2026_11_24.md.
-                               #   Predecessor: roast_and_drain_dependabot_trio_1041_1042_1043
-                               #   (2026-11-16; its rationale is in git and
-                               #   progress/PROGRESS.md, per the header rule that this file
-                               #   carries only the current value).
+  action_last_completed: repair_plans_and_counter_truth_2026_11_25
+                               #   The 2026-11-25 full-repo audit (three read-only agents, every claim
+                               #   re-derived in-tree) found zero literal missing implementations
+                               #   (26/26 CLI subcommands dispatched, 13/13 MCP tools, no TODO/
+                               #   unimplemented markers) but real drift in the repo's own records:
+                               #   the tests-count drift gate compared two stored copies while the
+                               #   tree said 1244 vs 1192 (fixed by PR #1072: the gate now derives
+                               #   the count from the tree); wave 32/33 said in_progress against an
+                               #   empty queue; GOALS.md marked shipped work deferred (ann-hnsw/
+                               #   ann-lsh indexing, ADR-0025 association decay); ADR-0026's file
+                               #   status (Deferred) contradicted its registry row (Implemented)
+                               #   and its consequences named an API that had shipped; AGENTS.md Key
+                               #   Files pointed at nonexistent src/reservoir.rs; the README named a
+                               #   nonexistent analytics feature and a wrong cache default (fixed
+                               #   by PR #1071). Fixed by PR #1073 (this branch): wave/queue
+                               #   comments, GOALS flags, ADR-0024/0025-adjacent resolution notes,
+                               #   ARCHIVE_MANIFEST rows, the AGENTS.md reservoir path, and a new
+                               #   counter-truth invariant (state-file counters are derived facts).
+                               #   Backlog filed as issues #1065-#1070; two Validate-sh findings
+                               #   (self-fix fixture stdin; bundled-DuckDB local build cost) recorded
+                               #   in progress/LEARNINGS.md.
+                               #   Roast: plans/PR_ROAST_2026_11_25.md.
+                               #   Predecessor: drain_dependabot_seven_and_fix_cargo_deny_
+                               #   advisories_2026_11_24 (rationale in git and the #1057 chain).
 

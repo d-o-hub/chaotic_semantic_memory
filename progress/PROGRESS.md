@@ -2742,3 +2742,21 @@ failure), #1054 `ed4e863a`, #1055 `fd498e76`, #1056 `e00fbeb8`. #1056's first at
 `Build CLI (macos-arm64)` `cancelled` and no runner assigned (`runner_name: ""`, `steps: []`); one
 targeted `gh run rerun --job` took it green in ~5 minutes. Zero open PRs afterwards; record
 `plans/PR_ROAST_2026_11_24.md`.
+
+## 2026-11-25 — truth-repair wave: audit, three P0 PRs, nine backlog issues
+
+A full-repo audit (three read-only agents, every load-bearing claim re-derived in-tree)
+found zero literal missing implementations (26/26 CLI subcommands dispatched, 13/13 MCP
+tools, no TODO/unimplemented markers) but real drift in the repo's own records: the
+tests-count drift gate compared two stored copies while the tree held 1244 vs 1192 (#1072
+fixes the gate by deriving from the tree); wave 32/33 said in_progress against an empty
+queue; GOALS.md marked shipped work deferred (ann-hnsw/ann-lsh indexing, ADR-0025
+association decay); ADR-0026's file status contradicted its registry row and its
+consequences named an API that had shipped; AGENTS.md Key Files pointed at nonexistent
+src/reservoir.rs; the README named a nonexistent `analytics` feature and a wrong cache
+default (#1071). This branch (#1073) truths up the plans/records layer and encodes a
+"counter truth is derived, not copied" invariant in AGENTS.md. Backlog filed as issues
+#1065-#1070 (Turso backup/restore, dead feature flags, ADR-0064/0065 consolidation, README
+coverage, workflow wiring, ADR-0104 OIDC residuals). Two validate.sh findings recorded in
+LEARNINGS (self-fix fixture stdin, bundled-DuckDB local build cost). Roast:
+plans/PR_ROAST_2026_11_25.md.
