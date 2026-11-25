@@ -809,7 +809,7 @@ See `examples/basic_in_memory.rs` for the minimal in-memory workflow.
 | `connection_pool_size` | `10` | `>= 1` | Turso/libSQL remote pool size |
 | `max_probe_top_k` | `10_000` | `>= 1` | Input guard for `probe` and batch probes |
 | `max_metadata_bytes` | `None` | optional positive | Metadata payload size guard |
-| `concept_cache_size` | `128` | `>= 1` | Similarity query cache capacity (set via `with_concept_cache_size`, stored separately from `FrameworkConfig`) |
+| `concept_cache_size` | `1000` | `>= 1` | Similarity query cache capacity (set via `with_concept_cache_size`, stored separately from `FrameworkConfig`) |
 
 ##### Tuning Guide
 
@@ -1078,8 +1078,8 @@ For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`csm-d
 | Want... | Use... | Features |
 |---|---|---|
 | Just core memory/search | `chaotic_semantic_memory` | Lean, no C++ toolchain |
-| SQL queries + CLI analytics | `csm` + `analytics` feature | Integrated experience |
-| Standalone analytics binary | `csm-analytics` | Specialized for data engineers |
+| SQL queries + CLI analytics | `csm` CLI + `csm-duckdb` | SQL inspection and Parquet export over exported memory |
+| Standalone analytics binary | `csm-duckdb` (`cli` feature) | Builds the `csm-analytics` bin; specialized for data engineers |
 
 #### Installation
 
