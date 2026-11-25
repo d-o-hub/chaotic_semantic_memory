@@ -149,7 +149,6 @@ def wiring_violations(root: pathlib.Path) -> list[str]:
         if path.is_file() and path.suffix in SCRIPT_SUFFIXES
     ):
         rel = script.relative_to(root).as_posix()
-        text = script.read_text(encoding="utf-8", errors="replace")
         status = status_of(callers(root, script), fixture_for(root, script), script.name.startswith("test-"))
         if status == OPERATOR_ONLY_STATUS and rel not in asserted:
             violations.append(
