@@ -71,6 +71,6 @@ The `prev_state` vector is allocated at construction time regardless of beta, ke
 
 ## Further Reading
 
-- [ADR-0064: Inertial Reservoir Dynamics](https://github.com/d-o-hub/chaotic_semantic_memory/blob/main/docs/adr/ADR-0064-inertial-reservoir.md)
+- [ADR-0064: Inertial Reservoir Dynamics](https://github.com/d-o-hub/chaotic_semantic_memory/blob/main/plans/adr/0064-inertial-reservoir.md)
 - [Architecture](./architecture.md) — overall system design
 - [Performance](./performance.md) — benchmarking methodology

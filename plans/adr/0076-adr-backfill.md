@@ -81,6 +81,16 @@ Accepted (backfilled 2026-04-30 — original decision predates this document)
 - Future ADRs (0067+) → `plans/adr/` (single canonical location)
 - `docs/adr/` 0064–0065 → leave in place; cross-link from registry
 
+> **Superseded 2026-11-25 (#1067):** the "leave in place" rule above did not
+> survive contact with the parity gate — `check-adr-parity.sh` globs
+> `plans/adr/[0-9]*-*.md` only, so 0064/0065 in `docs/adr/` were invisible to
+> it in both directions and never entered the registry. The rule is replaced
+> by its own audit line elsewhere in this ADR: one canonical location. Both
+> files moved verbatim to `plans/adr/0064-inertial-reservoir.md` and
+> `plans/adr/0065-selectivity-aware-retrieval.md` with registry rows; the book
+> link was updated. This note follows the resolution-note pattern (original
+> text preserved above).
+
 ### Audit additions
 
 After backfill, add to `plans/ADR_REGISTRY.md`:

@@ -55,8 +55,8 @@ world_state:
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)
-  adr_registry_count: 101            # check-adr-parity.sh: registry rows (ADR-0024 has two files)
-  adr_disk_count: 100                # unique ids on disk (101 files, ADR-0024 has two)
+  adr_registry_count: 103            # check-adr-parity.sh: registry rows (ADR-0024 has two files)
+  adr_disk_count: 102                # unique ids on disk (103 files, ADR-0024 has two)
   integration_test_files: 73         # ls tests/*.rs | wc -l
 
   # ── Plans pointers ────────────────────────────────────────────
@@ -279,36 +279,20 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: remove_dead_capability_switches_2026_11_25
-                               #   #1066: two capability switches claimed what the code
-                               #   never did. csm-retrieval's `bm25 = ["dep:tantivy"]`
-                               #   had zero cfg references (BM25 is hand-rolled;
-                               #   tantivy 0.22.1 appeared in the lock only through it,
-                               #   so `time`, `lru` and the zstd family entered the
-                               #   graph only through it as well) and benchmarks'
-                               #   `reader-lite` compiled Mode::ReaderLite
-                               #   unconditionally — both removed, lock refreshed
-                               #   (392 lines exit; fuzz/Cargo.lock untouched —
-                               #   tantivy never reached it). The advisory ignores
-                               #   pinned on that subtree (RUSTSEC-2026-0009/0002 and
-                               #   the zstd cluster 0391/0398/0403/0410) retired from
-                               #   both policy files per the zip precedent — package
-                               #   leaves the lock, its ignores leave with it; parity
-                               #   sets match at 5 live ids, each verified still in
-                               #   the lock. The old "via fastembed" attribution in
-                               #   those ignore reasons was wrong and is recorded as
-                               #   retired, with a comment stating the re-derivation
-                               #   rule if tantivy ever returns. csm-duckdb
-                               #   truth-ups: the export manifest no longer labels
-                               #   the core crate version "(core stub)" and the
-                               #   ingest payload struct is ExportPayload, not
-                               #   ...Stub.
-                               #   The open lru Dependabot alert auto-resolves with
-                               #   the lock change (its only entry path is gone) -
-                               #   #1074's measured count will reflect it.
-                               #   Roast: plans/PR_ROAST_2026_11_25.md (follow-up
-                               #   session row).
-                               #   Predecessor:
-                               #   document_remote_backup_restore_divergence_2026_11_25
-                               #   (rationale in git and the roast record).
+  action_last_completed: consolidate_off_tree_adrs_2026_11_25
+                               #   #1067: ADR-0064 (inertial reservoir) and ADR-0065
+                               #   (selectivity-aware retrieval) lived only in
+                               #   docs/adr/ with an ADR- filename prefix the
+                               #   parity gate's glob never reads - blind in both
+                               #   directions and absent from the registry since
+                               #   ADR-0076's "leave in place; cross-link" rule,
+                               #   which contradicted its own one-canonical-
+                               #   location intent. Both files moved verbatim
+                               #   into plans/adr/ (0064/0065), registered, the
+                               #   0076 backfill note superseded in place
+                               #   (original text preserved), and the one book
+                               #   link updated. Parity: registry 103 / disk 102.
+                               #   Predecessor: remove_dead_capability_switches_
+                               #   2026_11_25 (rationale in git and the
+                               #   2026-11-25 roast record).
 
