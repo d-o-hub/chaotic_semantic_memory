@@ -212,7 +212,14 @@ world_state:
   actions_pinned_to_sha: true
   harness_msrv_current: "1.88"
   adr_0095_accepted: true                         # plans/adr/0095-evidence-driven-quality-gates.md
-  dependabot_alerts_open: 3                       # 2026-11-03 measured: lru + libsql-sqlite3-parser x2
+  dependabot_alerts_open: 2                       # 2026-11-26 measured via
+                                                  #   gh api repos/{owner}/{repo}/dependabot/alerts?state=open
+                                                  #   => libsql-sqlite3-parser 0.13.0 x2
+                                                  #   (GHSA-8m95-fffc-h4c5, no patched version,
+                                                  #   <= 0.13.0) in Cargo.lock (#1) +
+                                                  #   fuzz/Cargo.lock (#19). lru (#1078 retired
+                                                  #   its ignore) and benchmarks/Cargo.lock (#4,
+                                                  #   dep dropped) both resolved.
   npm_attestations_verified_and_retry_dropped: true  # 2026-11-03 (#955): both packages' provenance is
                                                   #   read from the abbreviated packument; no retry publish
   mutation_test_sharded_behind_one_context: true  # 2026-11-04 (#951): 8 shards + required-name aggregator
@@ -287,39 +294,20 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: readme_command_and_integration_coverage_2026_11_25
-                               #   #1068: README now covers the real surface.
-                               #   CLI table: all 26 subcommands with
-                               #   enum-verbatim descriptions + global flags
-                               #   table + git-local default note; new
-                               #   Integrations section (feature-flag syntax
-                               #   per subsystem: mcp/embed-*/prometheus/
-                               #   otlp-json/otlp/cloudevents + Postcard
-                               #   export); MSRV 1.88 stated; Quick Links gain
-                               #   book/llms/ADR-registry/architecture rows;
-                               #   release-guardrails.md line refs corrected
-                               #   to release.yml:195-211; the ANN figure now
-                               #   cites ann_scale.json's measured p50s
-                               #   (bucket w/ exact fallback 24.4ms, pure
-                               #   exact 19.4ms, n=25) instead of a stale
-                               #   "~24ms". llms.txt/llms-full.txt
-                               #   regenerated; validate_llm_context.py and
-                               #   check-docs-links.sh (268 links) pass.
-                               #   generate-agents.sh gained a content-based
-                               #   --check mode (mktemp + diff -r, mtime-free;
-                               #   CSM_AGENTS_MIRROR for the negative path)
-                               #   wired as the .opencode/agents drift gate in
-                               #   validate.sh; test-self-fix-loop-safety.sh
-                               #   now feeds </dev/null (the recorded 17-min
-                               #   local wedge is gone; 5 refusals verify in
-                               #   seconds). Docs: agents-docs/ci-workflows.md
-                               #   maps all 12 workflows + the external Codacy
-                               #   required context; CONTRIBUTING.md and
-                               #   AGENTS.md cross-link (scope table, gates,
-                               #   roast discipline).
-                               #   Roast: plans/PR_ROAST_2026_11_25.md
-                               #   (follow-up session row).
-                               #   Predecessor:
-                               #   consolidate_off_tree_adrs_2026_11_25
-                               #   (rationale in git and the roast record).
-
+  action_last_completed: dependabot_alerts_counter_truth_up_2026_11_26
+                               #   #1074: the stored alert counter matched a
+                               #   2026-11-03 snapshot. Re-derived via the
+                               #   four-state API sweep: 3 -> 2, both survivors
+                               #   are libsql-sqlite3-parser 0.13.0 under
+                               #   GHSA-8m95-fffc-h4c5 (Cargo.lock #1,
+                               #   fuzz/Cargo.lock #19, no patched version);
+                               #   lru left with #1078's retired ignore and
+                               #   benchmarks/Cargo.lock #4 is fixed because
+                               #   that lock dropped the dep. deny.toml's
+                               #   claim that cited "alerts #1, #4" corrected
+                               #   to #1/#19 with the manifest mapping; the
+                               #   ignore itself stays (first_patched_version
+                               #   null). No consumer of the flag exists, so
+                               #   in-place dated update is the shape ADR-0103
+                               #   records; llm-context + goap-queue +
+                               #   harness-check gates green.

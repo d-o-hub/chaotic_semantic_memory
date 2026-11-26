@@ -1322,3 +1322,20 @@ ADR-0072's title says "OTLP Exporter" while the same block defines
 `prometheus`; the README row cites what the feature actually enables per the
 Cargo.toml comment. Rule: for claims-only diffs, the review step is the same as
 for code — walk to the source of each claim.
+
+## 2026-11-26 — a counter's comment is a claim too, and the alert-number half rots independently
+
+Fixing `dependabot_alerts_open` (3 → 2) surfaced that the coupled claim — the
+deny.toml comment naming "Dependabot alerts #1, #4" — had rotted in a different
+direction: #1 and #19 are open, #4 is `fixed` because benchmarks/Cargo.lock
+dropped the dependency entirely (a fixed alert with `first_patched_version:
+null` means "the package left the manifest", not "a patch landed"). Two lessons:
+(1) when you re-measure a counter, grep the repo for the same measurement's
+other copies — the count and the per-alert citations live in different files and
+rot on different schedules; (2) before retiring an ignore on the grounds that
+"an alert resolved", check *why* it resolved — patch, dependency removal, or
+dismissal are three different states, and only the first justifies removing the
+ignore (here it was removal from *one* manifest while two others still carry
+0.13.0, so the ignore stays). The four-state sweep (open/fixed/dismissed/
+auto_dismissed) is the only query that distinguishes them; `state=all` silently
+returns nothing.

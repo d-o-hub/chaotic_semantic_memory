@@ -2905,3 +2905,21 @@ them); validate_llm_context.py 15 PASS and check-docs-links.sh 268 links/0
 broken. Verified-by-construction: every row claims only what was re-derived
 from source — all 8 ADR filenames were re-listed from plans/adr/ after my
 first-guess names proved 100% wrong.
+
+## 2026-11-26 (follow-up session, part 6) — #1074 stored alert counter truth-up
+
+`dependabot_alerts_open` now reads 2 (was 3, a 2026-11-03 measurement) with a
+dated comment naming the query (`gh api
+repos/{owner}/{repo}/dependabot/alerts?state=open`), both surviving manifests
+and alert numbers: `libsql-sqlite3-parser` 0.13.0 under GHSA-8m95-fffc-h4c5 in
+Cargo.lock (#1) and fuzz/Cargo.lock (#19). The sweep that produced it covered
+all four alert states: `lru` is gone (its RUSTSEC-2026-0002 ignore retired with
+#1078's dead tantivy dep) and the third parser alert, #4 in
+benchmarks/Cargo.lock, is `fixed` — that manifest no longer contains the dep.
+The advisory payload confirms `vulnerable_version_range <= 0.13.0` with
+`first_patched_version: null`, so the deny.toml ignore stays required; its
+comment had also gone stale ("alerts #1, #4") and now names #1/#19 with the
+manifest mapping. No consumer reads the flag (grepped scripts/, tests/,
+.github/, docs/); ADR-0103 records such values as dated measurements, so the
+in-place update is the consistent shape — the #1063 delete-the-key precedent
+applies to merge-gating CI truth, not dated advisory snapshots.
