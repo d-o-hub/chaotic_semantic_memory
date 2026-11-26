@@ -298,7 +298,7 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: context_key_files_adr_registry_1076
+  action_last_completed: duplicate_test_name_leads_1075   # 2026-11-26: PR #1085 -> 6beda9fa
                                #   #1076: key_files.adrs pointed at `plans/adr/` —
                                #   a directory among file paths. It passed only
                                #   because the check asked `.exists()`, so the
