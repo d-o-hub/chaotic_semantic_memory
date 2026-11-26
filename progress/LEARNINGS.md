@@ -1339,3 +1339,17 @@ ignore (here it was removal from *one* manifest while two others still carry
 0.13.0, so the ignore stays). The four-state sweep (open/fixed/dismissed/
 auto_dismissed) is the only query that distinguishes them; `state=all` silently
 returns nothing.
+
+## 2026-11-26 — "path exists" is not "path is a file", and a YAML fix without a gate case is not a fix
+
+`docs/architecture/context.yaml` listed `plans/adr/` among `key_files` entries
+for months. Nothing flagged it because the gate asked `Path.exists()` — true for
+a directory — even though the invariant every *other* check in that validator
+depends on was "a readable file". Two lessons: (1) an existence check accepts
+every shape you did not name, so a path check meant for files has to say
+`is_file()` and name the offender; (2) fixing the entry alone would have been a
+typo fix that the next copy of the artifact could undo — the durable repair is
+the negative fixture case plus a reverted-subject run that proves the case can
+go red (`.exists()` → case 8b reports `expected rc 1, got 0`). A directory in a
+file list is cheap to spot by eye and expensive to keep spotting: make the gate
+carry the invariant, not the reviewer.

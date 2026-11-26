@@ -2923,3 +2923,23 @@ manifest mapping. No consumer reads the flag (grepped scripts/, tests/,
 .github/, docs/); ADR-0103 records such values as dated measurements, so the
 in-place update is the consistent shape — the #1063 delete-the-key precedent
 applies to merge-gating CI truth, not dated advisory snapshots.
+
+## 2026-11-26 (follow-up session, part 7) — #1076 key_files shape drift fixed, gate sharpened (PR #1083)
+
+`docs/architecture/context.yaml`'s `key_files.adrs` entry carried
+`path: plans/adr/` — a directory in a list whose every sibling is a file, with
+the real registry (`plans/ADR_REGISTRY.md`) unmentioned. It was never a red gate
+because `tests/validate_llm_context.py`'s `test_key_files` asked `.exists()`:
+a directory answers that, so the "every key_files entry is a readable file"
+invariant the validator's other checks lean on had no enforcement at all.
+
+The entry now names `plans/ADR_REGISTRY.md` (the directory survives as prose in
+`purpose`, and the validated `count: 103` still derives from `plans/adr/*.md`),
+and `test_key_files` requires `is_file()`, printing the offending paths. The
+fixture gained case 8b: a directory-shaped path must return rc 1, and its
+positive case now synthesizes a registry file so it passes for the right reason.
+Verified: validator 15/15, fixture 14/14 (was 13), shellcheck clean, and the
+neuter check — reverting `is_file()` to `.exists()` turns 8b red with
+`expected rc 1, got 0` — so the new case is sharp rather than decorative.
+Also ignored `/.qoder/`, the agent scratch dir that had been dirtying
+`git status` in every session.

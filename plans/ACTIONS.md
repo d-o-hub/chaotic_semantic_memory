@@ -67,3 +67,11 @@ no patch) were reddening `Cargo Deny` and `lint` on every head. The fix landed f
 time with all six required contexts green on the exact head: #1051 `1bf3fa35`, #1058 `af3fa216`
 (superseding #1052, which Dependabot closed mid-flight), #1053 `71dbd8ca`, #1054 `ed4e863a`, #1055
 `fd498e76`, #1056 `e00fbeb8`. Zero open PRs afterwards; record `plans/PR_ROAST_2026_11_24.md`.
+
+The queue is still empty as of 2026-11-26: issue #1076's shape drift
+(`key_files.adrs` pointing at `plans/adr/`) was roasted, implemented and recorded
+inside one session, so nothing was queued between start and completion — the
+entry is `action_last_completed: context_key_files_adr_registry_1076` in
+`plans/GOAP_STATE.md`, the diff is PR #1083, and the verdict table is
+`plans/PR_ROAST_2026_11_26.md`. Open issues afterwards: #1075 (duplicate test
+names vs the 10 printed) and #1070 (owner-blocked crates.io OIDC configs).
