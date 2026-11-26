@@ -10,7 +10,8 @@
 #
 # Cases: a consistent tree passes; each corrupted counter (skills total,
 # category vs CATALOG.md, ADR count, active_wave, tests_count — both the
-# stored-copy and the tree-divergence shapes), a dead key-file path, a dead
+# stored-copy and the tree-divergence shapes), a dead key-file path, a
+# directory-shaped key-file path (exists, but is not a file), a dead
 # module path, a wrong LOC-coverage count, an on-disk skill surplus, and a
 # missing context.yaml each fail (rc 1, or rc 2 for the missing input). The
 # synthetic tree carries 42 real `#[test]` fns because the test-count check
@@ -64,6 +65,9 @@ write_tree() {
   done
   : > "${TREE}/plans/adr/0001-a.md"
   : > "${TREE}/plans/adr/0002-b.md"
+  # The registry *file* is what key_files.adrs points at; the directory above is
+  # only the ADR storage the count derives from (#1076).
+  : > "${TREE}/plans/ADR_REGISTRY.md"
   for skill in alpha beta gamma; do
     : > "${TREE}/.agents/skills/${skill}/SKILL.md"
   done
@@ -132,8 +136,8 @@ key_files:
     - path: plans/GOAP_STATE.md
       purpose: state
   adrs:
-    - path: plans/adr/
-      purpose: Architecture Decision Records
+    - path: plans/ADR_REGISTRY.md
+      purpose: ADR registry index
       count: 2
 
 skills:
@@ -258,6 +262,13 @@ check_case "tree vs stored tests_count mismatch fails" 1
 write_tree
 sed -i 's|^    - path: plans/GOAP_STATE.md$|    - path: plans/MISSING.md|' "${TREE}/docs/architecture/context.yaml"
 check_case "dead key-file path fails" 1
+
+# 8b. A directory-shaped key-file path (the plans/adr/ shape, #1076): it exists,
+# so an existence check passes and the "every entry is a readable file" invariant
+# rots silently. The validator must reject the directory itself.
+write_tree
+sed -i 's|^    - path: plans/ADR_REGISTRY.md$|    - path: plans/adr|' "${TREE}/docs/architecture/context.yaml"
+check_case "directory key-file path fails" 1
 
 # 9. A dead module path (the src/reservoir.rs shape).
 write_tree

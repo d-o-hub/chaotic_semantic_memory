@@ -54,6 +54,8 @@ pkg/
 
 # Local agent session state
 /__agent__/
+# Qoder agent scratch (settings + per-task worktrees; cleaned per AGENTS.md Rule 12)
+/.qoder/
 
 # IDE / editor tooling
 # .opencode npm state is local-only: Dependabot aborts on the npm ecosystem when

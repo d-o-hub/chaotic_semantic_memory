@@ -294,20 +294,19 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: dependabot_alerts_counter_truth_up_2026_11_26
-                               #   #1074: the stored alert counter matched a
-                               #   2026-11-03 snapshot. Re-derived via the
-                               #   four-state API sweep: 3 -> 2, both survivors
-                               #   are libsql-sqlite3-parser 0.13.0 under
-                               #   GHSA-8m95-fffc-h4c5 (Cargo.lock #1,
-                               #   fuzz/Cargo.lock #19, no patched version);
-                               #   lru left with #1078's retired ignore and
-                               #   benchmarks/Cargo.lock #4 is fixed because
-                               #   that lock dropped the dep. deny.toml's
-                               #   claim that cited "alerts #1, #4" corrected
-                               #   to #1/#19 with the manifest mapping; the
-                               #   ignore itself stays (first_patched_version
-                               #   null). No consumer of the flag exists, so
-                               #   in-place dated update is the shape ADR-0103
-                               #   records; llm-context + goap-queue +
-                               #   harness-check gates green.
+  action_last_completed: context_key_files_adr_registry_1076
+                               #   #1076: key_files.adrs pointed at `plans/adr/` —
+                               #   a directory among file paths. It passed only
+                               #   because the check asked `.exists()`, so the
+                               #   "every key_files entry is a readable file"
+                               #   invariant the validator's other checks lean on
+                               #   was unenforced. The entry now names
+                               #   plans/ADR_REGISTRY.md (count still derives from
+                               #   plans/adr/*.md = 103) and `test_key_files`
+                               #   requires `is_file()`, naming the offender.
+                               #   Fixture grows case 8b (directory path -> rc 1)
+                               #   and its positive case points at a real registry
+                               #   file; neutering the validator back to .exists()
+                               #   turns 8b red, so the case is sharp. Also
+                               #   ignores .qoder/, the agent scratch dir that had
+                               #   been dirtying `git status` every session.
