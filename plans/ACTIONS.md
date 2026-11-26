@@ -75,3 +75,15 @@ entry is `action_last_completed: context_key_files_adr_registry_1076` in
 `plans/GOAP_STATE.md`, the diff is PR #1083, and the verdict table is
 `plans/PR_ROAST_2026_11_26.md`. Open issues afterwards: #1075 (duplicate test
 names vs the 10 printed) and #1070 (owner-blocked crates.io OIDC configs).
+
+The queue is still empty as of 2026-11-26 (second action of the day): issue #1075
+was roasted, implemented and recorded inside one session, so nothing was queued
+between start and completion — the entry is
+`action_last_completed: duplicate_test_name_leads_1075` in `plans/GOAP_STATE.md`,
+the diff is the `test/workspace-test-name-dispositions-1075` branch, and the
+disposition table is the second section of `plans/PR_ROAST_2026_11_26.md`. The
+three same-body duplicates are gone (1247 -> 1244 tests), the nine distinct-name
+collisions are renamed per subject, and the inventory now reports 0 shared names
+with a fixture that fails when its header count and its listing disagree. Open
+issues afterwards: #1070 (owner-blocked crates.io OIDC configs) and the new
+follow-up on `csm-chaos --features experimental-voronoi-lsh` not compiling.

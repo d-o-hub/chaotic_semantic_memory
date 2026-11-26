@@ -92,33 +92,29 @@ mod tests {
     }
 
     #[test]
-    fn test_chaotic_lsh_locality() {
-        let input_dim = 4;
-        let lsh = ChaoticLsh::new(0.123, 0.456, 0.99, input_dim);
+    fn wrapper_projection_matches_the_owner_projector() {
+        // The wrapper's whole job is delegation, so assert the bits are the
+        // owner's instead of re-deriving the owner's locality thresholds here.
+        // The locality property itself belongs to `csm-chaos`
+        // (`test_chaotic_lsh_locality`), which owns the projection math.
+        let owner = RawChaoticLsh::new(0.5, 0.7, 0.95, 4);
+        let wrapper = ChaoticLsh::new(0.5, 0.7, 0.95, 4);
 
-        let v1 = vec![1.0, 0.5, -0.2, 0.8];
-        let v2 = vec![1.0, 0.5, -0.2, 0.81];
-        let v3 = vec![-1.0, -0.5, 0.2, -0.8];
-
-        let h1 = lsh.project(&v1);
-        let h2 = lsh.project(&v2);
-        let h3 = lsh.project(&v3);
-
-        let sim_12 = h1.cosine_similarity(&h2);
-        let sim_13 = h1.cosine_similarity(&h3);
-
-        assert!(
-            sim_12 > 0.8,
-            "Similar vectors should have high similarity: {sim_12}"
-        );
-        assert!(
-            sim_13 < 0.6,
-            "Different vectors should have low similarity: {sim_13}"
-        );
+        for input in [[1.0, 0.5, -0.2, 0.8], [-1.0, -0.5, 0.2, -0.8]] {
+            assert_eq!(wrapper.project(&input).bits, owner.project(&input));
+            assert_eq!(
+                wrapper.project_scalar(&input).bits,
+                owner.project_scalar(&input)
+            );
+            assert_eq!(
+                wrapper.project_simd(&input).bits,
+                owner.project_simd(&input)
+            );
+        }
     }
 
     #[test]
-    fn test_simd_scalar_parity() {
+    fn wrapper_simd_and_scalar_paths_agree() {
         let lsh = ChaoticLsh::new(0.5, 0.7, 0.95, 8);
         let input = vec![0.1, -0.3, 0.5, 0.7, -0.2, 0.4, -0.6, 0.8];
         let scalar = lsh.project_scalar(&input);

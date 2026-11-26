@@ -1,41 +1,17 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Framework batch operations and import limit coverage tests.
 //!
-//! Covers: inject_concepts empty batch, associate_many empty batch, probe_batch,
-//! probe_batch_cached, import size exceeded, concept_history limit clamping
+//! Covers: probe_batch, probe_batch_cached, import size exceeded, concept_history
+//! limit clamping. The empty-batch cases stay in `tests/batch_operations.rs`
+//! (`inject_concepts_empty_batch_returns_ok`,
+//! `associate_many_empty_batch_returns_ok`), which owns them - a second copy
+//! here asserted the same two calls and bought no coverage (#1075).
 
 use chaotic_semantic_memory::prelude::*;
 #[cfg(feature = "persistence")]
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
-
-#[tokio::test]
-async fn inject_concepts_empty_batch_returns_ok() {
-    let framework = ChaoticSemanticFramework::builder()
-        .without_persistence()
-        .build()
-        .await
-        .unwrap();
-
-    // Empty batch should succeed without doing anything
-    framework.inject_concepts(&[]).await.unwrap();
-
-    let stats = framework.stats().await.unwrap();
-    assert_eq!(stats.concept_count, 0);
-}
-
-#[tokio::test]
-async fn associate_many_empty_batch_returns_ok() {
-    let framework = ChaoticSemanticFramework::builder()
-        .without_persistence()
-        .build()
-        .await
-        .unwrap();
-
-    // Empty batch should succeed
-    framework.associate_many(&[]).await.unwrap();
-}
 
 #[tokio::test]
 async fn probe_batch_returns_multiple_results() {

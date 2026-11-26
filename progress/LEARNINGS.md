@@ -1353,3 +1353,24 @@ the negative fixture case plus a reverted-subject run that proves the case can
 go red (`.exists()` → case 8b reports `expected rc 1, got 0`). A directory in a
 file list is cheap to spot by eye and expensive to keep spotting: make the gate
 carry the invariant, not the reviewer.
+
+## 2026-11-26 — a report that prints a total and then slices its own list is a lying report
+
+`scripts/coverage-report.sh inventory` printed `names present in more than one
+file: 12` and listed ten rows, because the loop ended in
+`sorted(shared.items())[:10]`. Nobody had to be wrong for the drift to persist:
+the count was derived, the listing was capped, and both lived three lines apart
+in the same function. Two lessons: (1) when a report prints a count *and* the
+items, a cap on one side is a defect, not a display convenience — either print
+all items or say `showing 10 of 12`; the fixture now asserts the two agree, and a
+neutered copy with the slice restored exits 1, so the case can actually fail;
+(2) a shared *test name* is a lead, never a duplicate — the 12 leads split into
+3 same-body duplicates, 8 different subjects that collide on a generic display
+name (`try_new_rejects_zero_and_oversized_dimensions` for two different
+projectors) and 1 facade copy. Disposition by reading bodies, then make the name
+identify the subject: a rename costs one line and removes the lead permanently,
+while an allowlist of "accepted duplicates" is a second artifact to keep true.
+The facade case is worth its own rule: a backward-compat wrapper should assert
+*delegation* (bit-equality with the owner), not re-derive the owner's property
+thresholds — otherwise the wrapper test can stay green while the wrapper drops a
+method's argument order.

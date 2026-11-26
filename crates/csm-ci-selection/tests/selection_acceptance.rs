@@ -226,7 +226,7 @@ fn an_mcp_cli_or_integration_change_selects_the_mcp_job() {
 }
 
 #[test]
-fn a_documentation_only_change_selects_nothing() {
+fn a_documentation_only_change_emits_all_outputs_false() {
     let repo = Repo::base();
     repo.branch_with(
         "docs",
