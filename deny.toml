@@ -48,7 +48,9 @@ ignore = [
     # (RUSTSEC-2026-0592, url <= 2.5.8 blob: origin() stack overflow, is NOT ignored:
     # it is fixed by locking url >= 2.5.9.)
     { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained (all versions, no patch); also pulled transitively by libsql/rmcp/schemars/cloudevents-sdk, informational only" },
-    # Dependabot alerts #1, #4: libsql-sqlite3-parser crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5)
+    # Dependabot alerts #1 (Cargo.lock) + #19 (fuzz/Cargo.lock): libsql-sqlite3-parser 0.13.0
+    # crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5, vulnerable <= 0.13.0, no first_patched_version;
+    # alert #4 in benchmarks/Cargo.lock auto-fixed when that lock dropped the dep).
     # No patch available upstream. Low severity, requires malformed SQL input.
     # No RUSTSEC ID; will add when assigned.
 ]
