@@ -1302,3 +1302,23 @@ removing the first orphans changed other rows' caller sets (the
 scripts/skill-memory/ family's only callers were each other) — after any
 removal or wiring change, re-run the gate before believing it green. The
 same principle as coverage counters: derive, don't copy.
+
+## 2026-11-25 — a claims-only PR is verified by re-derivation, not by knowing the repo
+
+Writing the README coverage PR surfaced the real hazard of claims work: every
+fact asserted in prose must be re-derived from the artifact it cites, because
+memory of the repo is not evidence. Three concrete catches in one PR: (1) all 8
+ADR filenames I wrote from memory were wrong — `ls plans/adr/` showed every name
+misremembered; check-docs-links would have caught them as broken links, but the
+*correct* names could only come from the directory listing, not recall, so the
+fix was re-deriving each row before validation, not patching after a red gate. (2) The "~24ms is stale, 19.4ms is current"
+issue summary itself turned out to be half-right: opening ann_scale.json showed
+four backends — the stale number is the bucket heuristic's p50 (24379µs with
+exact_fallbacks=25, i.e. the no-ANN default path), while 19.4ms is the pure
+exact backend baseline. The honest fix cites both; adopting the issue's number
+alone would have re-introduced a subtler misattribution. (3) Feature names and
+descriptions came from `[features]` in Cargo.toml, not from the ADR titles —
+ADR-0072's title says "OTLP Exporter" while the same block defines
+`prometheus`; the README row cites what the feature actually enables per the
+Cargo.toml comment. Rule: for claims-only diffs, the review step is the same as
+for code — walk to the source of each claim.

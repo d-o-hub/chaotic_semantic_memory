@@ -16,7 +16,7 @@ This broke awk extraction in release workflow, resulting in empty release notes.
 
 ### Layer 1: CI Validation (release.yml)
 
-**Location**: `.github/workflows/release.yml` lines 39-65
+**Location**: `.github/workflows/release.yml` lines 195-211
 
 **Checks**:
 1. Version header exists: `## [VERSION]`
@@ -175,4 +175,4 @@ This ensures issues are caught at the earliest possible stage, reducing CI failu
 
 - ADR-0049: Release Checklist
 - LEARNINGS.md: 2026-04-06 Release Workflow Production Solution
-- `.github/workflows/release.yml`: Lines 39-65
+- `.github/workflows/release.yml`: Lines 195-211

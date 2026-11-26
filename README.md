@@ -21,6 +21,10 @@ It targets both native and `wasm32` builds with explicit threading guards.
 | Resource | Link |
 |----------|------|
 | Documentation | [docs.rs/chaotic_semantic_memory](https://docs.rs/chaotic_semantic_memory) |
+| User Guide (book) | [d-o-hub.github.io/chaotic_semantic_memory](https://d-o-hub.github.io/chaotic_semantic_memory/) |
+| LLM context files | [llms.txt](llms.txt) · [llms-full.txt](llms-full.txt) |
+| ADR registry | [plans/ADR_REGISTRY.md](plans/ADR_REGISTRY.md) |
+| Architecture docs | [docs/architecture/](docs/architecture/) |
 | Crates.io | [crates.io/crates/chaotic_semantic_memory](https://crates.io/crates/chaotic_semantic_memory) |
 | Issues | [GitHub Issues](https://github.com/d-o-hub/chaotic_semantic_memory/issues) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
@@ -41,7 +45,9 @@ This crate uses **Hyperdimensional Computing (HDC)** for text encoding — it is
 
 **Bottom line:** `inject_text` / `probe_text` match on shared tokens at similar
 positions. For true semantic similarity, use an external embedding model and inject
-vectors directly via `inject_concept`.
+vectors directly via `inject_concept` — the crate ships optional
+provider bridges for this (`embed-fastembed`, `embed-openai`, `embed-voyage`;
+see [Integrations](#integrations) below).
 
 ## Features
 
@@ -69,6 +75,8 @@ For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`csm-d
 ## Installation
 
 ### Rust Library
+
+Requires **Rust 1.88+** (MSRV, edition 2024).
 
 ```bash
 cargo add chaotic_semantic_memory
@@ -292,11 +300,72 @@ csm completions bash > ~/.local/share/bash-completion/completions/csm
 |---------|-------------|
 | `inject` | Inject a new concept with a random or provided vector |
 | `probe` | Find similar concepts by concept ID |
+| `query` | Text similarity search (hybrid BM25 + HDC) |
+| `probe-filtered` | Similarity search with a metadata filter |
+| `probe-graph` | GraphRAG retrieval: similarity + graph traversal hybrid |
 | `associate` | Create an association between two concepts |
+| `disassociate` | Remove association(s) from a concept |
+| `associations` | List associations for a concept |
+| `traverse` | Traverse the graph from a starting concept |
+| `path` | Find shortest path between two concepts |
+| `index-jsonl` | Index JSONL file content into memory |
+| `index-dir` | Index Markdown files from a directory |
+| `get` | Get concept details by ID |
+| `update` | Update concept vector or metadata |
+| `delete` | Delete a concept from memory |
+| `history` | Get history of versions for a concept |
+| `diff` | Diff two concept versions |
+| `rollback` | Roll back a concept to a historical version |
 | `export` | Export memory state to JSON or binary |
 | `import` | Import memory state from file |
+| `stats` | Database statistics |
+| `metrics` | Framework performance metrics |
+| `watch` | Watch for real-time memory events |
+| `mcp serve` | Run the MCP server (feature `mcp`; see [MCP Integration](#integrations)) |
 | `version` | Show version information |
 | `completions` | Generate shell completions |
+
+#### Global flags
+
+| Flag | Description |
+|------|-------------|
+| `-v, --verbose` | Repeat for more detail (`-v`, `-vv`) |
+| `-d, --database PATH` | Database file; if omitted in a git repo, defaults to git-local storage |
+| `--git-local` | Force git-local storage (`.git/memory-index/csm.db`); errors outside a git repo |
+| `--index-path PATH` | Override the default git-local index path |
+| `--output-format` | `json` \| `table` \| `quiet` (default `table`) |
+| `--namespace` | Namespace isolation (default `_default`) |
+
+When no `--database` is given inside a git repository, the CLI defaults to
+"never committed, per-clone" storage at `.git/memory-index/csm.db`.
+
+## Integrations
+
+Optional subsystems ship behind Cargo feature flags — add them in `Cargo.toml`
+(for example `features = ["mcp", "prometheus"]`) or via
+`cargo add chaotic_semantic_memory --features mcp`:
+
+| Subsystem | Feature flag(s) | What you get | ADR |
+|-----------|-----------------|--------------|-----|
+| MCP server | `mcp` | `csm mcp serve` (stdio / streamable HTTP; see below) | [ADR-0101](plans/adr/0101-mcp-streamable-http-and-security.md) |
+| Embeddings bridge | `embed-fastembed`, `embed-openai`, `embed-voyage` | External embedding providers for semantic similarity | [ADR-0069](plans/adr/0069-embedding-model-bridge.md) |
+| Prometheus metrics | `prometheus` | `/metrics` endpoint with framework counters | [ADR-0072](plans/adr/0072-otlp-exporter.md) |
+| OTLP/telemetry | `otlp-json`, `otlp` | JSON tracing for log shippers; `otlp` adds full OTLP gRPC export | [ADR-0072](plans/adr/0072-otlp-exporter.md), [ADR-0086](plans/adr/0086-otlp-prom-implementation.md), [ADR-0102](plans/adr/0102-batched-otlp-and-operational-metrics.md) |
+| CloudEvents | `cloudevents` | CloudEvents 1.0 envelope for exported events | [ADR-0078](plans/adr/0078-cloudevents-event-emitter.md) |
+| Binary export | (built in) | Postcard binary export/import alongside JSON | [ADR-0100](plans/adr/0100-versioned-postcard-memory-export.md) |
+
+### MCP Integration
+
+With the `mcp` feature, `csm mcp serve` exposes the memory as an MCP
+(Model Context Protocol) server with 13 tools (`memory_inject`,
+`memory_inject_text`, `memory_probe`, `memory_probe_filtered`, `memory_probe_text`,
+`memory_associate`, `memory_delete`, `memory_export`, `memory_get`,
+`memory_list_gaps`, `memory_shortest_path`, `memory_stats`, `memory_traverse`).
+Transports: `--transport stdio` (default) or `streamable-http` with
+`--bind`/`--allowed-host`/`--allowed-origin`. Non-loopback HTTP requires a
+bearer token ([ADR-0101](plans/adr/0101-mcp-streamable-http-and-security.md)). The shared
+`--ttl-cleanup-interval` flag applies to both `watch` and `mcp serve`
+([ADR-0099](plans/adr/0099-ttl-cleanup-task-lifecycle.md)).
 
 ## Quick Start
 
@@ -460,8 +529,11 @@ hashing). Enable exactly one:
 chaotic_semantic_memory = { version = "0.3", default-features = false, features = ["ann-hnsw"] }
 ```
 
-With no ANN feature enabled, retrieval uses exact scan (~24ms at 200k
-concepts, see [ADR-0059](plans/adr/0059-retrieval-optimization.md)).
+With no ANN feature enabled, retrieval uses the two-stage bucket heuristic with
+exact-scan fallback: p50 ≈ 24.4 ms at 200k concepts (all probes falling back to
+exact scan; the pure exact-scan baseline measures 19.4 ms p50, n=25 — both in
+[plans/evidence/scale_release_2026_09_21/ann_scale.json](plans/evidence/scale_release_2026_09_21/ann_scale.json),
+see also [ADR-0059](plans/adr/0059-retrieval-optimization.md)).
 Further index automation (ADR-0056) remains deferred until benchmarks
 show latency regression beyond the threshold at >200k concepts.
 

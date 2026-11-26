@@ -2881,3 +2881,27 @@ plus the external Codacy required context (nothing in-tree creates it — agents
 must not chase it in-repo); CONTRIBUTING.md's first section now points at
 AGENTS.md, the commitlint scope table and the mandatory gates; AGENTS.md's
 External References point back at CONTRIBUTING.md (98 ≤ 200 LOC).
+
+## 2026-11-25 (follow-up session, part 5) — #1068 README full-surface coverage
+
+The README gap issue landed as a claims-only PR: the CLI table now carries all
+26 subcommands (descriptions verbatim from the `Commands` enum doc comments in
+`src/cli/args.rs`), a global-flags table (`-v`, `--database`, `--git-local`,
+`--index-path`, `--output-format`, `--namespace`) and the git-local default note
+(`.git/memory-index/csm.db`); a new Integrations section gives feature-flag
+syntax per shipped subsystem — `mcp` (13 tools, stdio default, streamable HTTP
+with `--bind`/`--allowed-host`/`--allowed-origin`, non-loopback bearer
+requirement), `embed-fastembed`/`embed-openai`/`embed-voyage`, `prometheus`,
+`otlp-json`/`otlp`, `cloudevents`, and the built-in Postcard binary export —
+each row citing its ADR; MSRV 1.88 (Cargo.toml:41 + rust-toolchain) now stated;
+Quick Links gained the mdBook site, llms.txt/llms-full.txt, the ADR registry and
+docs/architecture. `docs/release-guardrails.md` line refs corrected to the live
+release.yml:195-211 changelog check. The ANN figure re-anchored to
+plans/evidence/scale_release_2026_09_21/ann_scale.json: the stale "~24ms" was
+the bucket backend's p50 (24379µs — every probe fell back to exact scan), and
+the pure exact baseline is 19411µs p50 (n=25); both are now stated with the
+artifact linked. llms.txt/llms-full.txt regenerated (README ships through
+them); validate_llm_context.py 15 PASS and check-docs-links.sh 268 links/0
+broken. Verified-by-construction: every row claims only what was re-derived
+from source — all 8 ADR filenames were re-listed from plans/adr/ after my
+first-guess names proved 100% wrong.

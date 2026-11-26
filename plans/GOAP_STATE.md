@@ -287,25 +287,24 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: wire_scripts_and_document_workflows_2026_11_25
-                               #   #1069: the workflow surface is fully wired
-                               #   and documented. Scripts: the catalog gate
-                               #   now enforces referenced-by assertions
-                               #   (gen_script_catalog.py --check runs in
-                               #   check-script-catalog.sh + validate.sh):
-                               #   every scripts/ entry needs a caller, a
-                               #   fixture, or an evidenced
-                               #   scripts/SCRIPT_WIRING.md row, and orphaned
-                               #   or stale rows fail both directions -
-                               #   measured by re-derivation, the gate found
-                               #   six orphans beyond the issue's list and
-                               #   two more when the first removals landed
-                               #   (the skill-memory shell family was a
-                               #   self-referential pre-csm-CLI prototype).
-                               #   Removed: gen_arch_diagram.py,
-                               #   get_comments.py (both #121-era),
-                               #   yaml-to-drawio.py (#445-era), and the four
-                               #   scripts/skill-memory/ shell tools.
+  action_last_completed: readme_command_and_integration_coverage_2026_11_25
+                               #   #1068: README now covers the real surface.
+                               #   CLI table: all 26 subcommands with
+                               #   enum-verbatim descriptions + global flags
+                               #   table + git-local default note; new
+                               #   Integrations section (feature-flag syntax
+                               #   per subsystem: mcp/embed-*/prometheus/
+                               #   otlp-json/otlp/cloudevents + Postcard
+                               #   export); MSRV 1.88 stated; Quick Links gain
+                               #   book/llms/ADR-registry/architecture rows;
+                               #   release-guardrails.md line refs corrected
+                               #   to release.yml:195-211; the ANN figure now
+                               #   cites ann_scale.json's measured p50s
+                               #   (bucket w/ exact fallback 24.4ms, pure
+                               #   exact 19.4ms, n=25) instead of a stale
+                               #   "~24ms". llms.txt/llms-full.txt
+                               #   regenerated; validate_llm_context.py and
+                               #   check-docs-links.sh (268 links) pass.
                                #   generate-agents.sh gained a content-based
                                #   --check mode (mktemp + diff -r, mtime-free;
                                #   CSM_AGENTS_MIRROR for the negative path)
