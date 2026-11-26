@@ -191,8 +191,8 @@ key_files:
       purpose: CI pipeline
       
   adrs:
-    - path: plans/adr/
-      purpose: Architecture Decision Records
+    - path: plans/ADR_REGISTRY.md
+      purpose: ADR registry index (the decision files themselves live under plans/adr/)
       count: 103
 
 skills:

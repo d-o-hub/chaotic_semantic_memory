@@ -26,7 +26,7 @@ key-file paths) while nothing read it:
     modules_under_loc_limit       src/**/*.rs count (the LOC gate keeps them
                                   all <= 500, so both numbers equal the count)
     architecture.modules[].file   path existence
-    key_files.*[].path            path existence
+    key_files.*[].path            existing file (a directory is drift, #1076)
 
 Usage:
     python3 tests/validate_llm_context.py [--repo-root DIR]
@@ -324,11 +324,14 @@ class LLMContextValidator:
         )
 
     def test_key_files(self) -> bool:
+        # `.exists()` accepts a directory, so `plans/adr/` sat in a list of files
+        # for months (#1076) and every reader of this gate inherited a
+        # pseudo-entry. The invariant is "a readable file", so check that.
         paths = self._key_file_paths()
-        missing = [p for p in paths if not (self.repo_root / p).exists()]
-        if missing:
-            return self._record("Key Files", False, "Missing: " + ", ".join(missing))
-        return self._record("Key Files", True, f"All {len(paths)} key-file paths exist")
+        not_files = [p for p in paths if not (self.repo_root / p).is_file()]
+        if not_files:
+            return self._record("Key Files", False, "Not files: " + ", ".join(not_files))
+        return self._record("Key Files", True, f"All {len(paths)} key-file paths are files")
 
     # -- runner ----------------------------------------------------------
     def run_all_tests(self) -> Dict[str, object]:
