@@ -67,43 +67,6 @@ async fn inject_text_with_ttl_encodes_and_stores() {
 }
 
 #[tokio::test]
-async fn purge_expired_removes_expired_concepts() {
-    let framework = ChaoticSemanticFramework::builder()
-        .without_persistence()
-        .build()
-        .await
-        .unwrap();
-
-    // Inject with very short TTL (1 second)
-    let vector = HVec10240::random();
-    framework
-        .inject_concept_with_ttl("short-ttl", vector, 1)
-        .await
-        .unwrap();
-
-    // Inject a concept with long TTL (should not be purged)
-    framework
-        .inject_concept_with_ttl("long-ttl", HVec10240::random(), 3600)
-        .await
-        .unwrap();
-
-    // Wait for expiration
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
-    // Purge expired concepts
-    let purged = framework.purge_expired().await.unwrap();
-    assert!(purged >= 1, "At least one concept should be purged");
-
-    // Verify long-ttl still exists
-    let results = framework.probe(HVec10240::random(), 10).await.unwrap();
-    let ids: Vec<String> = results.into_iter().map(|(id, _)| id).collect();
-    assert!(
-        ids.contains(&"long-ttl".to_string()),
-        "Long TTL concept should remain"
-    );
-}
-
-#[tokio::test]
 async fn inject_text_with_metadata_no_ttl() {
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()

@@ -283,7 +283,7 @@ mod tests {
     use crate::hashing::MAX_INPUT_DIM;
 
     #[test]
-    fn try_new_rejects_zero_and_oversized_dimensions() {
+    fn voronoi_lsh_try_new_rejects_zero_and_oversized_dimensions() {
         assert!(VoronoiLsh::try_new(0.5, 0.7, 0.95, 0).is_err());
         assert!(VoronoiLsh::try_new(0.5, 0.7, 0.95, MAX_INPUT_DIM + 1).is_err());
         assert_eq!(
@@ -295,13 +295,13 @@ mod tests {
     }
 
     #[test]
-    fn new_reports_the_dimension_it_actually_uses() {
+    fn voronoi_lsh_new_reports_the_dimension_it_actually_uses() {
         let lsh = VoronoiLsh::new(0.5, 0.7, 0.95, 0);
         assert_eq!(lsh.input_dim(), 1);
     }
 
     #[test]
-    fn shape_mismatch_returns_an_all_zero_hypervector() {
+    fn voronoi_lsh_shape_mismatch_returns_an_all_zero_hypervector() {
         let lsh = VoronoiLsh::new(0.5, 0.7, 0.95, 4);
         assert_eq!(lsh.project(&[1.0; 5]), [0u64; 160]);
         assert_eq!(lsh.project_scalar(&[1.0; 5]), [0u64; 160]);
@@ -349,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    fn test_simd_scalar_parity() {
+    fn test_voronoi_lsh_simd_scalar_parity() {
         let lsh = VoronoiLsh::new(0.5, 0.7, 0.95, 8);
         let input = [0.1, -0.3, 0.5, 0.7, -0.2, 0.4, -0.6, 0.8];
         let scalar = lsh.project_scalar(&input);

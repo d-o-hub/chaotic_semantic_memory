@@ -82,7 +82,10 @@ shared = {n: paths for n, paths in names.items() if len(paths) > 1}
 print(f"distinct test names: {len(names)}; names present in more than one file: {len(shared)}")
 if shared:
     print("(same name in two files is a duplicate *lead*, not proof — compare the bodies)")
-    for name, paths in sorted(shared.items())[:10]:
+    # Print every lead. A `[:10]` slice here let the header claim 12 shared names
+    # while the listing showed 10, and the two cut rows were invisible (#1075);
+    # scripts/test-coverage-report-inventory.sh now asserts the two agree.
+    for name, paths in sorted(shared.items()):
         print(f"  {name}: {', '.join(sorted(paths))}")
 PY
 }

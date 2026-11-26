@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn memory_event_variants_construct() {
+    fn wasm_ext_memory_event_variants_construct() {
         let injected = MemoryEvent::ConceptInjected {
             id: "test-id".to_string(),
             timestamp: 12345,

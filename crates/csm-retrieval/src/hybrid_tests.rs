@@ -85,7 +85,7 @@ fn test_merge_results() {
 }
 
 #[test]
-fn test_exact_score_calculation() {
+fn test_exact_merged_score_calculation() {
     let weights = (0.6, 0.4);
     let bm25 = vec![("d1".into(), 12.0), ("d2".into(), 2.0), ("d4".into(), 7.0)];
     let hdc = vec![("d1".into(), 1.2), ("d3".into(), 0.2), ("d4".into(), 0.7)];

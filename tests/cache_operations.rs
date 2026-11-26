@@ -62,7 +62,7 @@ async fn cache_capacity_one_evicts_on_second_query() {
 }
 
 #[tokio::test]
-async fn cache_clear_removes_all_entries() {
+async fn cache_clear_does_not_reset_miss_counter() {
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)

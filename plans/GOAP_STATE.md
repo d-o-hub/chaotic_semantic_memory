@@ -48,8 +48,9 @@ world_state:
   product_version: "0.3.9"           # main carries 0.3.9; 0.3.6/0.3.7/0.3.8 are on crates.io
   # `main_head` was removed with ci_all_checks_passed — read it from `git rev-parse
   # --short=8 origin/main` (or the ci-truth line above), never from this file.
-  tests_count: 1247                  # 2026-11-25: `scripts/coverage-report.sh inventory`
-                                     #   (tests/ 554, src/ 287, crates/*/src 373, crates/*/tests 33).
+  tests_count: 1244                  # 2026-11-26: `scripts/coverage-report.sh inventory`
+                                     #   (tests/ 551, src/ 287, crates/*/src 373, crates/*/tests 33);
+                                     #   -3 vs 1247: #1075 removed three same-body duplicates.
                                      #   The llm-context gate re-derives this from the tree (#1063),
                                      #   so stored copies cannot rot silently again.
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
@@ -160,7 +161,10 @@ world_state:
   ann_scale_evidence_current: true                # exact/hnsw/lsh/bucket at 1k/10k/50k
   persistence_contention_evidence_current: true   # error rate 0.905 -> 0.000 after busy timeout/retries
   measured_memory_model_exists: true              # 4691 B RSS + 2850 B storage per concept (held-out 0.29%)
-  canonical_test_owners_unique: true              # no facade copies of owner tests
+  canonical_test_owners_unique: true              # no facade copies of owner tests (#1075: the 12
+                                                  # shared-name leads are dispositioned - 3 copies
+                                                  # removed, 9 renamed per subject; inventory now
+                                                  # reports 0, and its fixture locks count==listing)
   coverage_methodology_behavior_based: true       # unique compiled behavior + llvm-cov, not test LOC
   bucketed_recall_scales_with_corpus: true        # adaptive probe; declines to exact scan, never truncates
   ten_million_memory_claim_evaluated: true        # NOT supported: 43.7 GB RSS / 26.5 GB storage projected

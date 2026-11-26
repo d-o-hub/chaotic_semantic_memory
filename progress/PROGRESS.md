@@ -2943,3 +2943,36 @@ neuter check — reverting `is_file()` to `.exists()` turns 8b red with
 `expected rc 1, got 0` — so the new case is sharp rather than decorative.
 Also ignored `/.qoder/`, the agent scratch dir that had been dirtying
 `git status` in every session.
+
+## 2026-11-26 (part 8) — #1075 duplicate test-name leads dispositioned, inventory count/listing reconciled
+
+`scripts/coverage-report.sh inventory` printed `names present in more than one
+file: 12` and then listed ten rows: `sorted(shared.items())[:10]` silently
+dropped the two alphabetically last leads (`test_simd_scalar_parity`,
+`try_new_rejects_zero_and_oversized_dimensions`), so the report disagreed with
+its own header. That truncation was the defect; the "12 duplicates" was not.
+
+Bodies, not names, decided the dispositions: 3 same-body duplicates removed
+(`inject_concepts_empty_batch_returns_ok` and
+`associate_many_empty_batch_returns_ok` from `tests/batch_ops_coverage.rs`,
+`purge_expired_removes_expired_concepts` from
+`tests/framework_ttl_integration.rs` — the last one also drops a 2 s sleep from
+the integration run), 8 distinct-subject collisions renamed per subject
+(`voronoi_lsh_*` for the Voronoi projector, `cache_clear_does_not_reset_miss_counter`,
+`test_exact_merged_score_calculation`,
+`a_documentation_only_change_emits_all_outputs_false`, and
+`wasm_ext_memory_event_variants_construct`), and the `csm-core-lib` facade copy of
+the owner's locality test replaced by `wrapper_projection_matches_the_owner_projector`,
+which asserts what the wrapper actually does (bit-equality with `RawChaoticLsh`).
+
+`inventory` now prints every lead, and `scripts/test-coverage-report-inventory.sh`
+builds a 12-shared-name fixture and asserts the header count equals the printed
+rows. Neuter run: restoring the `[:10]` slice makes the fixture exit 1 with
+`header claims 12 shared names but the listing printed 10`. Re-run on the tree:
+`distinct test names: 1244; names present in more than one file: 0` (1247 - 3
+removals), catalog regenerated after the fixture gained a purpose header.
+The count lives in three places — `docs/architecture/context.yaml`
+(`total_tests`/`tests_passing`), `GOAP_STATE.md` (`tests_count`) and the tree —
+and the LLM-context gate derives the tree value and compares all three, so
+`context.yaml` moved to 1244 in the same change (leaving it at 1247 turned
+`./scripts/validate.sh` red at the drift gate).
