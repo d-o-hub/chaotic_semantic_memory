@@ -1,38 +1,45 @@
 # Release Workflow (canonical)
 
-Matches `.github/workflows/release.yml` as of Wave 32. Prefer the skill entrypoint `SKILL.md` for operator steps; this file holds detail and recovery.
+Matches `.github/workflows/release.yml` as of the do-harness pipeline port (which added
+`.github/workflows/auto-release.yml` and `scripts/release-derive.sh`). Prefer the skill
+entrypoint `SKILL.md` for operator steps; this file holds detail and recovery.
 
 ## Trigger and tag owner
 
 | Item | Value |
 |------|-------|
 | Workflow | `.github/workflows/release.yml` |
-| Triggers | `workflow_run` on `CI` completion (success, branch `main`), `workflow_dispatch` |
-| Tag owner | Workflow job `validate`, step **Ensure release tag exists** |
+| Triggers | `push` of `v*` tags; `workflow_dispatch` with a `tag` input (that tag = release/recovery; empty tag = dry run) |
+| Tag owner | `auto-release.yml`'s `ship` job (automation) or a human push — **never** `release.yml` |
 | Tag format | `v` + version from root `Cargo.toml` |
 
 ```
-merge PR to main
-  → CI completes successfully on main
-  → release.yml starts (workflow_run; no polling, no wait ceiling)
-  → validate: changelog, sync-version clean, package list
-  → git tag v$VERSION && git push origin v$VERSION   # ONLY tag owner
+merge PR to main (bump via auto-release's release/vX.Y.Z PR or manual)
+  → ship tags the main tip v$VERSION (or a human pushes the tag)
+  → release.yml starts on the tag push (or the explicit -f tag= dispatch)
+  → validate: tag == Cargo.toml version, CI + Pre-Release Gate green for the
+    tagged commit, changelog, sync-version clean, package list
   → build matrix / publish crates / npm / GitHub release
 ```
 
-A `workflow_dispatch` run skips the event gate but must see a green CI run for
-HEAD (single fail-closed query) before validating; the job-level `if` only
-releases when the upstream CI run concluded `success` in this repository.
+`release.yml` never creates the tag. A tagged dispatch
+(`gh workflow run release.yml -f tag=vX.Y.Z`) releases that tag's commit and is the recovery
+path; an untagged dispatch is a dry run that builds everything and publishes nothing. Both run
+the same `validate` as a tag push: the target SHA must have green `CI` **and** green
+`Pre-Release Gate` runs (bounded 30 m poll, fail-closed) before anything is published.
 
-**Humans do not create routine `v*` tags.** Manual tag push is recovery-only (below).
+A tag pushed with `GITHUB_TOKEN` does not trigger tag-push workflows, which is why
+`auto-release.yml`'s `ship` dispatches `release.yml` explicitly after pushing the tag — a
+`workflow_dispatch` always creates a run.
 
 ## Protected-main policy
 
-1. Create `release/vX.Y.Z` (or `chore/release-…`) from updated `main`
-2. Run `scripts/sync-version.sh <version>` BEFORE editing manifests manually, then fix CHANGELOG and complete version changes
-3. Open PR; required CI must pass
+1. Create `release/vX.Y.Z` (or `chore/release-…`) from updated `main` — or let
+   `auto-release.yml`'s `prepare` job open/refresh it after green CI on `main`
+2. Run `scripts/sync-version.sh <version>` BEFORE editing manifests manually, then fix CHANGELOG and complete version changes (`auto-release` does this via `scripts/release-derive.sh prepare <version>`)
+3. Open PR; required CI must pass — a GITHUB_TOKEN-pushed release PR starts in "approval required", so trigger its checks with `gh workflow run ci.yml -f ref=release/vX.Y.Z`
 4. Merge (squash preferred). Never `git push origin main` for releases
-5. Watch `release.yml`; do not re-tag if it is still running
+5. Tag the updated `main` tip (`git tag vX.Y.Z && git push origin vX.Y.Z`) or let `auto-release.yml`'s `ship` do it, then watch `release.yml`; do not re-tag while it is running
 
 AGENTS.md / hard constraints: main is protected; multi-PR never use `gh pr merge --auto` (stale-base loops).
 
@@ -48,7 +55,7 @@ AGENTS.md / hard constraints: main is protected; multi-PR never use `gh pr merge
 
 ## Idempotent behavior
 
-1. If tag `vVERSION` already exists → `release-needed=false`, skip new tag
+1. Every publish step is coupled to the tag `release.yml` was given — the workflow never creates one
 2. crates.io / npm paths should skip or tolerate already-published versions
 3. GitHub release creation should not fail the whole world if re-run after partial success — verify with `gh release list`
 
@@ -62,11 +69,8 @@ gh release list --limit 5
 gh run list --workflow=release.yml --limit 5
 curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory/versions | head
 
-# Tag exists but release/publish incomplete — coordinate before deleting tags
-git fetch --tags
-git tag -d vX.Y.Z
-git push origin :refs/tags/vX.Y.Z
-# Re-merge or workflow_dispatch only with a clear plan; prefer fixing forward
+# Re-drive a partial release for an existing tag (idempotent; never delete the tag)
+gh workflow run release.yml -f tag=vX.Y.Z
 
 # Already on crates.io and need yank
 cargo yank --version X.Y.Z chaotic_semantic_memory
@@ -76,34 +80,32 @@ Prefer **fix-forward** (patch release) over deleting published artifacts.
 
 ## Recovery dispatch (workflow_dispatch)
 
-`recover=true` sets `release-needed=true`, and `release.yml`'s `trigger-crates-io-publish` runs
-on that condition — so **one** dispatch now covers all three channels, crates.io included:
+A tagged dispatch is the recovery path — **one** dispatch covers all three channels, crates.io
+included:
 
 ```bash
-# GitHub Release + npm: retry missing artifacts for an existing tag
-gh workflow run release.yml --ref main -f recover=true -f recovery_tag=v0.3.9
+# GitHub Release + npm + crates.io: retry missing artifacts for an existing tag
+gh workflow run release.yml -f tag=v0.3.9
 # → the same run dispatches publish-crates.yml for refs/tags/v0.3.9 and waits for its verdict
 ```
 
 Dispatch the crate workflow by hand when the release half is already verified and only the
-crates are missing, or when you want `dry_run` (a release run never asks for one):
+crates are missing, or when you want `dry_run=true`:
 
 ```bash
 # crates.io: publish the same tag over OIDC, no secret involved
 gh workflow run publish-crates.yml -f ref=refs/tags/v0.3.9 -f version=0.3.9
 ```
 
-`recovery_tag` is not optional: with `recover=true` an empty tag makes `validate` fail with
-`::error::recovery_tag is required when recover=true.` (`release.yml:53-57`). `ref` and
-`version` are likewise both required on `publish-crates.yml`, and `version` must be the
+`ref` and `version` are both required on `publish-crates.yml`, and `version` must be the
 bare `0.3.9` — the workflow cross-checks it against what the ref's manifests declare.
-Neither path has been exercised end to end yet: v0.3.9's recovery is the first run through it.
 
 The recovery workflow:
-1. Sees tag exists, but `recover=true` → proceeds with `release-needed=true`
+1. Resolves the tagged commit (`git rev-list -n 1 <tag>`) and runs the same `validate` as a tag
+   push: tag == version, green CI + green Pre-Release Gate **for that commit**, changelog, sync
 2. Each job checks if its artifact already exists → skips if so
-3. Publishes only missing artifacts (idempotent) — the crate loop skips by index row, the
-   dispatch job skips nothing it did not already see published
+3. Publishes only missing artifacts (idempotent) — the crate loop skips by index row, and an
+   existing GitHub Release has its assets replaced
 
 **Prerequisites for recovery:**
 - Nine **crates.io trusted-publisher configs** exist (owner `d-o-hub`, repository
@@ -114,8 +116,8 @@ The recovery workflow:
   reds the run on any gap, so a missing config shows up as a named missing crate rather than
   a green run with eight of nine published. A `dry_run=true` dispatch does **not** prove the
   configs — it never performs the exchange.
-- The tagged commit still has a green history: `recover=true` gates on the **newest** `CI` and
-  `Pre-Release Gate` runs *for the commit the tag points at* (`release.yml:94`), not on the current head, so
+- The tagged commit still has a green history: a tagged dispatch gates on the **newest** `CI` and
+  `Pre-Release Gate` runs *for the commit the tag points at* (`git rev-list -n 1 <tag>`), not on the current head, so
   an open-PR queue does **not** block a recovery. Verify before promising either — for `v0.3.9`
   (`642238f0`) both are green (41104878082 / 41110522706). Re-running that commit's CI is the way to spoil it:
   the new gate run re-reads today's open-PR list and can refuse where history passed
@@ -181,7 +183,7 @@ diagnosis survives a release.
 
 ## Not used (stale docs)
 
-This repository does **not** use a separate `semantic-release.yml` or npm `semantic-release` bot for tagging. Ignore older diagrams that show “push tag → release” as the human step; humans merge version PRs, workflow owns tags.
+This repository does **not** use a separate `semantic-release.yml` or npm `semantic-release` bot for tagging. Version bumps arrive as `release/vX.Y.Z` pull requests (opened by `auto-release.yml` or by hand); after the merge, `auto-release.yml`'s `ship` job — not a human — pushes the tag and starts `release.yml`.
 
 ## Post-release checklist
 

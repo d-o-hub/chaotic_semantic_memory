@@ -4,11 +4,12 @@
 # The `notify` job used to print "Release pipeline finished for v${VERSION}" no
 # matter what its siblings did, so a partial release and a complete one were
 # byte-identical in the summary. This script reads the sibling `needs` results
-# explicitly and renders one of four verdicts:
+# explicitly and renders one of five verdicts:
 #
 #   published      every artifact landed and verify-release passed
-#   nothing-to-do  the tag already exists; no publish was attempted
-#   not-a-release  the trigger was not a successful CI push (no verdict)
+#   dry-run        an untagged dispatch: built and gated only, published nothing
+#   nothing-to-do  no publication was attempted in this run
+#   not-a-release  validation did not succeed, so nothing was published
 #   partial        at least one publish/build artifact failed or was skipped
 #
 # It is diagnostic and never decides whether the workflow should fail —
@@ -16,15 +17,18 @@
 # `::error` annotation so the run list and summary cannot read as routine.
 #
 # Inputs are environment variables (empty is rendered as "skipped"):
-#   VERSION, EVENT_NAME, RELEASE_NEEDED, VALIDATE_RESULT, BUILD_CLI_RESULT,
-#   BUILD_WASM_RESULT, NPM_WASM_RESULT, NPM_CLI_RESULT, RELEASE_RESULT,
-#   CRATES_TRIGGER_RESULT, VERIFY_RESULT
+#   VERSION, EVENT_NAME, RELEASE_NEEDED, DRY_RUN, VALIDATE_RESULT,
+#   BUILD_CLI_RESULT, BUILD_WASM_RESULT, NPM_WASM_RESULT, NPM_CLI_RESULT,
+#   RELEASE_RESULT, CRATES_TRIGGER_RESULT, VERIFY_RESULT, WINDOWS_NPM_RESULT
 # CRATES_TRIGGER_RESULT is `trigger-crates-io-publish`, the job that dispatches
 # publish-crates.yml and waits for it. It is reported separately from VERIFY_RESULT on
-# purpose: crates.io cannot mint a publishing token for this file's workflow_run
-# trigger, so the publish lives in another workflow and its failure is a named job, not
-# a mysterious index miss. VERIFY_RESULT still probes all nine rows, so a crates gap is
-# caught even when the trigger job never ran.
+# purpose: crates.io publishing lives in another workflow (ADR-0104), so its failure is
+# a named job, not a mysterious index miss. VERIFY_RESULT still probes all nine rows, so
+# a crates gap is caught even when the trigger job never ran.
+# Since the tag-push port, `release.yml` runs on `v*` tag pushes and dispatches; the
+# trigger that used to produce "not-a-release" (a skipped `validate` under the old
+# workflow_run trigger) can no longer occur, and the untagged-dispatch dry run gets its
+# own verdict instead of reading as "nothing to do".
 # Exit: 0 always except usage errors (2).
 # Fixture: scripts/test-release-verdict.sh
 
@@ -33,6 +37,7 @@ set -euo pipefail
 VERSION="${VERSION:-unknown}"
 EVENT_NAME="${EVENT_NAME:-unknown}"
 RELEASE_NEEDED="${RELEASE_NEEDED:-}"
+DRY_RUN="${DRY_RUN:-}"
 VALIDATE_RESULT="${VALIDATE_RESULT:-skipped}"
 VERIFY_RESULT="${VERIFY_RESULT:-skipped}"
 
@@ -49,14 +54,17 @@ if [[ "${VALIDATE_RESULT}" != "success" ]]; then
     annotation="warning"
     if [[ "${VALIDATE_RESULT}" == "skipped" ]]; then
         verdict="not-a-release"
-        detail="trigger was \`${EVENT_NAME}\`, not a successful CI push; nothing was published or verified"
+        detail="validation was skipped for \`${EVENT_NAME}\`; nothing was published or verified"
     else
         verdict="not-a-release"
         detail="validation finished \`${VALIDATE_RESULT}\` before any publication; nothing was published"
     fi
+elif [[ "${DRY_RUN}" == "true" ]]; then
+    verdict="dry-run"
+    detail="untagged dispatch: built and gated v${VERSION} without publishing (supply a tag to publish)"
 elif [[ "${RELEASE_NEEDED}" != "true" ]]; then
     verdict="nothing-to-do"
-    detail="tag v${VERSION} already exists; no publish was attempted in this run"
+    detail="no publish was attempted in this run"
 else
     failed=()
     skipped=()
@@ -66,7 +74,8 @@ else
         "publish-npm-wasm:$(result "${NPM_WASM_RESULT:-}")" \
         "publish-npm-cli:$(result "${NPM_CLI_RESULT:-}")" \
         "trigger-crates-io-publish:$(result "${CRATES_TRIGGER_RESULT:-}")" \
-        "create-github-release:$(result "${RELEASE_RESULT:-}")"; do
+        "create-github-release:$(result "${RELEASE_RESULT:-}")" \
+        "verify-windows-npm:$(result "${WINDOWS_NPM_RESULT:-}")"; do
         job="${pair%%:*}"
         state="${pair#*:}"
         case "${state}" in

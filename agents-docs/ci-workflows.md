@@ -19,7 +19,8 @@ owns the release trio (`release.yml` / `pre-release-gate.yml` /
 | `scheduled-evidence.yml` | Weekly cron (Sunday) | Scale evidence + full mutation sweep (weekly evidence tier). |
 | `pages.yml` | `push` to `main` | Publishes the mdBook (`book/`) to GitHub Pages. |
 | `dist.yml` | `workflow_dispatch` | Manual dist-channel build dispatch (see `dist-channel-selection` skill). |
-| `release.yml` | `workflow_run` on CI completion | Same-SHA release gate → tag → npm publishes → triggers crates.io publish. See `agents-docs/release-safety.md` and ADR-0042. |
+| `auto-release.yml` | `workflow_run` on CI completion (`main`) + `workflow_dispatch` | Release preparation and tagging: `prepare` derives the bump from conventional commits (`scripts/release-derive.sh`), opens/refreshes the `release/vX.Y.Z` PR and retires superseded proposals; `ship` (dispatch or next green `main` CI) tags the `main` tip and dispatches `release.yml -f tag=v*`. See `agents-docs/release-safety.md`. |
+| `release.yml` | `v*` tag push + `workflow_dispatch` (tag = release/recovery, empty = dry run) | Validates the tagged commit (tag == version, CI + Pre-Release Gate green for that SHA) → build matrix + provenance → GitHub Release → dispatches `publish-crates.yml` → npm publishes → `verify-release`. Never creates the tag. See `agents-docs/release-safety.md` and ADR-0042. |
 | `pre-release-gate.yml` | `workflow_run` on CI completion | The drain/refusal gate: refuses to release while unlabelled PRs are open; bounded wait, no `--auto` double-trigger. See the 2026-11-25 roast record and `github-ci-guardrails` skill. |
 | `publish-crates.yml` | `workflow_dispatch` | ADR-0104 OIDC crates.io publishing (30-min token; the trusted-publisher configs must name *this* workflow file). |
 

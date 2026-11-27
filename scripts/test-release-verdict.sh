@@ -85,17 +85,17 @@ echo "Test 7: validate failure is not-a-release"
 run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=failure RELEASE_NEEDED=
 expect "validation failed" 0 "validation finished \`failure\`"
 
-echo "Test 8: an existing tag is nothing-to-do"
+echo "Test 8: no publication attempted is nothing-to-do"
 run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEASE_NEEDED=false
 expect "nothing-to-do" 0 "Verdict: nothing-to-do"
-expect "tag already exists" 0 "tag v0.3.9 already exists"
+expect "no publish attempted" 0 "no publish was attempted in this run"
 expect_not "nothing-to-do is not an error" "::error"
 
 echo "Test 9: a complete release is published"
-run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEASE_NEEDED=true \
+run_verdict VERSION=0.3.9 EVENT_NAME=push VALIDATE_RESULT=success RELEASE_NEEDED=true \
   BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success \
   NPM_WASM_RESULT=success NPM_CLI_RESULT=success RELEASE_RESULT=success \
-  CRATES_TRIGGER_RESULT=success VERIFY_RESULT=success
+  CRATES_TRIGGER_RESULT=success VERIFY_RESULT=success WINDOWS_NPM_RESULT=success
 expect "published" 0 "Verdict: published"
 expect "artifact counts" 0 "9 crates, 2 npm packages, and 7 release assets"
 expect_not "published is not an error" "::error"
@@ -161,6 +161,25 @@ run_verdict VERSION=0.3.9 EVENT_NAME=workflow_run VALIDATE_RESULT=success RELEAS
   CRATES_TRIGGER_RESULT=skipped VERIFY_RESULT=success
 expect "skipped trigger named" 0 "skipped: trigger-crates-io-publish"
 expect_not "an undispatched publish never reads as published" "Verdict: published"
+
+echo "Test 16: an untagged dispatch is a dry run, not nothing-to-do"
+# Since the tag-push port, an untagged workflow_dispatch builds and gates every
+# target without publishing. Reading that as "tag already exists" would be false.
+run_verdict VERSION=0.3.9 EVENT_NAME=workflow_dispatch DRY_RUN=true VALIDATE_RESULT=success \
+  RELEASE_NEEDED=false BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success \
+  NPM_WASM_RESULT=skipped NPM_CLI_RESULT=skipped RELEASE_RESULT=skipped \
+  CRATES_TRIGGER_RESULT=skipped VERIFY_RESULT=skipped WINDOWS_NPM_RESULT=skipped
+expect "dry-run verdict" 0 "Verdict: dry-run"
+expect "dry-run explains itself" 0 "without publishing"
+
+echo "Test 17: the Windows npm wrapper failing is a named partial"
+run_verdict VERSION=0.3.9 EVENT_NAME=push VALIDATE_RESULT=success RELEASE_NEEDED=true \
+  BUILD_CLI_RESULT=success BUILD_WASM_RESULT=success \
+  NPM_WASM_RESULT=success NPM_CLI_RESULT=success RELEASE_RESULT=success \
+  CRATES_TRIGGER_RESULT=success VERIFY_RESULT=success WINDOWS_NPM_RESULT=failure
+expect "windows wrapper failure named" 0 "verify-windows-npm (failure)"
+expect "still partial" 0 "Verdict: partial"
+expect_not "a red windows wrapper never reads as published" "Verdict: published"
 
 echo "release-verdict fixture: ${PASS} passed, ${FAIL} failed"
 [[ "${FAIL}" -eq 0 ]]

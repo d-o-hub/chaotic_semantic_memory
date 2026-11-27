@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # scripts/release-no-verdict.sh — issue #969.
 #
-# `release.yml` triggers on CI completion, but `validate` only runs for a
-# successful `push` to this repository. When the triggering CI run failed (an
-# infra fault, a flaky job), every dependent job skipped and only `notify`
-# (`if: always()`) executed — GitHub rendered that as a green Release run that
-# published nothing. This script makes the no-verdict case explicit: a warning
-# and a summary line that say what the trigger was.
+# Historical: `release.yml` used to trigger on CI completion, and `validate`
+# only ran for a successful `push` to this repository. When the triggering CI
+# run failed (an infra fault, a flaky job), every dependent job skipped and
+# only `notify` (`if: always()`) executed — GitHub rendered that as a green
+# Release run that published nothing. This script made the no-verdict case
+# explicit. The tag-push port (see agents-docs/release-safety.md) retired the
+# workflow_run trigger and the `no-verdict` job with it; the script is kept as
+# the diagnostic for the contradiction case, still fixture-tested.
 #
 # Usage: release-no-verdict.sh <event-name> <ci-event> <ci-conclusion>
 # Exit: 0 for a genuine no-verdict trigger, 1 for the contradictory case

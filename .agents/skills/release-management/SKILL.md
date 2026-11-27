@@ -10,8 +10,8 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 ## Hard rules
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
-2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `CI` on `main`, resolves that run's exact `head_sha` (step `target_sha`), and refuses to tag or publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside the release job, not the release trigger: `pre-release-gate.yml` starts only after CI, so `validate` **waits** for a verdict rather than reading once — `GATE_DEADLINE = now + 1800`, `sleep 60`, break on `status == completed`, then still require `conclusion == success` (`release.yml:119-160`). It is fail-closed on timeout and on any non-success, so a red gate never publishes; do not re-dispatch while a verdict is pending. A manual dispatch, and `recover` with a `recovery_tag`, resolve a SHA and run the same check. The refusal **names the blocking job**: `scripts/gate-failure-detail.sh` turns the gate run's per-job conclusions into one `SUMMARY:` line inside the `::error::` annotation (`2 of 7 gate jobs failed: pr-drain-check, gate-summary`), which is how you tell a queue-policy block from a quality failure without leaving the release log — and a **jobless** gate run says so, because that is a rejected workflow file (rule 4), not a red check. `pr-drain-check` is queue policy, not quality: it fails while **any** open PR lacks a `hold-for-next`/`deferred` label, so draining or labelling the queue is a step of dispatching a release (measured 2026-10-31: run 41188203137 refused `bfa15d49` with `2 of 7 gate jobs failed: pr-drain-check, gate-summary`, no tag). **`recover=true` is exempt** — it resolves the *tagged* commit (`release.yml:60`) and reads that commit's historical gate run, so `v0.3.9`'s recovery needs no drain (CI 41104878082 + gate 41110522706, both green); re-running that commit's CI is what would spoil it, by spawning a fresh gate run against today's queue. Sequence: `github-ci-guardrails`.
+2. **`release.yml` never creates release tags.** Tag owner is `auto-release.yml`'s `ship` job (tags the verified `main` tip and dispatches `release.yml -f tag=v*`), or a human push. `release.yml`'s `validate` only asserts the tag exists and matches the root `[package].version`.
+3. **Same-SHA release gate:** `release.yml` is triggered by a `v*` tag push (or a tagged `workflow_dispatch`), resolves the commit the tag names (step `target_sha` — `git rev-list -n 1 <tag>` for a dispatch, `github.sha` for a push), and refuses to publish unless **both** the `CI` run and the `Pre-Release Gate` run for that same SHA are `completed/success`. The gate is a blocker checked inside `validate`, not the release trigger: `pre-release-gate.yml` starts only after CI, so `validate` **waits** for a verdict rather than reading once — `GATE_DEADLINE = now + 1800`, `sleep 60`, break on `status == completed`, then still require `conclusion == success` (the “Verify CI and Pre-Release Gate are green for target commit” step). It is fail-closed on timeout and on any non-success, so a red gate never publishes; do not re-dispatch while a verdict is pending. The refusal **names the blocking job**: `scripts/gate-failure-detail.sh` turns the gate run's per-job conclusions into one `SUMMARY:` line inside the `::error::` annotation (`2 of 7 gate jobs failed: pr-drain-check, gate-summary`), which is how you tell a queue-policy block from a quality failure without leaving the release log — and a **jobless** gate run says so, because that is a rejected workflow file (rule 4), not a red check. `pr-drain-check` is queue policy, not quality: it fails while **any** open PR lacks a `hold-for-next`/`deferred` label, so draining or labelling the queue is a step of releasing (measured 2026-10-31: run 41188203137 refused `bfa15d49` with `2 of 7 gate jobs failed: pr-drain-check, gate-summary`, no tag). **A tagged recovery dispatch is exempt from today's queue** — it resolves the *tagged* commit and reads that commit's historical gate run, so `v0.3.9`'s recovery needs no drain (CI 41104878082 + gate 41110522706, both green); re-running that commit's CI is what would spoil it, by spawning a fresh gate run against today's queue. Sequence: `github-ci-guardrails`.
 4. **A failed release run with no jobs is a bad workflow file, not a bad release:** `gh run view <id> --json jobs` returning `[]` means GitHub rejected the file before scheduling (since 2026-10-22 this is how `release.yml` failed: double-quoted / unquoted string literals in `if:` expressions — expressions take single quotes only). There is no step log, so read the YAML and run `scripts/check-actionlint.sh`; nothing published and no tag was created.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
@@ -19,11 +19,12 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 ```
 feature branch → PR → CI green → merge to main
-        → CI completes for the main SHA → release.yml starts
-        → release.yml verifies CI + Pre-Release Gate for that exact SHA
-        → checks out that SHA → create tag v* → publish
+        → auto-release.yml: green CI on main → release/vX.Y.Z PR (derived bump)
+        → maintainer merges → ship tags the main tip v* → dispatches release.yml
+        → release.yml verifies CI + Pre-Release Gate for the tagged commit
+        → build matrix → GitHub Release → crates.io dispatch → npm publishes
 ```
-`release.yml` owns the version tag and library/package publication. `dist.yml` has a single `workflow_dispatch` trigger and opens with a `disabled-notice` job: a tag created inside `release.yml` carries `GITHUB_TOKEN`, and Actions does not fire a tag-push trigger for a workflow from the same token, so platform CLI binaries are built by a manual `gh workflow run dist.yml` when a release needs them. `dist.yml` never creates a second tag or publishes crates/npm.
+`auto-release.yml` owns version-bump PRs and tag creation; `release.yml` owns publication behind an existing tag. `dist.yml` has a single `workflow_dispatch` trigger and opens with a `disabled-notice` job: a tag pushed by `ship` carries `GITHUB_TOKEN`, and Actions does not fire a tag-push trigger for a workflow from the same token, so platform CLI binaries are built by a manual `gh workflow run dist.yml` when a release needs them. `dist.yml` never creates a second tag or publishes crates/npm.
 
 ### Operator steps
 
@@ -46,18 +47,22 @@ git checkout -b release/v0.2.0
 git add Cargo.toml Cargo.lock CHANGELOG.md VERSION wasm/package.json cli-npm/package.json
 git commit -m "release: v0.2.0"
 
-# 6. PR → wait for CI → merge (squash preferred; no --auto multi-PR loops)
+# 6. PR → trigger its checks (GITHUB_TOKEN-pushed PRs start "approval required") → merge
+#    (squash preferred; no --auto multi-PR loops)
 git push -u origin HEAD
 gh pr create --title "release: v0.2.0" --body "Version bump and changelog for 0.2.0"
+gh workflow run ci.yml -f ref=release/v0.2.0   # or push once as a maintainer
 gh pr checks --watch
 gh pr merge --squash
 
-# 7. After merge: release.yml owns the tag and publish
+# 7. After merge: tag the updated main tip, or let auto-release.yml's ship do it
+gh workflow run auto-release.yml --ref main    # ship asserts main tip + derives
+#    or: git tag v0.2.0 && git push origin v0.2.0
 gh run list --workflow=release.yml --limit 3
 gh run watch
 ```
 
-**Do not** `git push origin main` or `git tag` / `git push origin v*` for normal releases. The workflow extracts version from `Cargo.toml`, creates `v${VERSION}`, and pushes the tag.
+**Do not** `git push origin main`. Tagging the merged `main` tip is the release trigger; `auto-release.yml` automates it, and a human may do the same by hand.
 
 ## Version sync (before PR)
 
@@ -133,10 +138,11 @@ deployment still waiting — run it to confirm a wait exists, not to explain a f
 | Who | Action |
 |-----|--------|
 | **Human / PR** | Bump `Cargo.toml`, changelog, sync-version, merge via PR |
-| **`release.yml`** | Wait for CI → create+push `v{version}` → package → GitHub release + npm → dispatch the crates.io publish (never mints a crates.io token itself) |
+| **`auto-release.yml`** | Green CI on `main` → derive bump → open/refresh `release/vX.Y.Z` PR → after merge, `ship` tags the main tip and dispatches `release.yml` |
+| **`release.yml`** | Validates the tagged commit (tag == version, CI + gate green) → package → GitHub release + npm → dispatch the crates.io publish (never creates the tag, never mints a crates.io token itself) |
 | **`publish-crates.yml`** | Dispatched by `release.yml`'s `trigger-crates-io-publish` with that release's `ref` + `version` (or by hand) → OIDC exchange → publish the nine crates |
 
-If the tag already exists, the workflow sets `release-needed=false` and skips re-publish paths (idempotent). Manual tag push is **recovery-only**, approval-gated — see `references/release-workflow.md`.
+If a required artifact already exists, the corresponding publish step skips it (idempotent). Manual tag push is now a *normal* trigger; recovery of a partial release is the tagged dispatch `gh workflow run release.yml -f tag=v*`, approval-gated — see `references/release-workflow.md`.
 
 ## Dry run / hotfix / rollback
 
@@ -166,18 +172,21 @@ release assets (5 CLI targets → 7 files with `SHA256SUMS` and the WASM tarball
 `scripts/release-cli-matrix.sh` output that drives the build) — and accumulates misses instead of aborting at
 the first. It waits on `trigger-crates-io-publish`, so the crates it probes are the ones that workflow just
 tried to publish: a crates.io gap is a *failure with a named job to open*, not an instruction to go dispatch
-something by hand — that hand dispatch is the recovery path, and the only way to reach `dry_run`. Inside the
+something by hand — re-driving the release with `gh workflow run release.yml -f tag=v*` is the recovery path
+(the hand `publish-crates.yml` dispatch covers a crates-only gap, and an untagged `release.yml` dispatch is
+the build-only dry run). Inside the
 publishing path, the set is split across steps — seven members in one loop, then the root crate, then
 `csm-duckdb` last because it path-depends on the root and polls the sparse index for it — so read every
 `run:` block, not just the loop header, before claiming a crate was covered.
 
 Rules that came out of validating the 0.3.9 scripts against the *previous* release:
 
-- **A green `Release` run is not proof that a release happened.** `validate` skips unless the trigger was a
-  successful CI push (`release.yml:34-38`), and every dependent job then reads a null
-  `needs.validate.outputs.release-needed` and skips too — so the run can conclude `success` having published
-  nothing. Measured: run **41186134783** (2026-10-31T08:49Z) had all nine jobs skipped, only `notify`
-  (`if: always()`) green, and crates.io still at 0/9. Read the job list, then the registry (#969).
+- **A green `Release` run is not proof that a release happened.** Every publish job keys on
+  `needs.validate.outputs.release-needed == 'true'`, which only a tag-carrying trigger (push of `v*` or a
+  tagged dispatch) sets — an untagged dispatch is a dry run — so a mis-triggered run can conclude `success`
+  having published nothing. Measured: run **41186134783** (2026-10-31T08:49Z, the old `workflow_run` trigger)
+  had all nine jobs skipped, only `notify` (`if: always()`) green, and crates.io still at 0/9. Read the job
+  list, then the registry (#969).
 - **Run the control, don't hope for it.** A verifier is trusted only after one input that must pass **and**
   one that must fail produce those outputs. Most verifier bugs do not crash — they print a confident
   sentence about a different fact ("release missing" for a **lightweight** tag whose `.object.url` contains
@@ -213,7 +222,7 @@ Rules that came out of validating the 0.3.9 scripts against the *previous* relea
   isolated build that resolves companions from the **registry**, so when the root crate's upload 403s, the
   next crate rebuilds against the *previous* published version and fails on symbols that exist in the tree.
   It reads like a feature-gate defect and is a consequence of the credential.
-- If anything after the tag exists, recover with `workflow_dispatch` `recover=true` + `recovery_tag=v*`
+- If anything after the tag exists, recover with `gh workflow run release.yml -f tag=v*`
   — never delete or re-create the tag. The guards are idempotent, so a partial release is re-driven, not
   rebuilt.
 
