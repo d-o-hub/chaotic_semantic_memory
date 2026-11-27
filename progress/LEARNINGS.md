@@ -1374,3 +1374,20 @@ The facade case is worth its own rule: a backward-compat wrapper should assert
 *delegation* (bit-equality with the owner), not re-derive the owner's property
 thresholds — otherwise the wrapper test can stay green while the wrapper drops a
 method's argument order.
+
+## 2026-11-26 — `--all-features` proves the most permissive config works, not the default one
+
+`csm-chaos` is `#![cfg_attr(not(feature = "std"), no_std)]` with `default = []`,
+so the configuration it advertises to no-std consumers is the one no gate ever
+compiles: clippy runs `--all-targets --all-features`, the test stages run
+`--all-features`, and the per-crate CI job does the same. `std` is a *feature* of
+this crate, so `--all-features` turns it on and the std prelude answers `vec!` —
+`voronoi_lsh`'s tests called `vec!` for the entire life of the feature and no run
+was ever red (#1084). Two lessons: (1) when a crate has a `no_std`/reduced default,
+"all tests pass" under `--all-features` says nothing about that default; add an
+explicit `--no-default-features --features <experimental set>` build, and put it
+next to the all-features stage so the contrast is visible; (2) prefer the qualified
+path at the call site (`alloc::vec![…]`, `alloc::format!(…)`) over importing the
+macro — the import is precisely the line a later cleanup deletes, and the error
+then returns only in the configuration nobody runs. A compile check is also a
+cheap gate: its neuter test is the compiler's own error, so it needs no fixture.

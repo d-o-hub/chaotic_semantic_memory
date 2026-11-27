@@ -367,14 +367,14 @@ mod additional_tests {
         let lsh1 = VoronoiLsh::new(0.5, 0.6, 3.99, 128);
         let lsh2 = VoronoiLsh::new(0.5, 0.6, 3.99, 128);
 
-        let input = vec![0.1f32; 128];
+        let input = alloc::vec![0.1f32; 128];
         assert_eq!(lsh1.project(&input), lsh2.project(&input));
     }
 
     #[test]
     fn test_voronoi_lsh_finite_behavior() {
         let lsh = VoronoiLsh::new(0.1, 0.2, 3.9, 16);
-        let input = vec![f32::INFINITY; 16];
+        let input = alloc::vec![f32::INFINITY; 16];
         let bits = lsh.project(&input);
 
         // Ensure it doesn't panic on infinity and returns a valid hypervector,

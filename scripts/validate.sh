@@ -129,6 +129,17 @@ fi
 echo "==> cargo test --all-targets --all-features"
 cargo test --all-targets --all-features
 
+# `--all-features` turns `std` on, so a `no_std` crate's test module that leans on
+# the std prelude compiles in every stage above: `voronoi_lsh`'s tests called
+# `vec!` with no `use alloc::vec;` for as long as the feature existed (#1084).
+# Build the experimental features with `std` off — compile only; the tests
+# themselves already ran above, and the crate's own sibling modules show the
+# idiom (`alloc::format!` in hashing/mod.rs).
+echo "==> cargo test -p csm-chaos --no-default-features (experimental features, std off, build only)"
+cargo test -p csm-chaos --no-default-features \
+  --features experimental-neural-circuit,experimental-coupled-lorenz,experimental-voronoi-lsh,experimental-ils3d \
+  --no-run
+
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
 while IFS= read -r -d '' file; do
   loc="$(wc -l < "${file}")"

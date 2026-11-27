@@ -2976,3 +2976,21 @@ The count lives in three places — `docs/architecture/context.yaml`
 and the LLM-context gate derives the tree value and compares all three, so
 `context.yaml` moved to 1244 in the same change (leaving it at 1247 turned
 `./scripts/validate.sh` red at the drift gate).
+
+## 2026-11-26 (part 9) — #1084 fixed: `no_std` experimental test build compiles, and validate.sh now builds it
+
+`cargo test -p csm-chaos --no-default-features --features experimental-voronoi-lsh`
+failed with two `cannot find macro vec` errors in `voronoi_lsh.rs`'s
+`additional_tests` (pre-existing; #1075's verification hit it). Both call sites now
+write `alloc::vec![…]`, copying the qualified idiom already used by
+`hashing/mod.rs`'s `alloc::format!` — an import is the kind of line a cleanup
+deletes, and the path form keeps the reason visible at the call site.
+
+`scripts/validate.sh` gained a stage right after `cargo test --all-targets
+--all-features`: `cargo test -p csm-chaos --no-default-features --features
+experimental-neural-circuit,experimental-coupled-lorenz,experimental-voronoi-lsh,experimental-ils3d
+--no-run`. That placement is the point — `--all-features` is what turned `std` on
+and hid the break — and since `ci.yml`'s `lint` job runs `validate.sh`, the stage
+lands in CI without touching the crate matrix or `csm-ci-selection`'s `JOBS` table.
+The gate's failure mode was the compiler's own: the command failed with two errors
+before the patch and is green after, and the tests pass with `std` off (24 passed).
