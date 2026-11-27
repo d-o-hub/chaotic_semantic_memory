@@ -86,8 +86,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Full history and tags: the derivation counts the commits since the
-          # last release tag.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # last release tag. Deliberately no `ref:` — a workflow_run head_sha is
+          # untrusted input and must never select the tree; the step below asserts
+          # that the default-branch tip this checkout produced *is* the verified
+          # SHA, and refuses when main has moved.
           fetch-depth: 0
           persist-credentials: false
       - name: Assert the verified main commit is still current
@@ -101,6 +103,10 @@ jobs:
           test -n "$actual"
           test "$actual" = "$EXPECTED_SHA" || {
             echo "main advanced after the gate; the newer commit will trigger its own gate" >&2
+            exit 1
+          }
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA" || {
+            echo "checkout is not the verified commit ($(git rev-parse HEAD) != $EXPECTED_SHA)" >&2
             exit 1
           }
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then
@@ -347,7 +353,8 @@ jobs:
       # below. `prepare` keeps `persist-credentials: false`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Same rule as `prepare`: the untrusted head_sha is compared, never
+          # used as a ref; the assertion below requires HEAD == EXPECTED_SHA.
           fetch-depth: 0
       # The tag below lands on whatever commit the run resolved to, and a
       # `workflow_dispatch` can be sent against any branch, so the ref is

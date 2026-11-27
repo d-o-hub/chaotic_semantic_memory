@@ -51,7 +51,8 @@
 
 set -euo pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
 # Overridable so --self-test can point the derivation at a throwaway
 # repository; every git call and manifest read goes through $ROOT.
 ROOT="${CSM_RELEASE_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
@@ -442,7 +443,9 @@ self_test() {
     git -C "$scratch" tag v0.3.9
     expect_next() {
         local args="$1" want="$2" label="$3" got
-        got="$(cd "$scratch" && CSM_RELEASE_ROOT="$scratch" bash "$SCRIPT_DIR/release-derive.sh" next $args --format json | jq -r .bump)"
+        local -a argarr
+        read -r -a argarr <<< "$args"
+        got="$(cd "$scratch" && CSM_RELEASE_ROOT="$scratch" bash "$SCRIPT_DIR/release-derive.sh" next ${argarr[@]+"${argarr[@]}"} --format json | jq -r .bump)"
         if [ "$got" = "$want" ]; then
             printf 'ok   %s\n' "$label"
         else
@@ -491,12 +494,12 @@ self_test() {
     expect_next "--published v0.3.9" "pending-release" "a tagged-but-unpublished basis holds the next derivation"
     expect_next "--published v0.4.0" "patch" "with the release published, the batch derives normally"
     # held-rename: a shipped surface moved with no confirmation marker.
-    (cd "$scratch" && git mv VERSION VERSION_OLD 2>/dev/null || {
+    if ! (cd "$scratch" && git mv VERSION VERSION_OLD 2>/dev/null); then
         git rm -q --cached VERSION
         mv "$scratch/VERSION" "$scratch/VERSION_OLD"
         printf '0.4.0\n' >"$scratch/VERSION_OLD"
         (cd "$scratch" && git add -A)
-    })
+    fi
     git -C "$scratch" commit -qm "chore: move version file"
     expect_next "--published v0.4.0" "held-rename" "an unconfirmed shipped-surface rename holds the release"
     if [ "$failures" -eq 0 ]; then
