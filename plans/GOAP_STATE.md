@@ -56,8 +56,8 @@ world_state:
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)
-  adr_registry_count: 103            # check-adr-parity.sh: registry rows (ADR-0024 has two files)
-  adr_disk_count: 102                # unique ids on disk (103 files, ADR-0024 has two)
+  adr_registry_count: 104            # 2026-11-27: ADR-0106 added (registry rows)
+  adr_disk_count: 103                # unique ids on disk (104 files; ADR-0024 has two)
   integration_test_files: 73         # ls tests/*.rs | wc -l
 
   # ── Plans pointers ────────────────────────────────────────────
@@ -191,7 +191,13 @@ world_state:
   mcp_module_mutation_baselined: true             # #833: src/mcp/* out of the exclusion list
   link_validators_single_and_wired: true          # one checker + 9-case fixture (#840/#869)
   skill_catalog_generated_and_gated: true         # generated CATALOG.md + context.yaml drift gate
-  release_wait_event_driven: true                 # ADR-0042: CI completion -> same-SHA gate -> publish
+  release_wait_event_driven: false                # 2026-11-27: ADR-0106 supersedes ADR-0042's trigger -
+                                                  #   release.yml is tag-push triggered and never creates
+                                                  #   the tag; auto-release.yml derives the bump, opens
+                                                  #   release/vX.Y.Z, and `ship` tags the verified main
+                                                  #   tip + dispatches. The same-SHA CI + Pre-Release Gate
+                                                  #   requirement is retained; crates.io stays on the
+                                                  #   publish-crates.yml dispatch (ADR-0104).
   crates_publish_precheck_ownership_aware: true   # owners API; unknown HTTP fails closed
   csm_duckdb_in_release_publish_order: true       # dedicated step after root; failures exposed
   ttl_cleanup_has_bounded_shutdown: true          # ADR-0099: cooperative cancel + bounded await

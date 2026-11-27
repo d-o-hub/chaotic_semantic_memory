@@ -5,6 +5,11 @@
 Accepted
 
 > Updated 2026-04-05: Status changed from Proposed to Accepted as part of issue #50 release guardrails implementation.
+>
+> **Trigger model superseded 2026-11-27 by ADR-0106.** `release.yml` is now tag-push triggered and
+> never creates the tag; `auto-release.yml` owns derivation, tagging and dispatch. The same-SHA
+> `CI` + `Pre-Release Gate` requirement described below is retained, and everything below that
+> describes tag ownership or the `workflow_run` trigger is historical.
 
 ## Context and Problem Statement
 

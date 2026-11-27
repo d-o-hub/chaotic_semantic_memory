@@ -1413,3 +1413,16 @@ single-commit squash keeps its patch-id. Read a *match* as proof of containment 
 (`fix/security-quinn-udp-0538`, landed as `11ce127d`, 0 of 2 commits matching) is
 indistinguishable from unlanded work. So delete on proof, keep on silence, and archive
 everything before either.
+
+## 2026-11-27 — fixing a roast on someone else's branch: add a commit, don't rewrite
+
+Three small habits made #1089's fix round reviewable instead of destructive. (1) **Append, never rebuild** —
+the author's commit stays and the fix lands as a second one, so the diff of the fix is the roast's own
+checklist and a reviewer can see which demand each hunk answers; rewriting would have erased the context
+that made the verdict legible. (2) **A LOC-cap trim is the moment to re-read the prose being moved** — the
+section that had to leave `release-management/SKILL.md` to get under 250 lines still claimed "`release.yml`
+creates the patch tag", a sentence the same PR had just falsified, so the trim became the fix. Cutting for
+size and editing for truth are the same pass when the text is already under review. (3) **A superseded ADR
+needs both ends**: a new decision file with its registry row *and* a pointer in the old one, or a reader who
+lands in ADR-0042 learns the retired trigger as current. The parity checker only proves the row and the file
+exist — it cannot tell whether the old document now lies, which is the half a human has to do.

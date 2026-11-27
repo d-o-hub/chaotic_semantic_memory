@@ -899,7 +899,7 @@ jobs:
     # is gated on the same preconditions. Run after both are available,
     # including on tagged recovery: the wrapper needs both the registry package
     # and a working `csm version` on Windows.
-    needs: [create-github-release, publish-npm-cli]
+    needs: [validate, create-github-release, publish-npm-cli]
     if: needs.validate.outputs.release-needed == 'true' && needs.validate.outputs.version != ''
     runs-on: windows-latest
     timeout-minutes: 12

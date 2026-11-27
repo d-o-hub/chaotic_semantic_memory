@@ -3032,3 +3032,29 @@ content is verbatim in `main`, so the 17 identical/patch-id refs needed `-D` aft
 verified archive; the 63 unproven branches were left alone rather than guessed at. The queue
 and `plans/GOAP_STATE.md` are untouched — no GOAP action completed and no counter moved, so
 `progress/` is the only change in this PR.
+
+## 2026-11-27 (third action) — closed the #1089 roast demands on its own branch
+
+The roast (`plans/PR_ROAST_2026_11_27.md`) demanded five things of #1089; all but the diff-split are now
+on its branch `vibe/release-pipeline-port-4bfa30`, as an additional commit rather than a history rewrite.
+
+`lint`'s cause is gone: `.agents/skills/release-management/SKILL.md` went 253 → 246 lines by moving the
+dry-run/hotfix detail and the local-gate helper pointer into `references/`, which also fixed a factual
+error the PR had introduced — the hotfix line still said "`release.yml` creates the patch tag", which
+contradicts the new tag owner.
+
+The missing ADR is `plans/adr/0106-release-trigger-tag-push.md`: context (the three costs of the
+`workflow_run` model, including run 41186134783 needing a `no-verdict` job to narrate a green run that
+published nothing), decision (split tag ownership / trigger / publication), the guards retained, the
+accepted costs, and the measured evidence. ADR-0042 now carries a supersession note pointing at it, the
+registry gained row 0106, `context.yaml` moved 103 → 104, and `release_wait_event_driven` flipped to
+`false` with the reason in place. `check-adr-parity.sh` reports registry=104 / disk=103 (ADR-0024 has two
+files) and the llm-context gate is drift-free.
+
+The dead script is gone: `scripts/release-no-verdict.sh` deleted, its four fixture cases removed from
+`scripts/test-release-verdict.sh` (17 → 13 tests, 36 → 29 assertions, all passing), its `SCRIPT_WIRING`
+row dropped, and `SCRIPT_CATALOG.md` regenerated — the catalog gate and wiring assertions both pass.
+
+Still open from the roast: the diff is not split (15 files, five concerns, one commit) and the PR body's
+verification section is being restated. The branch carries the original commit plus this fix commit; CI
+on the new head is the evidence for `lint`.

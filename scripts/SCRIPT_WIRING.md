@@ -14,7 +14,6 @@ a tracked document, an agent skill, or a fixture that invokes the script.
 | `scripts/pre-commit.sh` | full local pre-commit path documented in `HARNESS.md` (`.githooks/pre-commit` is the installed inline gate; this script is the operators' standalone entry) |
 | `scripts/propagate-version.sh` | version-sync operator command documented in `agents-docs/quick-reference.md` |
 | `scripts/release-manager.sh` | release-flow operator command documented in `.agents/skills/release-management/SKILL.md` |
-| `scripts/release-no-verdict.sh` | invoked by the `scripts/test-release-verdict.sh` fixture (run by `scripts/validate.sh`); historical helper for the retired `no-verdict` release job, kept so its verdict taxonomy stays tested |
 | `scripts/self-fix-loop.sh` | invoked by the `scripts/test-self-fix-loop-safety.sh` fixture (run by `scripts/validate.sh`); operator automation documented in `.agents/skills/self-fix-loop/SKILL.md` |
 | `scripts/setup-hooks.sh` | invoked by the `scripts/test-hook-bootstrap.sh` fixture (run by `scripts/validate.sh`) |
 | `scripts/skills-suggest.sh` | documented operator command — `agents-docs/quick-reference.md` |

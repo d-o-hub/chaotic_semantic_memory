@@ -146,24 +146,17 @@ If a required artifact already exists, the corresponding publish step skips it (
 
 ## Dry run / hotfix / rollback
 
-```bash
-cargo publish --dry-run
-# npm: npm publish --dry-run --provenance (package dir as applicable)
-```
-
-Hotfix: still use a branch + PR into `main`; after merge, `release.yml` creates the patch tag. Do not tag from a side branch for routine hotfixes.
-
-Rollback / partial failure recovery (yank, delete tag, recreate) is documented in `references/release-workflow.md` and must be human-approved.
+A dry run is an **untagged** `gh workflow run release.yml`: it builds and packages everything and
+publishes nothing. Check packaging first with `cargo publish --dry-run` / `npm publish --dry-run --provenance`.
+Hotfix: branch + PR into `main`; the patch tag comes from `auto-release.yml`'s `ship` after the bump
+merges — `release.yml` never creates a tag, and a side-branch tag is not a routine path.
+Recovery (yank, partial release) is in `references/release-workflow.md` and stays human-approved.
 
 ## Validation gates (local)
 
-`./scripts/pre-release-validate.sh` checks tests, clippy, docs, LOC, WASM size, version sync, etc. Faster:
-
-```bash
-./scripts/pre-release-validate.sh --skip-bench
-```
-
-Also: `cargo deny check` before release when deps changed.
+`./scripts/pre-release-validate.sh` (add `--skip-bench` for the fast path) covers tests, clippy, docs,
+LOC, WASM size and version sync; run `cargo deny check` too when dependencies changed. Helper table:
+`references/release-workflow.md` → Local helpers.
 
 ## Post-publish verification (the half the workflow cannot prove)
 

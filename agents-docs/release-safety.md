@@ -2,6 +2,9 @@
 
 **CRITICAL: Never release with failing CI. `release.yml` is triggered by a `v*` tag push (or a tagged `workflow_dispatch`), and its `validate` job refuses to publish unless **both** the `CI` run and the `Pre-Release Gate` run for the exact tagged commit are `completed/success`. Tags are cut by `auto-release.yml`'s `ship` job (which only tags a `main` tip whose CI just went green), or by a human — never by `release.yml` itself.**
 
+Tag ownership and the trigger model are decided in **ADR-0106** (superseding ADR-0042's trigger
+section); crates.io publishing from a dispatch workflow stays in **ADR-0104**.
+
 ## Artifact Channels
 - **Rust Library:** `chaotic_semantic_memory` (crates.io / cargo)
 - **JS/WASM Library:** `@d-o-hub/chaotic_semantic_memory` (npm WASM)

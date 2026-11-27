@@ -97,3 +97,9 @@ experimental features (the `--all-features` stages that CI's `lint` job runs had
 `std` on, which is why nothing saw it). Remaining open issues: #1070
 (owner-blocked crates.io OIDC UI configs — the 2026-11-17 dispatch's 400 names
 `release.yml` nine times, so the workflow side needs no change).
+
+The queue is still empty as of 2026-11-27 (third action): the #1089 roast demands were implemented on that
+PR's own branch (skill trim 253 → 246, ADR-0106 + registry + supersession note in ADR-0042, the
+`release_wait_event_driven` flag flipped, `release-no-verdict.sh` deleted with its fixture cases and catalog
+entries). Still outstanding there: the diff split. Nothing was queued, because the remaining work is the
+author's and #1070 stays owner-blocked.
