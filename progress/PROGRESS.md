@@ -3032,3 +3032,35 @@ content is verbatim in `main`, so the 17 identical/patch-id refs needed `-D` aft
 verified archive; the 63 unproven branches were left alone rather than guessed at. The queue
 and `plans/GOAP_STATE.md` are untouched — no GOAP action completed and no counter moved, so
 `progress/` is the only change in this PR.
+
+## 2026-11-27 (second action) — roasted #1089 and found a red required context its own fixture list omitted
+
+`main` `f82cb97a` was green (`ci-truth tip=f82cb97a state=green run=46047587524`) after the
+housekeeping record landed, and the only open PR was #1089 (`ci(release): port the do-harness
+release pipeline`, 15 files, +1501/−324). Verdict: keep open, not mergeable —
+`plans/PR_ROAST_2026_11_27.md`.
+
+The red hid behind the PR's evidence section, which listed six fixture suites passing and skipped
+the one hook that fails: `scripts/validate-skill-format.sh` exits 1 because
+`.agents/skills/release-management/SKILL.md` is 253 lines against the 250 cap (244 on `main`) — a
+required-context failure from a docs-only overrun. It was reproduced in a clean worktree of
+`be6ae2b3` rather than read off the annotation, which says only `Process completed with exit code 1`.
+The same worktree re-ran everything else the body claimed and confirmed it: 137 verify-release
+cases, 36 verdict cases, the CLI-matrix fixture, `release-derive.sh --self-test`, the
+catalog/docs/ADR checkers, and `validate-workflows.sh --check` at 0 errors with the identical
+advisory baseline as `main`.
+
+Two findings CI could never have produced: the diff inverts the trigger contract written into
+`plans/adr/0042-release-automation-v010.md:138-144` and #932's rationale at `:168-170` while touching
+no ADR, so `plans/GOAP_STATE.md:194 release_wait_event_driven: true` becomes a stored lie the moment
+it lands; and `scripts/release-no-verdict.sh` lost its only consumer when the `no-verdict` job
+retired, so it now survives on its own fixture plus a new `SCRIPT_WIRING` row.
+
+Deliberate non-findings, recorded so they are not re-raised: `SC2155` at `release-derive.sh:54` is
+house idiom (9 of 107 `scripts/*.sh`), and `deny.toml`/`Cargo.lock`/`export.json` are untouched. The
+`ship` job's tag guard earned credit — `bump == pending` only, `EXPECTED_SHA == HEAD`, refuses an
+already-released tag, and recovery-dispatches instead of re-tagging.
+
+The queue stays empty (`plans/ACTIONS.md`): #1089 is blocked with named demands, and #1070 remains
+owner-blocked. The throwaway worktree and its fetched branch were removed — one worktree,
+64 branches.
