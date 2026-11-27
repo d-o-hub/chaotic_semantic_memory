@@ -87,3 +87,13 @@ collisions are renamed per subject, and the inventory now reports 0 shared names
 with a fixture that fails when its header count and its listing disagree. Open
 issues afterwards: #1070 (owner-blocked crates.io OIDC configs) and the new
 follow-up on `csm-chaos --features experimental-voronoi-lsh` not compiling.
+
+The queue is still empty as of 2026-11-26 (third action): issue #1084 — filed from
+the #1075 verification, so it never sat in the queue — was roasted and fixed in
+the same session. `action_last_completed: fix_no_std_experimental_test_build_1084`.
+Two `vec!` calls in `csm-chaos`'s `voronoi_lsh` test module became
+`alloc::vec![…]`, and `scripts/validate.sh` gained a `std`-off build of the four
+experimental features (the `--all-features` stages that CI's `lint` job runs had
+`std` on, which is why nothing saw it). Remaining open issues: #1070
+(owner-blocked crates.io OIDC UI configs — the 2026-11-17 dispatch's 400 names
+`release.yml` nine times, so the workflow side needs no change).
