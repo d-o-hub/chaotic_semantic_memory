@@ -208,7 +208,8 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews. Zero human comments means no hidden requirements, but also no approval.
 - **GitHub CLI shapes that fail quietly**: `gh pr edit`/`gh issue view` break on deprecated `projectCards`; use explicit `--json` fields or `gh api -X PATCH …`. `gh pr close` has no `--comment-file`, and `--comment "$(cat f)"` expands backticks; use `gh pr comment <n> --body-file f`, close, then re-read open PRs.
-- **Workflow impact (codebase + engineering tooling)**: Verify whether changes affect skills (`.agents/skills/`), `AGENTS.md`, `HARNESS.md`, guardrails, or GitHub workflows (`.github/workflows/`). Reconcile and update workflow contracts before merge; CI green on code is never sufficient if workflow tooling drifts.
+- **Workflow impact (codebase + engineering tooling)**: Verify whether changes affect skills (`.agents/skills/`), `AGENTS.md`, `HARNESS.md`, guardrails, or GitHub workflows (`.github/workflows/`). Reconcile and update workflow contracts before merge; CI green on code is never sufficient if workflow tooling drifts. A skill edit is bounded by the 250-line `SKILL.md` cap that `scripts/validate-skill-format.sh` enforces **inside `lint`** — a docs-only overrun reds a required context (#1089: 253 lines, 244 on `main`).
+  And a body saying the commit used `--no-verify` has run *no* hook: re-run the non-cargo `scripts/validate.sh` stages instead of accepting "all hook-covered checks were run directly".
 - **Multi-issue parent linkage**: a parent PR implementing several child issues declares each
   (`Fixes #A`, `Fixes #B`) in the body, so all issues close cleanly on merge.
 

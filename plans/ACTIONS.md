@@ -97,3 +97,10 @@ experimental features (the `--all-features` stages that CI's `lint` job runs had
 `std` on, which is why nothing saw it). Remaining open issues: #1070
 (owner-blocked crates.io OIDC UI configs — the 2026-11-17 dispatch's 400 names
 `release.yml` nine times, so the workflow side needs no change).
+
+The queue is still empty as of 2026-11-27 (second action): #1089 (`ci(release)`, the do-harness
+release-pipeline port) was roasted rather than merged — required `lint` red on a 253-line
+`SKILL.md`, no ADR for the trigger inversion, `release_wait_event_driven` left stale, and a 15-file
+single-commit diff. The demands are on the PR itself and the verdict is
+`plans/PR_ROAST_2026_11_27.md`; nothing was queued because the work belongs to that PR's author,
+and #1070 stays owner-blocked on crates.io UI config.
