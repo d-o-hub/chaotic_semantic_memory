@@ -1391,3 +1391,25 @@ path at the call site (`alloc::vec![…]`, `alloc::format!(…)`) over importing
 macro — the import is precisely the line a later cleanup deletes, and the error
 then returns only in the configuration nobody runs. A compile check is also a
 cheap gate: its neuter test is the compiler's own error, so it needs no fixture.
+
+## 2026-11-27 — a bundle that verifies is not a bundle that restores (and patch-id is the only "landed" sensor under squash merges)
+
+Housekeeping a git working copy produced two reusable checks. (1) `git bundle verify` only
+proves that the receiving repo has the *prerequisites*; it cannot see that the bundle omitted
+history. `git bundle create --all` on this **shallow** clone printed "The bundle records a
+complete history", and the very next restore into a fresh `git init` failed with
+`did not send all necessary objects` / `Failed to traverse parents of commit 15b1f767`.
+Archive by copying `.git` (55 MB here) or by `git clone --mirror`, and verify by extracting
+and counting refs and objects — never by reading `verify`'s output; run
+`git rev-parse --is-shallow-repository` before trusting any bundle-based backup.
+(2) In a squash-merging repo there is no cheap "is this branch landed?" answer, and both
+obvious ones are wrong: `merge-base --is-ancestor` is false for every squash-merged branch,
+and `git diff main...branch | git apply --reverse --check` failed for 52 of 53 candidates
+because `main` had moved since the merge. What works is
+`git show <commit> --format= | git patch-id --stable`, compared against the patch-ids of
+`git rev-list main --no-merges | git diff-tree --stdin -p | git patch-id --stable`: a
+single-commit squash keeps its patch-id. Read a *match* as proof of containment and a
+*mismatch* as no information at all — a rebased-then-squashed branch
+(`fix/security-quinn-udp-0538`, landed as `11ce127d`, 0 of 2 commits matching) is
+indistinguishable from unlanded work. So delete on proof, keep on silence, and archive
+everything before either.

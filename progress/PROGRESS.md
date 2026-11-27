@@ -2994,3 +2994,41 @@ and hid the break — and since `ci.yml`'s `lint` job runs `validate.sh`, the st
 lands in CI without touching the crate matrix or `csm-ci-selection`'s `JOBS` table.
 The gate's failure mode was the compiler's own: the command failed with two errors
 before the patch and is green after, and the tests pass with `std` off (24 passed).
+
+## 2026-11-27 — housekeeping: 95 -> 64 branches, 11 -> 0 stashes, and a bundle that lied
+
+The session started with nothing to implement: `main` `2f3f0f25` green
+(`ci-truth tip=2f3f0f25 state=green run=46009918100`), zero open PRs, the #1084 branch
+tree-identical to `main` after squash #1087, and one open issue (#1070, owner-blocked
+crates.io OIDC). Local debris had accumulated instead — 95 branches, 11 stashes, 259 refs.
+
+Deletion was gated on proof, never on a heuristic, because this repo squash-merges:
+
+| Verdict | Count | Check |
+|---|---|---|
+| CONTAINED-ANCESTOR | 14 | `git merge-base --is-ancestor` |
+| CONTAINED-IDENTICAL | 1 | `git diff main <branch>` empty |
+| CONTAINED-PATCHID | 16 | every unique commit's `git patch-id --stable` is in main's 910 |
+| UNIQUE (kept) | 63 | no proof |
+
+`git apply --reverse --check` was tried first and rejected: 52 of 53 candidates failed it,
+because `main` moved after each squash. Patch-id is a lower bound too —
+`fix/security-quinn-udp-0538` landed as `11ce127d` (`plans/ACTIONS.md`) yet matched 0 of its
+2 commits after rebasing — so the 63 unproven branches stayed, each with a diff in the archive.
+
+The archive step was the session's real defect: `git bundle create --all` plus
+`git bundle verify` both reported success ("The bundle records a complete history"), and a
+restore into a fresh `git init` still failed with `did not send all necessary objects` /
+`Failed to traverse parents of commit 15b1f767`. Cause: this working copy is a **shallow**
+clone (`.git/shallow`), so pre-boundary history cannot be bundled. The archive is now a
+55 MB `tar.gz` of `.git` itself, re-verified by extracting it and counting: 259 refs,
+95 branches, 11 stashes, 0 missing objects under `git fsck`. The 11 stash patches (4838
+lines) and one diff per branch sit beside it under
+`~/.local/share/csm/housekeeping/2026-11-27/`.
+
+Removed: the 31 proven branches, the 11 stashes (every patch non-empty and archived first),
+and 4 stale `origin/*` tracking refs. `git branch -d` refuses a squash-merged branch whose
+content is verbatim in `main`, so the 17 identical/patch-id refs needed `-D` after the
+verified archive; the 63 unproven branches were left alone rather than guessed at. The queue
+and `plans/GOAP_STATE.md` are untouched — no GOAP action completed and no counter moved, so
+`progress/` is the only change in this PR.
