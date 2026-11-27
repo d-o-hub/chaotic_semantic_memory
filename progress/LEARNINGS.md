@@ -1414,6 +1414,21 @@ single-commit squash keeps its patch-id. Read a *match* as proof of containment 
 indistinguishable from unlanded work. So delete on proof, keep on silence, and archive
 everything before either.
 
+## 2026-11-27 — a claimed verification list is read for what it omits
+
+#1089's body listed six fixture suites passing plus "commit made with `--no-verify`: the sandbox has
+no network, so all hook-covered checks above were run directly". Required `lint` was red anyway, and
+the cause was the one check that sentence skipped: `scripts/validate-skill-format.sh` exits 1 on a
+`SKILL.md` at 253 lines against a 250 cap. Two transferable rules. (1) The 250-line skill cap is a
+*CI* gate, not a style preference — `scripts/validate-skill-format.sh` runs inside `validate.sh`,
+which is what the `lint` job executes, so a docs-only overrun blocks a PR exactly like a compile
+error. (2) A `--no-verify` commit is an unverified commit: enumerate the hooks it skipped and run the
+non-cargo stages of `scripts/validate.sh` yourself, because "all hook-covered checks were run
+directly" is a claim about a set the author chose, and the failing member is precisely the one such a
+sentence tends to omit. Same family as citing a baseline nobody measured: the list is evidence of
+what was checked, and its silences are evidence of nothing.
+
+
 ## 2026-11-27 — fixing a roast on someone else's branch: add a commit, don't rewrite
 
 Three small habits made #1089's fix round reviewable instead of destructive. (1) **Append, never rebuild** —

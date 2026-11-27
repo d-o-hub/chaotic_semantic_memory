@@ -304,19 +304,14 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: fix_no_std_experimental_test_build_1084   # 2026-11-26: PR #1085 -> 6beda9fa, then #1084
-                               #   #1076: key_files.adrs pointed at `plans/adr/` —
-                               #   a directory among file paths. It passed only
-                               #   because the check asked `.exists()`, so the
-                               #   "every key_files entry is a readable file"
-                               #   invariant the validator's other checks lean on
-                               #   was unenforced. The entry now names
-                               #   plans/ADR_REGISTRY.md (count still derives from
-                               #   plans/adr/*.md = 103) and `test_key_files`
-                               #   requires `is_file()`, naming the offender.
-                               #   Fixture grows case 8b (directory path -> rc 1)
-                               #   and its positive case points at a real registry
-                               #   file; neutering the validator back to .exists()
-                               #   turns 8b red, so the case is sharp. Also
-                               #   ignores .qoder/, the agent scratch dir that had
-                               #   been dirtying `git status` every session.
+  action_last_completed: roast_open_release_pipeline_pr_1089   # 2026-11-27: #1089 stays OPEN;
+                               #   this key names the completed triage, not a merge. Required `lint`
+                               #   was red on `.agents/skills/release-management/SKILL.md` at 253
+                               #   lines against the 250 cap (244 on main) — the one hook its own
+                               #   fixture list omitted — reproduced in a worktree at be6ae2b3.
+                               #   The diff also inverts ADR-0042's trigger contract
+                               #   (plans/adr/0042-release-automation-v010.md:138-144, and #932's
+                               #   rationale at :168-170) with no ADR of its own, which is why
+                               #   `release_wait_event_driven` above is still true today and must be
+                               #   flipped together with that ADR when the PR lands. Verdict:
+                               #   plans/PR_ROAST_2026_11_27.md.
