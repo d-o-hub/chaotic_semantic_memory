@@ -1,7 +1,8 @@
 name: Dist
 
 # Note: dist.yml is disabled to keep release.yml as the single authoritative release publisher.
-# Tags created with GITHUB_TOKEN in release.yml do not trigger tag-push workflows in Actions.
+# Tags pushed by auto-release.yml's ship job carry GITHUB_TOKEN, so they do not trigger
+# tag-push workflows; ship dispatches release.yml explicitly instead.
 on:
   workflow_dispatch:
 

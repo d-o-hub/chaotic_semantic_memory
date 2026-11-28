@@ -1,95 +1,157 @@
-name: Release
+name: release
+
+# Publishing contract (ported from do-harness's release pipeline, adapted to
+# this repository's registries and gates):
+#
+#   - `v*` tag push: preflight (`validate`) verifies the tagged commit — the
+#     tag must equal the root `[package].version`, and CI plus the Pre-Release
+#     Gate must already be green for that exact commit — then the build matrix
+#     packages the CLI (and the WASM artifact), crates.io publishes through the
+#     `publish-crates.yml` dispatch (ADR-0104: crates.io refuses OIDC tokens
+#     minted from any trigger this file could carry the publish in), npm
+#     publishes the wrapper packages, and the release job creates the GitHub
+#     Release with `SHA256SUMS`.
+#   - tagged `workflow_dispatch`: release that tag end to end —
+#     `gh workflow run release.yml -f tag=vX.Y.Z`. A dispatch runs *this* file
+#     (the default branch's) against the tag's commit, so a pipeline fix
+#     applies to an already-pushed tag without deleting and re-pushing it.
+#     Every publish step is idempotent: crates.io and npm versions already
+#     published are skipped, and an existing GitHub Release has its assets
+#     replaced. This is the recovery path (it replaces the old
+#     `recover=true`/`recovery_tag` inputs).
+#   - untagged `workflow_dispatch`: dry run — build and package every target
+#     but never publish. Registry publication is always coupled to an immutable
+#     version tag and its GitHub Release.
+#
+# Tags are cut by `auto-release.yml`'s `ship` job (or by a human), never by
+# this workflow: a tag pushed with GITHUB_TOKEN does not trigger tag-push
+# workflows, which is why `ship` dispatches this file explicitly.
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      recover:
-        description: Retry missing artifacts for a release even when its tag exists
-        required: false
-        default: false
-        type: boolean
-      recovery_tag:
-        description: Required when recover=true (e.g. v0.3.9)
-        required: false
+      tag:
+        description: "Tag to release (e.g. v0.3.9). Empty = dry run on this ref."
         type: string
+        default: ""
+      publish:
+        description: "Deprecated safety switch; publishing still requires tag"
+        type: boolean
+        default: false
 
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
-
-permissions: {}
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_JOBS: "2"
   CARGO_INCREMENTAL: "0"
+  # The tag this run releases. A tag push carries it in `github.ref_name`; the
+  # recovery dispatch passes it as an input. Jobs that must act on the tag
+  # rather than on the triggering ref read RELEASE_TAG, and `inputs.tag` is the
+  # switch that says "this dispatch names a tag".
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+concurrency:
+  # Keyed on the effective release tag, not on the triggering ref: a `vX.Y.Z`
+  # tag push runs under `refs/tags/vX.Y.Z`, while a recovery dispatch
+  # (`gh workflow run release.yml -f tag=vX.Y.Z`) runs under the default branch,
+  # so keying on `github.ref` put the two runs in different groups and let them
+  # race over the same GitHub Release. A tag push supplies `github.ref_name`
+  # (the tag) with no input; a dispatch supplies `inputs.tag`, falling back to
+  # the ref name for an untagged dry run.
+  group: release-${{ inputs.tag || github.ref_name }}
+  # `queue: max` so more than one pending run can wait in the group. The default
+  # (`single`) cancels an already-`pending` run when a new run is queued into
+  # the same group, so a recovery dispatch that lands while the tag push is
+  # still pending would cancel the push — and the release would have to be
+  # dispatched again by hand. `cancel-in-progress` must stay false:
+  # `queue: max` with `cancel-in-progress: true` is a workflow validation error.
+  queue: max
+  cancel-in-progress: false
 
 jobs:
   validate:
     runs-on: ubuntu-24.04
-    if: >-
-      github.event_name == 'workflow_dispatch'
-      || (github.event.workflow_run.event == 'push'
-      && github.event.workflow_run.conclusion == 'success'
-      && github.event.workflow_run.head_repository.full_name == github.repository)
+    # The gate poll below waits up to 30 minutes for the Pre-Release Gate run
+    # that shadows the CI run this release is verified against; keep headroom
+    # for the rest of the job on top of that measured wait.
+    timeout-minutes: 60
     permissions:
       actions: read
-      contents: write
-      pull-requests: write
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       release-needed: ${{ steps.tag.outputs.release-needed }}
       release-ref: ${{ steps.tag.outputs.release-ref }}
       release-sha: ${{ steps.target_sha.outputs.sha }}
-      is-recovery: ${{ steps.tag.outputs.is-recovery }}
       cli-matrix: ${{ steps.cli_matrix.outputs.json }}
     steps:
     - name: Determine target commit SHA
       id: target_sha
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.recover }}" = "true" ]; then
-          TAG_NAME="${{ inputs.recovery_tag }}"
-          if [ -z "$TAG_NAME" ]; then
-            echo "::error::recovery_tag is required when recover=true."
-            return 1 2>/dev/null || exit 1
-          fi
-          git fetch --tags --force
-          SHA=$(git rev-list -n 1 "$TAG_NAME" || true)
+        if [ -n "${{ inputs.tag }}" ]; then
+          # A tagged dispatch releases that tag's commit, not the dispatched ref.
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --tags --force origin
+          SHA="$(git rev-list -n 1 "${{ inputs.tag }}")"
           if [ -z "$SHA" ]; then
-            echo "::error::Tag $TAG_NAME not found."
-            return 1 2>/dev/null || exit 1
+            echo "::error::Tag ${{ inputs.tag }} not found."
+            exit 1
           fi
-          echo "sha=$SHA" >> $GITHUB_OUTPUT
         else
-          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
-          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          # A tag push names its own commit; an untagged dispatch (dry run)
+          # verifies the ref it was sent against.
+          SHA="${{ github.sha }}"
         fi
+        echo "sha=$SHA" >> $GITHUB_OUTPUT
 
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
         ref: ${{ steps.target_sha.outputs.sha }}
+        persist-credentials: false
 
     - name: Compute the CLI release matrix
       id: cli_matrix
       # Issue #974: one source for the platform list. The build matrix and the
       # verifier's expected asset set both read this output, so adding a target
       # cannot leave the verifier checking a stale hardcoded copy.
-      # Issue #1011: `release-cli-matrix.sh` emits multi-line JSON, and the runner
-      # parses $GITHUB_OUTPUT as one `key=value` per line — `echo "json=$(…)"` made
-      # it reject lines 2-6 with "Invalid format" and fail `validate` before any
-      # gate check. The heredoc form below is the documented way to write a
-      # multi-line value. Fixture: scripts/test-release-cli-matrix.sh.
+      # `release-cli-matrix.sh` emits multi-line JSON; the heredoc form is the
+      # documented way to write a multi-line output value.
       run: |
         {
           echo 'json<<CSM_CLI_MATRIX_EOF'
           bash scripts/release-cli-matrix.sh --json
           echo 'CSM_CLI_MATRIX_EOF'
         } >> "$GITHUB_OUTPUT"
+
+    - name: Extract version from Cargo.toml
+      id: version
+      run: |
+        VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+
+    - name: Assert the tag matches the workspace version
+      # A tag push always names its tag, and so does a tagged dispatch — there
+      # the assertion is what refuses `-f tag=` pointing at the wrong commit.
+      if: github.event_name == 'push' || inputs.tag != ''
+      run: |
+        expected="v${{ steps.version.outputs.version }}"
+        test "$expected" = "${RELEASE_TAG}" || {
+          echo "FAIL: tag ${RELEASE_TAG} does not match workspace version ${expected}" >&2
+          exit 1
+        }
+
+    - name: Refuse untagged publication
+      if: inputs.publish && !inputs.tag
+      run: |
+        echo "FAIL: registry publication requires an explicit version tag; run a tagged release or tagged recovery dispatch" >&2
+        exit 1
 
     - name: Verify CI and Pre-Release Gate are green for target commit
       run: |
@@ -103,45 +165,23 @@ jobs:
         echo "CI on ${SHA}: status=${CI_STATUS} conclusion=${CI_CONCLUSION}"
         if [ "$CI_STATUS" != "completed" ] || [ "$CI_CONCLUSION" != "success" ]; then
           echo "::error::Refusing release: CI on ${SHA} is ${CI_STATUS}/${CI_CONCLUSION}, expected completed/success."
-          return 1 2>/dev/null || exit 1
+          exit 1
         fi
 
         # Verify Pre-Release Gate
         #
-        # Both this workflow and pre-release-gate.yml are triggered by the same `CI` completion, so the
-        # gate is still running when this step executes: its `gate-summary` fans in on six jobs
-        # (pre-release-gate.yml:184). Measured on the release that settled it (run 41110522627, 642238f0):
-        # the gate's first job started 18:53:01 and `gate-summary` completed 18:59:01, so the *run* this
-        # poll waits for is 6m00s — of which `security-audit` (18:54:14 -> 18:58:52, 4m38s) is the slowest
-        # single job, close to the 4m37s first written here. `validate` ran 18:52:06 -> 19:02:29, so
-        # ~6m55s of that was this wait, and it produced completed/success and the v0.3.9 tag. The pre-fix
-        # one-shot read would have seen in_progress/none at that moment — run 39648046550 reached the step
-        # in 62s while its gate run 39648046307 was open 17:55:10 -> 17:59:17 — though no *false* refusal
-        # is on record yet: 4ac8422d's refusal (run 41078875362) was a genuinely red gate. Fail-closed is
-        # preserved: anything but completed/success still blocks, and a gate that never starts costs the
-        # deadline rather than failing instantly, because sibling run creation is not ordered. `validate`
-        # declares no timeout-minutes, so the 360-min default covers this 30-min wait (~4.3x the measured
-        # 6m55s, not the ~6.5x a job-level figure suggested) plus the rest of the job.
-        #
-        # This deliberately keeps a poll, against the standing rule in progress/LEARNINGS.md
-        # ("Polling a gate is a ceiling you will raise forever; migrate to the event", 2026-09-30). The
-        # rule came from `wait-for-ci`, which polled a run that might never be *scheduled* — an
-        # unbounded quantity, so the ceiling had to be raised twice. What is polled here is bounded by
-        # the gate's own job timeouts. Re-keying the trigger to `workflows: ['Pre-Release Gate']` was
-        # option 2 in #953 and is rejected on one measured ground: it turns "the gate never ran" into
-        # *no release run at all*, and this repo spent eight days in exactly that silent state
-        # (0f77c0d0, 2026-10-22T06:30Z, to #947 on 2026-10-30): 69 consecutive release runs, every one
-        # with zero jobs, no notification, and nothing publishing. Revisit the poll if this deadline is
-        # ever hit while a gate run was actually in flight — that would mean the 30m bound is wrong, not
-        # that the design is.
+        # The gate is triggered by the same `CI` completion, so when this run
+        # was itself triggered by that completion the gate may still be running:
+        # poll until it reaches a verdict (bounded — a gate that never starts
+        # costs the deadline rather than failing instantly, because sibling run
+        # creation is not ordered; see the history of this poll in the v0.3.9
+        # release notes). Fail-closed is preserved: anything but
+        # completed/success blocks.
         GATE_DEADLINE=$(( $(date +%s) + 1800 ))
-        # #960: name the job that blocked the release. The blended run verdict is
-        # byte-identical for a RUSTSEC finding, a red benchmark and "somebody has an
-        # open PR", so a refusal could not be triaged from the release log. The
-        # per-job conclusions are one API call away; scripts/gate-failure-detail.sh
-        # parses them from stdin so the logic is fixture-tested without network
-        # (scripts/test-gate-failure-detail.sh) and always exits 0 — a diagnostic must
-        # never itself become the reason a release refuses.
+        # Name the job that blocked the release. The blended run verdict is
+        # byte-identical for a RUSTSEC finding, a red benchmark and "somebody
+        # has an open PR"; scripts/gate-failure-detail.sh parses the per-job
+        # conclusions so a refusal can be triaged from the release log.
         gate_refusal_detail() {
           if [ "${GATE_RUN_ID}" = "missing" ] || [ "${GATE_RUN_ID}" = "null" ]; then
             echo "SUMMARY: no pre-release-gate run exists for ${SHA} — that workflow never started for this commit"
@@ -165,7 +205,7 @@ jobs:
             printf '%s\n' "${GATE_DETAIL}"
             GATE_SUMMARY="$(printf '%s\n' "${GATE_DETAIL}" | sed -n 's/^SUMMARY: //p')"
             echo "::error::Refusing release: Pre-Release Gate on ${SHA} had no verdict within 30m (last seen ${GATE_STATUS}/${GATE_CONCLUSION}). ${GATE_SUMMARY}"
-            return 1 2>/dev/null || exit 1
+            exit 1
           fi
           sleep 60
         done
@@ -174,39 +214,26 @@ jobs:
           printf '%s\n' "${GATE_DETAIL}"
           GATE_SUMMARY="$(printf '%s\n' "${GATE_DETAIL}" | sed -n 's/^SUMMARY: //p')"
           echo "::error::Refusing release: Pre-Release Gate on ${SHA} is ${GATE_STATUS}/${GATE_CONCLUSION}, expected completed/success. ${GATE_SUMMARY}"
-          return 1 2>/dev/null || exit 1
+          exit 1
         fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
-      with:
-        cache: false
-        toolchain: stable
-
-    - name: Extract version from Cargo.toml
-      id: version
-      run: |
-        VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Extracted version: $VERSION"
-
     - name: Verify changelog entry exists
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        if ! grep -q "^## \\[${VERSION}\\]" CHANGELOG.md; then
+        if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
           echo "❌ Missing changelog entry for ${VERSION}"
-          return 1 2>/dev/null || exit 1
+          exit 1
         fi
-        HEADER_COUNT=$(grep -c "^## \\[${VERSION}\\]" CHANGELOG.md || true)
+        HEADER_COUNT=$(grep -c "^## \[${VERSION}\]" CHANGELOG.md || true)
         if [ "$HEADER_COUNT" -gt 1 ]; then
           echo "❌ Duplicate CHANGELOG header for ${VERSION} found"
-          return 1 2>/dev/null || exit 1
+          exit 1
         fi
-        if ! grep -q "^## \\[${VERSION}\\] - [0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" CHANGELOG.md; then
+        if ! grep -q "^## \[${VERSION}\] - [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}" CHANGELOG.md; then
           echo "❌ CHANGELOG header for ${VERSION} missing date"
-          return 1 2>/dev/null || exit 1
+          exit 1
         fi
         echo "✅ CHANGELOG validation passed"
 
@@ -214,48 +241,30 @@ jobs:
       run: |
         bash scripts/verify-version-sync.sh
 
-    - name: Ensure release tag exists
+    - name: Assert the release tag exists
       id: tag
+      # The tag is the release's identity and the input the registries are
+      # coupled to: this workflow never creates or moves it (that is
+      # `auto-release.yml`'s `ship` job, or a human). A push event names an
+      # existing tag by construction; a tagged dispatch re-resolves it; an
+      # untagged dispatch is a dry run and publishes nothing.
+      if: github.event_name == 'push' || inputs.tag != ''
       run: |
-        VERSION="${{ steps.version.outputs.version }}"
-        TAG="v${VERSION}"
-        echo "release-ref=${TAG}" >> $GITHUB_OUTPUT
         git fetch --tags --force
-        if git rev-parse "$TAG" >/dev/null 2>&1; then
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.recover }}" = "true" ]; then
-            echo "Tag ${TAG} exists; recovery mode active."
-            echo "release-needed=true" >> $GITHUB_OUTPUT
-            echo "is-recovery=true" >> $GITHUB_OUTPUT
-            return 0 2>/dev/null || exit 0
-          fi
-          echo "Tag ${TAG} already exists; skipping release."
-          echo "release-needed=false" >> $GITHUB_OUTPUT
-          echo "is-recovery=false" >> $GITHUB_OUTPUT
-          return 0 2>/dev/null || exit 0
+        if ! git rev-parse -q --verify "refs/tags/${RELEASE_TAG}^{commit}" >/dev/null; then
+          echo "::error::Tag ${RELEASE_TAG} does not exist."
+          exit 1
         fi
-
-        tag="$TAG"
-        echo "Tagging ${tag}"
-        git tag "${tag}"
-        # Trigger remote update via git
-        git push origin "${tag}"
-        echo "Created tag ${TAG}"
         echo "release-needed=true" >> $GITHUB_OUTPUT
-        echo "is-recovery=false" >> $GITHUB_OUTPUT
+        echo "release-ref=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
-    - name: Create pull request with regenerated llms.txt
-      if: steps.tag.outputs.release-needed == 'true' && steps.tag.outputs.is-recovery != 'true'
-      uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: "chore: regenerate llms.txt for release [skip ci]"
-        branch: regenerate-llms-${{ steps.version.outputs.version }}-${{ github.run_id }}
-        title: "chore: regenerate llms.txt for v${{ steps.version.outputs.version }}"
-        body: |
-          This PR updates llms.txt and llms-full.txt as part of the release workflow.
-        labels: automated
-        add-paths: llms.txt,llms-full.txt
-        base: main
+    - name: Mark the untagged dispatch as a dry run
+      id: dry_run
+      if: github.event_name == 'workflow_dispatch' && inputs.tag == ''
+      run: |
+        echo "Dry run: building every target without publishing (no tag supplied)."
+        echo "release-needed=false" >> $GITHUB_OUTPUT
+        echo "release-ref=" >> $GITHUB_OUTPUT
 
     - name: Validate package assembly
       run: |
@@ -268,11 +277,23 @@ jobs:
         include: ${{ fromJSON(needs.validate.outputs.cli-matrix) }}
     runs-on: ${{ matrix.runner }}
     needs: validate
-    if: needs.validate.outputs.release-needed == 'true'
+    # The build also runs for an untagged dry-run dispatch: build and package
+    # every target, publish nothing.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # Provenance is signed through Sigstore: a token is minted here and the
+      # resulting attestation is stored against the artifact's digest, so no
+      # long-lived signing key exists.
+      id-token: write
+      attestations: write
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ref: ${{ needs.validate.outputs.release-ref }}
+        # A tagged run checks out the release tag; an untagged dry-run dispatch
+        # checks out the ref it was sent against.
+        ref: ${{ needs.validate.outputs.release-ref || github.sha }}
+        persist-credentials: false
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
@@ -289,7 +310,12 @@ jobs:
         echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
     - name: Build release binary
-      run: cargo build --release -p chaotic_semantic_memory --target ${{ matrix.target }}
+      run: cargo build --release --locked -p chaotic_semantic_memory --target ${{ matrix.target }}
+
+    - name: Smoke-test the binary
+      shell: bash
+      run: |
+        ./target/${{ matrix.target }}/release/csm${{ matrix.platform == 'win32' && '.exe' || '' }} version
 
     - name: Prepare binary artifact
       shell: bash
@@ -305,21 +331,36 @@ jobs:
         cd release
         tar -czvf csm-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz ${BINARY_NAME}
 
+    - name: Attest the artifact's build provenance
+      # Signed inside the job that produced the archive, so the attestation
+      # names the workflow, ref, and commit that actually built it rather than
+      # a later reaggregation step. `SHA256SUMS` protects integrity; this
+      # protects origin. Verify with `gh attestation verify <file> --repo …`.
+      uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      with:
+        subject-path: release/*.tar.gz
+
     - name: Upload binary artifact
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: csm-${{ matrix.platform }}-${{ matrix.arch }}
         path: release/*.tar.gz
         retention-days: 30
+        if-no-files-found: error
 
   build-wasm:
     runs-on: ubuntu-24.04
     needs: validate
-    if: needs.validate.outputs.release-needed == 'true'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        ref: ${{ needs.validate.outputs.release-ref }}
+        ref: ${{ needs.validate.outputs.release-ref || github.sha }}
+        persist-credentials: false
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
@@ -340,32 +381,42 @@ jobs:
         cd release
         tar -czvf chaotic_semantic_memory-${{ needs.validate.outputs.version }}-wasm.tar.gz chaotic_semantic_memory.wasm
 
+    - name: Attest the artifact's build provenance
+      uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      with:
+        subject-path: release/*.tar.gz
+
     - name: Upload WASM artifact
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: wasm-artifact
         path: release/*.tar.gz
         retention-days: 30
+        if-no-files-found: error
 
   # crates.io publishing lives in publish-crates.yml, not in a job here. crates.io
-  # refuses OIDC tokens minted from the `workflow_run` event that triggers release.yml
-  # (release.yml:4-7), so no edit to a job in this file could ever have used Trusted
-  # Publishing: the trigger had to move, not the job. What release.yml can still do is
-  # cause a `workflow_dispatch` run of that workflow — the documented GITHUB_TOKEN
-  # recursion block exempts workflow_dispatch, so a dispatch posted from inside a run
-  # does create one. See trigger-crates-io-publish, right after create-github-release.
+  # refuses OIDC tokens minted from events this file can be triggered by that a
+  # publish job could run under (ADR-0104), so publishing stays in its dedicated
+  # dispatch-triggered workflow — the trigger had to move, not the job. What this
+  # file can still do is cause a `workflow_dispatch` run of that workflow — the
+  # documented GITHUB_TOKEN recursion block exempts workflow_dispatch, so a
+  # dispatch posted from inside a run does create one. See
+  # trigger-crates-io-publish, right after create-github-release.
 
   create-github-release:
     runs-on: ubuntu-24.04
     needs: [validate, build-cli-matrix, build-wasm]
     if: needs.validate.outputs.release-needed == 'true'
+    timeout-minutes: 15
     permissions:
+      # Least privilege: read source, write the release and its assets.
       contents: write
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ needs.validate.outputs.release-ref }}
         fetch-depth: 0
+        persist-credentials: false
 
     - name: Download CLI binary artifacts
       uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -403,39 +454,34 @@ jobs:
           printf '%s\n' "$CHANGELOG_CONTENT" > release_notes.md
         fi
 
-    - name: Create or update GitHub Release with Draft -> Publish flow
+    - name: Create or update GitHub Release
+      # Idempotent so a tagged dispatch can re-run a release that failed
+      # halfway: an existing Release has its body and assets replaced rather
+      # than the job failing on "already exists". `--verify-tag` refuses to
+      # publish a Release for a tag that does not point at this commit.
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         TAG="v${VERSION}"
-
         if gh release view "$TAG" --repo ${{ github.repository }} >/dev/null 2>&1; then
-          echo "GitHub Release $TAG exists. Ensuring missing assets are attached..."
-          for file in release/*; do
-            filename=$(basename "$file")
-            if gh release view "$TAG" --repo ${{ github.repository }} --json assets --jq '.assets[].name' | grep -q "^${filename}$"; then
-              echo "  ⏭️ Asset $filename already attached, skipping"
-            else
-              echo "  Uploading missing asset $filename..."
-              gh release upload "$TAG" "$file" --repo ${{ github.repository }} --clobber
-            fi
-          done
-        else
-          echo "Creating draft release for $TAG..."
-          gh release create "$TAG" release/* \
+          echo "GitHub Release $TAG exists; replacing its assets and notes."
+          gh release upload "$TAG" release/* --repo ${{ github.repository }} --clobber
+          gh release edit "$TAG" \
             --repo ${{ github.repository }} \
             --title "$TAG" \
-            --notes-file release_notes.md \
-            --draft
-
-          echo "Publishing release $TAG..."
-          gh release edit "$TAG" --repo ${{ github.repository }} --draft=false
+            --notes-file release_notes.md
+        else
+          gh release create "$TAG" release/* \
+            --repo ${{ github.repository }} \
+            --verify-tag \
+            --title "$TAG" \
+            --notes-file release_notes.md
         fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   trigger-crates-io-publish:
     runs-on: ubuntu-24.04
-    # The tag exists once validate has tagged it (release.yml:237-242); waiting on
+    # The tag exists once validate has asserted it; waiting on
     # create-github-release means the ref dispatched here is public and final.
     needs: [validate, create-github-release]
     if: needs.validate.outputs.release-needed == 'true'
@@ -564,12 +610,15 @@ jobs:
           return 1 2>/dev/null || exit 1
         fi
         echo "✅ crates.io run ${RUN_ID} succeeded; its reconciliation step proved all nine crates at ${VERSION}."
-
   publish-npm-wasm:
     runs-on: ubuntu-24.04
-    needs: [validate, build-wasm]
+    # npm publication waits for the crates.io handoff like every other
+    # advertised channel: a release is advertised only once the whole surface
+    # is proven.
+    needs: [validate, build-wasm, trigger-crates-io-publish]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm
+    timeout-minutes: 30
     permissions:
       id-token: write
       contents: read
@@ -577,6 +626,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ needs.validate.outputs.release-ref }}
+        persist-credentials: false
 
     - name: Setup Node.js
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -633,9 +683,10 @@ jobs:
 
   publish-npm-cli:
     runs-on: ubuntu-24.04
-    needs: [validate, build-cli-matrix, create-github-release]
+    needs: [validate, build-cli-matrix, trigger-crates-io-publish]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm-cli
+    timeout-minutes: 30
     permissions:
       id-token: write
       contents: read
@@ -643,6 +694,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ needs.validate.outputs.release-ref }}
+        persist-credentials: false
 
     - name: Setup Node.js
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -673,7 +725,7 @@ jobs:
         EXPECTED_COUNT="$(jq 'length' <<< '${{ needs.validate.outputs.cli-matrix }}')"
         if [ "$COUNT" -lt "$EXPECTED_COUNT" ]; then
           echo "::error::Missing platform binaries! Expected ${EXPECTED_COUNT}, found $COUNT."
-          return 1 2>/dev/null || exit 1
+          exit 1
         fi
 
     - name: Check npm status
@@ -714,6 +766,12 @@ jobs:
     # when that sibling fails, which is what names the half that is missing.
     needs: [validate, create-github-release, publish-npm-wasm, publish-npm-cli, trigger-crates-io-publish]
     if: always() && needs.validate.outputs.release-needed == 'true'
+    timeout-minutes: 20
+    permissions:
+      # Read the released source and assets; no write anywhere.
+      contents: read
+      # `gh attestation verify` reads the archive's build provenance.
+      attestations: read
     steps:
     - name: Verify complete release across all registries
       run: |
@@ -765,14 +823,9 @@ jobs:
           # returns no attestations key at all, so a probe written that way says
           # "missing" for an attested release. One segment short was the original
           # bug; this query names the field and the endpoint.
-          encoded="${pkg/\//%2f}"
+          encoded="${pkg//\//%2f}"
           doc="$(curl -sSL -H 'Accept: application/vnd.npm.install-v1+json' \
             "https://registry.npmjs.org/${encoded}")"
-          # Measured on the live registry 2026-11-03: the abbreviated packument
-          # serves `dist.attestations = {url, provenance: {predicateType}}`.
-          # There is no `provenance.url` field; a probe written against that
-          # invented path reports "missing" for an attested release, which is the
-          # same one-segment-short class as the original bug.
           jq -e --arg v "$VERSION" \
             '(.versions[$v].version == $v)
               and (.versions[$v].dist.attestations.url != null)
@@ -826,7 +879,7 @@ jobs:
           echo "::error::Partial release detected! Missing: ${ERRORS}"
           # A crates.io miss now has a named cause in this same run: publishing there is
           # a workflow_dispatch of publish-crates.yml (crates.io refuses OIDC tokens minted
-          # from this file's workflow_run trigger), and trigger-crates-io-publish is the job
+          # from this file's triggers), and trigger-crates-io-publish is the job
           # that dispatches it and waits. Read that job first; the manual dispatch below is
           # the recovery when it never ran. Say this or the red run reads as a flake, which
           # is how 0.3.9 shipped half-done.
@@ -836,48 +889,66 @@ jobs:
             MSG="${MSG}${VERSION} and re-run this job"
             echo "::error title=Crates.io not published::${MSG}"
           fi
-          return 1 2>/dev/null || exit 1
+          exit 1
         fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  no-verdict:
-    # Issue #969: a run whose trigger was not a successful CI push must say so.
-    # Without this job, `validate` and every dependent job skip and only `notify`
-    # executes — GitHub renders that all-skipped-plus-one-green shape as success,
-    # which is exactly how release run 41186134783 published nothing and looked
-    # green. The sibling pre-release gate got this treatment in #903.
-    runs-on: ubuntu-24.04
-    needs: [validate]
-    if: always() && needs.validate.result != 'success'
+  verify-windows-npm:
+    # The wrapper bundles the same binaries as the GitHub release assets, so it
+    # is gated on the same preconditions. Run after both are available,
+    # including on tagged recovery: the wrapper needs both the registry package
+    # and a working `csm version` on Windows.
+    needs: [validate, create-github-release, publish-npm-cli]
+    if: needs.validate.outputs.release-needed == 'true' && needs.validate.outputs.version != ''
+    runs-on: windows-latest
+    timeout-minutes: 12
     permissions:
       contents: read
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-    - name: Explain the missing release verdict
+    - name: Run the published Windows npm wrapper
+      shell: pwsh
+      env:
+        VERSION: ${{ needs.validate.outputs.version }}
       run: |
-        bash scripts/release-no-verdict.sh \
-          "${{ github.event_name }}" \
-          "${{ github.event.workflow_run.event || 'dispatch' }}" \
-          "${{ github.event.workflow_run.conclusion || 'n/a' }}"
+        $package = "@d-o-hub/csm@$env:VERSION"
+        $work = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP "windows-npm-smoke")
+        $env:npm_config_cache = Join-Path $work.FullName "npm-cache"
+        Set-Location $work.FullName
+        $published = ""
+        for ($attempt = 0; $attempt -lt 20; $attempt++) {
+          $published = npm.cmd view $package version --loglevel=silent
+          if ($LASTEXITCODE -eq 0 -and $published -eq $env:VERSION) { break }
+          Start-Sleep -Seconds 15
+        }
+        if ($published -ne $env:VERSION) { throw "npm did not expose $package" }
+        $output = npm.cmd exec --yes --package=$package -- csm version
+        if ($LASTEXITCODE -ne 0) { throw "Windows npm wrapper failed" }
+        $output | Write-Output
+        if (($output -join "`n") -notmatch [regex]::Escape($env:VERSION)) {
+          throw "Windows npm wrapper reported an unexpected version"
+        }
 
   notify:
     runs-on: ubuntu-24.04
-    # Issue #969: render the verdict from explicit sibling results, not a fixed
-    # sentence. `if: always()` alone is what let a partial or absent release read
-    # as routine; the results are read in scripts/release-verdict.sh.
-    needs: [validate, build-cli-matrix, build-wasm, create-github-release, publish-npm-wasm, publish-npm-cli, trigger-crates-io-publish, verify-release, no-verdict]
+    # Render the verdict from explicit sibling results, not a fixed sentence:
+    # `if: always()` alone is what let a partial or absent release read as
+    # routine; the results are read in scripts/release-verdict.sh.
+    needs: [validate, build-cli-matrix, build-wasm, create-github-release, publish-npm-wasm, publish-npm-cli, trigger-crates-io-publish, verify-release, verify-windows-npm]
     if: always()
     permissions:
       contents: read
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Release verdict
       run: bash scripts/release-verdict.sh >> "$GITHUB_STEP_SUMMARY"
       env:
         VERSION: ${{ needs.validate.outputs.version }}
         EVENT_NAME: ${{ github.event_name }}
         RELEASE_NEEDED: ${{ needs.validate.outputs.release-needed }}
+        DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.tag == '' }}
         VALIDATE_RESULT: ${{ needs.validate.result }}
         BUILD_CLI_RESULT: ${{ needs.build-cli-matrix.result }}
         BUILD_WASM_RESULT: ${{ needs.build-wasm.result }}
@@ -886,3 +957,4 @@ jobs:
         RELEASE_RESULT: ${{ needs.create-github-release.result }}
         CRATES_TRIGGER_RESULT: ${{ needs.trigger-crates-io-publish.result }}
         VERIFY_RESULT: ${{ needs.verify-release.result }}
+        WINDOWS_NPM_RESULT: ${{ needs.verify-windows-npm.result }}

@@ -56,8 +56,8 @@ world_state:
   skills_count: 33                   # find .agents/skills -name SKILL.md | wc -l
   coverage_lines_percent: 74         # 2026-09-18: llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64      # same run; --tests matters (unit-only targets measure 68/53)
-  adr_registry_count: 103            # check-adr-parity.sh: registry rows (ADR-0024 has two files)
-  adr_disk_count: 102                # unique ids on disk (103 files, ADR-0024 has two)
+  adr_registry_count: 104            # 2026-11-27: ADR-0106 added (registry rows)
+  adr_disk_count: 103                # unique ids on disk (104 files; ADR-0024 has two)
   integration_test_files: 73         # ls tests/*.rs | wc -l
 
   # ── Plans pointers ────────────────────────────────────────────
@@ -191,7 +191,13 @@ world_state:
   mcp_module_mutation_baselined: true             # #833: src/mcp/* out of the exclusion list
   link_validators_single_and_wired: true          # one checker + 9-case fixture (#840/#869)
   skill_catalog_generated_and_gated: true         # generated CATALOG.md + context.yaml drift gate
-  release_wait_event_driven: true                 # ADR-0042: CI completion -> same-SHA gate -> publish
+  release_wait_event_driven: false                # 2026-11-27: ADR-0106 supersedes ADR-0042's trigger -
+                                                  #   release.yml is tag-push triggered and never creates
+                                                  #   the tag; auto-release.yml derives the bump, opens
+                                                  #   release/vX.Y.Z, and `ship` tags the verified main
+                                                  #   tip + dispatches. The same-SHA CI + Pre-Release Gate
+                                                  #   requirement is retained; crates.io stays on the
+                                                  #   publish-crates.yml dispatch (ADR-0104).
   crates_publish_precheck_ownership_aware: true   # owners API; unknown HTTP fails closed
   csm_duckdb_in_release_publish_order: true       # dedicated step after root; failures exposed
   ttl_cleanup_has_bounded_shutdown: true          # ADR-0099: cooperative cancel + bounded await
@@ -298,14 +304,18 @@ world_state:
   goap_state_duplicate_key_fixed: true
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: roast_open_release_pipeline_pr_1089   # 2026-11-27: #1089 stays OPEN;
-                               #   this key names the completed triage, not a merge. Required `lint`
-                               #   was red on `.agents/skills/release-management/SKILL.md` at 253
-                               #   lines against the 250 cap (244 on main) — the one hook its own
-                               #   fixture list omitted — reproduced in a worktree at be6ae2b3.
-                               #   The diff also inverts ADR-0042's trigger contract
-                               #   (plans/adr/0042-release-automation-v010.md:138-144, and #932's
-                               #   rationale at :168-170) with no ADR of its own, which is why
-                               #   `release_wait_event_driven` above is still true today and must be
-                               #   flipped together with that ADR when the PR lands. Verdict:
+  action_last_completed: clear_release_pipeline_red_contexts_1089   # 2026-11-27 (4th action):
+                               #   #1089 stays OPEN; this key names the completed work, not a merge.
+                               #   Both red required contexts were resolved, and neither was a defect
+                               #   in the ported pipeline. `commitlint` died on the remote head's
+                               #   untyped `merge: bring main (97d7d95c)…`; the branch was re-created
+                               #   locally with the typed `chore(release): merge main into the
+                               #   release-pipeline branch` over the identical tree (5b049273).
+                               #   `lint` died on `unexpected key "queue" for "concurrency" section`
+                               #   — `concurrency.queue` is documented GitHub syntax (single | max) that
+                               #   actionlint has not implemented (rhysd/actionlint#654, #657, open at
+                               #   v1.7.12), so `scripts/check-actionlint.sh` now carries one anchored
+                               #   `-ignore` with a negative-control fixture (`queu: max` still exits 1).
+                               #   Remaining from the roast: the diff split and the observed #1070
+                               #   publish dispatch before this lands. Verdict:
                                #   plans/PR_ROAST_2026_11_27.md.

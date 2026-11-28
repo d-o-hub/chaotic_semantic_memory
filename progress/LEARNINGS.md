@@ -1427,3 +1427,28 @@ non-cargo stages of `scripts/validate.sh` yourself, because "all hook-covered ch
 directly" is a claim about a set the author chose, and the failing member is precisely the one such a
 sentence tends to omit. Same family as citing a baseline nobody measured: the list is evidence of
 what was checked, and its silences are evidence of nothing.
+
+
+## 2026-11-27 — fixing a roast on someone else's branch: add a commit, don't rewrite
+
+Three small habits made #1089's fix round reviewable instead of destructive. (1) **Append, never rebuild** —
+the author's commit stays and the fix lands as a second one, so the diff of the fix is the roast's own
+checklist and a reviewer can see which demand each hunk answers; rewriting would have erased the context
+that made the verdict legible. (2) **A LOC-cap trim is the moment to re-read the prose being moved** — the
+section that had to leave `release-management/SKILL.md` to get under 250 lines still claimed "`release.yml`
+creates the patch tag", a sentence the same PR had just falsified, so the trim became the fix. Cutting for
+size and editing for truth are the same pass when the text is already under review. (3) **A superseded ADR
+needs both ends**: a new decision file with its registry row *and* a pointer in the old one, or a reader who
+lands in ADR-0042 learns the retired trigger as current. The parity checker only proves the row and the file
+exist — it cannot tell whether the old document now lies, which is the half a human has to do.
+
+## 2026-11-27 — when a required linter is the thing that is wrong
+
+`lint` was red on one line: `unexpected key "queue" for "concurrency" section`. The tempting fix is to delete
+`queue: max`, which passes everything and quietly drops a documented platform behaviour. The tell that this is
+the wrong move is that the key is in the *published* workflow schema — `queue: max` is not a typo, it is a
+feature actionlint has not caught up with (rhysd/actionlint#654/#657, open at v1.7.12). Verify a linter
+finding against the schema or the docs before editing the code it complains about. Then the suppression has
+to earn its narrowness: one anchored message, the upstream issue cited in the comment, and a negative control
+in the fixture (a `queu: max` typo in the same section must still exit 1). "Do not blind the scanner" is not
+an argument against every `-ignore`; it is an argument against an `-ignore` nobody can falsify.

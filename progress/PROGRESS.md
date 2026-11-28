@@ -3064,3 +3064,50 @@ already-released tag, and recovery-dispatches instead of re-tagging.
 The queue stays empty (`plans/ACTIONS.md`): #1089 is blocked with named demands, and #1070 remains
 owner-blocked. The throwaway worktree and its fetched branch were removed — one worktree,
 64 branches.
+
+
+## 2026-11-27 (third action) — closed the #1089 roast demands on its own branch
+
+The roast (`plans/PR_ROAST_2026_11_27.md`) demanded five things of #1089; all but the diff-split are now
+on its branch `vibe/release-pipeline-port-4bfa30`, as an additional commit rather than a history rewrite.
+
+`lint`'s cause is gone: `.agents/skills/release-management/SKILL.md` went 253 → 246 lines by moving the
+dry-run/hotfix detail and the local-gate helper pointer into `references/`, which also fixed a factual
+error the PR had introduced — the hotfix line still said "`release.yml` creates the patch tag", which
+contradicts the new tag owner.
+
+The missing ADR is `plans/adr/0106-release-trigger-tag-push.md`: context (the three costs of the
+`workflow_run` model, including run 41186134783 needing a `no-verdict` job to narrate a green run that
+published nothing), decision (split tag ownership / trigger / publication), the guards retained, the
+accepted costs, and the measured evidence. ADR-0042 now carries a supersession note pointing at it, the
+registry gained row 0106, `context.yaml` moved 103 → 104, and `release_wait_event_driven` flipped to
+`false` with the reason in place. `check-adr-parity.sh` reports registry=104 / disk=103 (ADR-0024 has two
+files) and the llm-context gate is drift-free.
+
+The dead script is gone: `scripts/release-no-verdict.sh` deleted, its four fixture cases removed from
+`scripts/test-release-verdict.sh` (17 → 13 tests, 36 → 29 assertions, all passing), its `SCRIPT_WIRING`
+row dropped, and `SCRIPT_CATALOG.md` regenerated — the catalog gate and wiring assertions both pass.
+
+Still open from the roast: the diff is not split (15 files, five concerns, one commit) and the PR body's
+verification section is being restated. The branch carries the original commit plus this fix commit; CI
+on the new head is the evidence for `lint`.
+
+The same round also cleared Codacy's four new issues on the fix head without touching `.codacy.yml`: three
+were real ShellCheck findings in `release-derive.sh` (SC2155 masked command substitution, SC2086 unquoted
+flag list, SC2015 `A && B || C`), and the fourth — the `workflow_run` + incoming-checkout rule — was
+answered by removing the risk instead of hiding it: neither `prepare` nor `ship` needs the untrusted
+`head_sha` as a git `ref:`, since both already compare it against `ls-remote origin refs/heads/main`, so
+the ref is gone (default-branch checkout) and `prepare` gained the missing `HEAD == EXPECTED_SHA`
+assertion. Codacy went green on the next head with no file excluded from opengrep.
+
+Both red required contexts on #1089 turned out to be artefacts rather than defects, and the work was to say
+which. `commitlint` validates the whole base..head range, so the remote head's untyped `merge: bring main
+(97d7d95c)…` could not be fixed forward: the branch was re-created locally with the typed
+`chore(release): merge main into the release-pipeline branch` over the same tree (`5b049273`), and the range
+now scores 0 problems. `lint` was `unexpected key "queue" for "concurrency" section` — `concurrency.queue` is
+documented GitHub syntax (`single` | `max`, and `queue: max` with `cancel-in-progress: true` is the forbidden
+pair), while actionlint has not implemented it (rhysd/actionlint#654 and #657, both open at v1.7.12); the
+fix keeps the key and suppresses exactly that anchored message, with a negative control showing `queu: max`
+in the same section still exits 1. Locally green: `check-actionlint.sh` 13 workflows rc 0,
+`test-check-actionlint.sh` 3/3, `check-script-catalog.sh`, `validate-workflows.sh --check` 0 errors,
+`validate-skill-format.sh` 33/33, skill cap 246/250.

@@ -18,18 +18,23 @@ Trusted Publishing uses OpenID Connect (OIDC) to verify CI/CD workflow identity 
 ### Which events can mint a crates.io token
 
 `crates_io_api::handlers::github::handle_github_token_inner` **refuses** OIDC assertions
-for `workflow_run` and `pull_request_target`. A publishing job that lives inside a
-`workflow_run`-triggered workflow (which is how this repo's `release.yml` fires) therefore
-cannot be fixed in place — the trigger has to move. That is why crates.io publishing lives
-in `publish-crates.yml` on `workflow_dispatch`, and why a tag trigger is not the answer
-either: `release.yml` pushes the tag with the runner's own `GITHUB_TOKEN`
-(`release.yml:237-242`), and a `GITHUB_TOKEN` push spawns no workflow run at all.
+for `workflow_run` and `pull_request_target`. That is why crates.io publishing lives
+in `publish-crates.yml` on `workflow_dispatch`, whose trusted-publisher configs name
+that exact workflow filename (ADR-0104) — the publish cannot be moved into another
+workflow file without re-configuring all nine crates on crates.io.
 
 What the event rules do **not** forbid is the *dispatch*. GitHub's recursion guard is
 documented to exempt `workflow_dispatch` and `repository_dispatch`, so a job inside the
 release run may POST a dispatch and get a real run out of it — which is exactly what
 `release.yml`'s `trigger-crates-io-publish` does, then waits for that run's verdict. The
 publishing token is still minted only in the dispatched run, on an accepted event.
+
+(A historical note: this section used to justify the dispatch with "`release.yml` pushes
+the tag with the runner's own `GITHUB_TOKEN`, and a `GITHUB_TOKEN` push spawns no
+workflow run at all". That is still true — now of `auto-release.yml`'s `ship` job, which
+is why `ship` also dispatches `release.yml` explicitly after pushing the tag — but since
+the port, `release.yml` itself fires on a tag push and simply keeps the publish in the
+dispatched workflow.)
 
 ### Requirements
 

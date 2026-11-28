@@ -145,6 +145,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   #977 failure from the other side). Measured end to end on the #998 diff: the
   gate now sees 19 mutants and scores 100.0000% (16 caught, 3 unviable, 0 missed)
   where the same diff reported 66.67% with 6 MISSED.
+- **Release pipeline (`release.yml`, new `auto-release.yml`, new
+  `scripts/release-derive.sh`)**: ported do-harness's release architecture.
+  `release.yml` is now triggered by a `v*` tag push (or a tagged
+  `workflow_dispatch`, which is the idempotent recovery path; an untagged
+  dispatch is a build-only dry run) and never creates the tag itself — its
+  `validate` resolves the tagged commit, asserts the tag equals the root
+  `[package].version`, requires the newest `CI` and `Pre-Release Gate` runs for
+  that exact commit to be `completed/success` (bounded 30-minute poll,
+  fail-closed, refusal names the blocking gate jobs), and then drives the
+  build matrix (`--locked` builds, smoke tests, build-provenance attestations),
+  an idempotent GitHub Release with `SHA256SUMS`, the existing
+  `trigger-crates-io-publish` → `publish-crates.yml` dispatch (ADR-0104
+  unchanged), the npm publishes, `verify-release`, and a new
+  `verify-windows-npm` smoke of `@d-o-hub/csm`. The retired
+  `workflow_run`-triggered tag creation and its `no-verdict` job are gone.
+  `auto-release.yml` automates the bump: after green CI on a `main` push it
+  derives the SemVer bump from conventional commits since the last tag
+  (`scripts/release-derive.sh`: threshold of 3 release-worthy commits,
+  rename-hold semantics), opens or refreshes a `release/vX.Y.Z` PR seeded via
+  `sync-version.sh` + changelog, retires superseded proposals, and — after a
+  maintainer merges — `ship` tags the verified `main` tip and dispatches
+  `release.yml` (a GITHUB_TOKEN tag push does not trigger tag-push workflows).
+  A GITHUB_TOKEN-pushed release PR needs its checks triggered by hand
+  (`gh workflow run ci.yml -f ref=release/vX.Y.Z`) and is merged by a
+  maintainer.
 
 ## [0.3.9] - 2026-10-30
 
