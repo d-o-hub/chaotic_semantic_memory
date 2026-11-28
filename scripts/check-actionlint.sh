@@ -17,6 +17,13 @@ if ((${#workflows[@]} == 0)); then
 fi
 
 echo "==> actionlint (${#workflows[@]} workflows)"
+# `concurrency.queue` is a documented GitHub Actions key (`single` | `max`;
+# workflow syntax "Example: queueing multiple pending runs") that actionlint
+# has not implemented yet (rhysd/actionlint#654, #657 -- still open at
+# v1.7.12), so it rejects `queue: max` in release.yml as an unknown key. The
+# suppression is the one exact message: a typo'd key in that same section, or
+# any other `unexpected key` finding, still fails this gate.
+QUEUE_KEY_IGNORE='^unexpected key "queue" for "concurrency" section'
 # The repository's workflow scripts are linted separately when ShellCheck is
 # explicitly enabled; keep actionlint responsible for workflow semantics here.
-actionlint -shellcheck '' "${workflows[@]}"
+actionlint -shellcheck '' -ignore "${QUEUE_KEY_IGNORE}" "${workflows[@]}"
