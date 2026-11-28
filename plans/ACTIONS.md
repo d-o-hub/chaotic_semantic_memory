@@ -111,3 +111,13 @@ PR's own branch (skill trim 253 → 246, ADR-0106 + registry + supersession note
 `release_wait_event_driven` flag flipped, `release-no-verdict.sh` deleted with its fixture cases and catalog
 entries). Still outstanding there: the diff split. Nothing was queued, because the remaining work is the
 author's and #1070 stays owner-blocked.
+
+The queue is still empty as of 2026-11-27 (fourth action): #1089's two red required contexts were cleared
+without queuing anything, because both belonged to that PR. `commitlint` was reading the remote head's
+untyped `merge: bring main (97d7d95c)…` — the branch was re-created locally with the typed
+`chore(release): merge main into the release-pipeline branch` over the byte-identical tree, and
+`npx commitlint --from origin/main --to HEAD` is now 0 problems. `lint` was `actionlint` rejecting
+`concurrency.queue`, a documented key it has not implemented (rhysd/actionlint#654, #657; open at
+v1.7.12), so `scripts/check-actionlint.sh` carries one anchored `-ignore` and its fixture proves a typo'd
+`queu: max` still fails. Still open on that PR: the diff split, and the roast's sequencing — #1070's first
+green `publish-crates.yml` dispatch should be observed before this lands.

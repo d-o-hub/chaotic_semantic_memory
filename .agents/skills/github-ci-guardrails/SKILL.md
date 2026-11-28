@@ -163,6 +163,19 @@ was recorded on 2026-09-30, and #962 re-derived the same tension in isolation an
 citing it. A change that departs from a standing rule says so in the code comment and the PR body, with the
 measured reason and the condition that would overturn it.
 
+## A required linter can lag the platform (2026-11-27, #1089)
+
+`lint` was red on one line of a new workflow: `unexpected key "queue" for "concurrency" section` from
+`actionlint`. `concurrency.queue` is documented GitHub syntax (`single` | `max`; the published workflow
+schema carries both plus the rule that `queue: max` cannot combine with `cancel-in-progress: true`), and
+actionlint has not implemented it yet (open rhysd/actionlint#654, #657 — still unmerged at v1.7.12). So the
+red was *the tool*, not the workflow: deleting the key would have removed a documented platform behaviour to
+satisfy a stale parser. Before "fixing" the diff, resolve the dispute against the schema and the upstream
+issues. When it is tool lag, suppress the one **anchored** message (`-ignore '^unexpected key "queue" for
+"concurrency" section'`) with the issue linked in the comment, and carry a negative control that proves
+narrowness — a typo'd key (`queu: max`) in that same section must still exit 1. Sources:
+`scripts/check-actionlint.sh`, `scripts/test-check-actionlint.sh`.
+
 ## A green `cargo deny` says nothing about a GHSA that has no RustSec id (2026-10-30, #966)
 
 `cargo deny`/`cargo audit` read **RustSec**; Dependabot reads the **GitHub advisory database**. The sets

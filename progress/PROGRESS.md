@@ -3099,3 +3099,15 @@ answered by removing the risk instead of hiding it: neither `prepare` nor `ship`
 `head_sha` as a git `ref:`, since both already compare it against `ls-remote origin refs/heads/main`, so
 the ref is gone (default-branch checkout) and `prepare` gained the missing `HEAD == EXPECTED_SHA`
 assertion. Codacy went green on the next head with no file excluded from opengrep.
+
+Both red required contexts on #1089 turned out to be artefacts rather than defects, and the work was to say
+which. `commitlint` validates the whole base..head range, so the remote head's untyped `merge: bring main
+(97d7d95c)…` could not be fixed forward: the branch was re-created locally with the typed
+`chore(release): merge main into the release-pipeline branch` over the same tree (`5b049273`), and the range
+now scores 0 problems. `lint` was `unexpected key "queue" for "concurrency" section` — `concurrency.queue` is
+documented GitHub syntax (`single` | `max`, and `queue: max` with `cancel-in-progress: true` is the forbidden
+pair), while actionlint has not implemented it (rhysd/actionlint#654 and #657, both open at v1.7.12); the
+fix keeps the key and suppresses exactly that anchored message, with a negative control showing `queu: max`
+in the same section still exits 1. Locally green: `check-actionlint.sh` 13 workflows rc 0,
+`test-check-actionlint.sh` 3/3, `check-script-catalog.sh`, `validate-workflows.sh --check` 0 errors,
+`validate-skill-format.sh` 33/33, skill cap 246/250.
